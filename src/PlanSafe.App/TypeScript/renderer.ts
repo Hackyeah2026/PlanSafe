@@ -5,7 +5,35 @@ export interface RenderOptions {
   agentRadius: number;
 }
 
-export class CrowdCanvasRenderer {
+export interface ICrowdRenderer {
+  setGrid(
+    width: number,
+    height: number,
+    cellSize: number,
+    cols: number,
+    rows: number,
+    cells: Uint8Array,
+  ): void;
+  setFieldBuffers(
+    density: Float32Array,
+    gradX: Float32Array,
+    gradY: Float32Array,
+  ): void;
+  render(
+    agentCount: number,
+    posX: Float32Array,
+    posY: Float32Array,
+    velX: Float32Array,
+    velY: Float32Array,
+    speed: Float32Array,
+    headX: Float32Array,
+    headY: Float32Array,
+    active: Uint8Array,
+    options: RenderOptions,
+  ): void;
+}
+
+export class CrowdCanvasRenderer implements ICrowdRenderer {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private worldWidth: number = 30;

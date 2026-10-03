@@ -1,9 +1,14 @@
-import { CrowdCanvasRenderer, RenderOptions } from "./renderer.js";
+import {
+  CrowdCanvasRenderer,
+  ICrowdRenderer,
+  RenderOptions,
+} from "./renderer.js";
+import { CrowdWebGLRenderer } from "./webglRenderer.js";
 
 declare global {
   interface Window {
     PlanSafeRenderer: {
-      rendererInstance: CrowdCanvasRenderer | null;
+      rendererInstance: ICrowdRenderer | null;
       init: (
         canvasId: string,
         width: number,
@@ -42,7 +47,7 @@ declare global {
   }
 }
 
-let rendererInstance: CrowdCanvasRenderer | null = null;
+let rendererInstance: ICrowdRenderer | null = null;
 
 window.PlanSafeRenderer = {
   rendererInstance,
@@ -55,7 +60,20 @@ window.PlanSafeRenderer = {
 
     const uintCells =
       cells instanceof Uint8Array ? cells : new Uint8Array(cells);
-    rendererInstance = new CrowdCanvasRenderer(canvas);
+
+    try {
+      rendererInstance = new CrowdWebGLRenderer(canvas);
+      console.log(
+        "[PlanSafe] Initialized WebGL 2.0 hardware-accelerated crowd renderer",
+      );
+    } catch (err) {
+      console.warn(
+        "[PlanSafe] WebGL 2.0 unavailable, falling back to 2D Canvas renderer:",
+        err,
+      );
+      rendererInstance = new CrowdCanvasRenderer(canvas);
+    }
+
     rendererInstance.setGrid(width, height, cellSize, cols, rows, uintCells);
     window.PlanSafeRenderer.rendererInstance = rendererInstance;
     return true;
