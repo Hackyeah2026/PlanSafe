@@ -9,8 +9,9 @@
     "test:potential": "npm run build && node --test scripts/test-potential-parity.ts",
     "test:camera": "npm run build && node --test scripts/test-camera-transform.mjs",
     "test:gpu": "npm run build && node --test scripts/test-gpu-runtime.mjs scripts/test-map-gpu.mjs scripts/test-map-view.mjs",
-    "format": "prettier --write . && dotnet format PlanSafe.slnx",
-    "format:check": "prettier --check . && dotnet format PlanSafe.slnx --verify-no-changes"
+    "format": "prettier --write . && dotnet format whitespace PlanSafe.slnx",
+    "format:check": "prettier --check . && dotnet format whitespace PlanSafe.slnx --verify-no-changes",
+    "test:appearance": "node --test scripts/test-appearance.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

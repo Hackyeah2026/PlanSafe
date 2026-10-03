@@ -1,0 +1,133 @@
+.map-drawing-tools {
+  padding: 6px;
+  max-height: calc(100dvh - 160px);
+  overflow-y: auto;
+}
+.drawing-categories,
+.drawing-shapes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.map-drawing-tools ::deep .app-button {
+  justify-content: flex-start;
+  gap: 10px;
+  min-height: 41px;
+  border: 0;
+  background: transparent;
+  padding: 9px 12px;
+  border-radius: calc(var(--ui-panel-radius) - 6px);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+.map-drawing-tools ::deep svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+.map-drawing-tools
+  ::deep
+  .app-button:hover:not(:disabled):not([aria-pressed="true"]) {
+  background: var(--ui-fill);
+  box-shadow: none;
+}
+.map-drawing-tools ::deep .drawing-tool--zone svg {
+  color: var(--ui-info);
+}
+.map-drawing-tools ::deep .drawing-tool--safe svg {
+  color: var(--ui-success);
+}
+.map-drawing-tools ::deep .drawing-tool--blockade svg {
+  color: var(--ui-warning);
+}
+.map-drawing-tools ::deep .app-button[aria-pressed="true"] {
+  background: var(--ui-primary-bg);
+  color: #fff;
+  box-shadow: none;
+}
+.map-drawing-tools ::deep .drawing-tool--zone[aria-pressed="true"] {
+  background: #0071a4;
+}
+.map-drawing-tools ::deep .drawing-tool--safe[aria-pressed="true"] {
+  background: #248a3d;
+}
+.map-drawing-tools ::deep .drawing-tool--blockade[aria-pressed="true"] {
+  background: #d70015;
+}
+.map-drawing-tools ::deep .drawing-tool[aria-pressed="true"] svg {
+  color: inherit;
+}
+.drawing-shapes {
+  margin: 2px 0 2px 22px;
+  padding-left: 8px;
+  border-left: 2px solid var(--ui-border);
+}
+.drawing-shapes ::deep .app-button {
+  min-height: 30px;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--ui-control-radius);
+  font-size: 12px;
+}
+.drawing-instructions {
+  position: absolute;
+  top: -60px;
+  left: 206px;
+  width: max-content;
+  max-width: calc(100vw - 574px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 8px 10px 8px 16px;
+  font-size: 13px;
+}
+.drawing-instructions > span {
+  flex: 1 1 180px;
+}
+.drawing-instruction-actions {
+  display: flex;
+  gap: 6px;
+}
+.drawing-instructions ::deep .app-button {
+  min-height: 32px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.drawing-instructions ::deep .drawing-finish {
+  color: var(--ui-success);
+}
+@media (max-width: 767.98px) {
+  .map-drawing-tools {
+    max-height: calc(54dvh - 96px);
+  }
+  .drawing-categories ::deep span,
+  .drawing-shapes ::deep span {
+    display: none;
+  }
+  .map-drawing-tools ::deep .app-button {
+    justify-content: center;
+    min-height: 44px;
+    width: 44px;
+    padding: 11px;
+  }
+  .drawing-shapes {
+    margin: 2px 0;
+    padding: 0;
+    border: 0;
+  }
+  .drawing-instructions {
+    top: 0;
+    left: 68px;
+    max-width: none;
+    width: calc(100vw - 88px);
+    max-height: calc(54dvh - 96px);
+    overflow-y: auto;
+    padding: 10px 12px;
+  }
+  .drawing-instructions ::deep .app-button {
+    min-height: 44px;
+  }
+}

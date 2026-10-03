@@ -1,0 +1,65 @@
+.branch-modal-title {
+  color: var(--ui-text);
+  font-size: 1.1rem;
+  margin: 0;
+  font-weight: 700;
+}
+.branch-modal-subtitle,
+.parent-label,
+.parent-items-summary,
+.form-hint {
+  font-size: 0.75rem;
+  color: var(--ui-muted);
+}
+.branch-icon-box {
+  color: var(--ui-accent);
+}
+.parent-info-banner {
+  padding: 12px 22px;
+  background: var(--ui-fill);
+}
+.parent-branch-badge {
+  color: var(--ui-text);
+  font-family: monospace;
+}
+.form-label-custom {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+}
+.input-prefix-wrapper {
+  position: relative;
+}
+.input-prefix {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  color: var(--ui-success);
+}
+.form-control-custom {
+  width: 100%;
+}
+.input-prefix-wrapper .form-control-custom {
+  width: 100%;
+}
+.form-textarea-custom {
+  resize: vertical;
+}
+.check-container {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+.branch-alert-error {
+  padding: 12px;
+  margin-bottom: 16px;
+  color: var(--ui-danger);
+  border: 1px solid currentColor;
+  border-radius: var(--ui-control-radius);
+}
+::deep .text-secondary {
+  color: var(--ui-muted) !important;
+}

@@ -1,0 +1,8 @@
+.publish-qr {
+  background: white;
+  padding: 16px;
+  width: 220px;
+  height: 220px;
+  margin: 16px auto;
+  border-radius: var(--ui-control-radius);
+}

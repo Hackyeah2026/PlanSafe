@@ -1,0 +1,278 @@
+/* Shared materials and controls. Feature layout belongs in isolated CSS. */
+.ui-workspace {
+  color: var(--ui-text);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.surface-panel {
+  padding: var(--ui-space-4);
+  color: var(--ui-text);
+  background: var(--ui-surface);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-panel-radius);
+  box-shadow:
+    var(--ui-shadow),
+    inset 0 1px 0 var(--ui-edge);
+  backdrop-filter: var(--ui-blur);
+  -webkit-backdrop-filter: var(--ui-blur);
+}
+.surface-panel--strong {
+  background: var(--ui-strong);
+}
+
+.app-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ui-space-2);
+  min-height: 38px;
+  min-width: 38px;
+  padding: var(--ui-space-2) var(--ui-space-3);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-control-radius);
+  color: var(--ui-text);
+  background: var(--ui-fill);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 400;
+  cursor: pointer;
+}
+.app-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ui-text) 12%, transparent);
+}
+.app-button[aria-pressed="true"] {
+  color: var(--ui-accent);
+  background: color-mix(in srgb, var(--ui-accent) 14%, transparent);
+}
+.app-button--primary {
+  background: var(--ui-primary-bg);
+  color: var(--ui-primary-text);
+  font-weight: 600;
+}
+.app-button--primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ui-primary-bg) 90%, black);
+}
+.app-button--success {
+  background: var(--ui-success-bg);
+  color: var(--ui-success-text);
+}
+.app-button--danger {
+  background: var(--ui-danger-bg);
+  color: var(--ui-danger-text);
+}
+.app-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.app-icon-button {
+  padding: var(--ui-space-2);
+}
+.app-input {
+  min-height: 38px;
+  padding: var(--ui-space-2);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-control-radius);
+  color: var(--ui-text);
+  background: var(--ui-strong);
+}
+.ui-muted {
+  color: var(--ui-muted);
+}
+:focus-visible {
+  outline: 3px solid var(--ui-accent);
+  outline-offset: 3px;
+}
+
+.status-message {
+  padding: var(--ui-space-2) var(--ui-space-3);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-control-radius);
+  background: var(--ui-fill);
+  color: var(--ui-info);
+}
+.status-message--success {
+  color: var(--ui-success);
+}
+.status-message--warning {
+  color: var(--ui-warning);
+}
+.status-message--danger {
+  color: var(--ui-danger);
+}
+
+.segmented-control {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--ui-fill);
+  border-radius: var(--ui-control-radius);
+}
+.segmented-control .app-button {
+  flex: 1;
+  min-height: 32px;
+  padding: 5px 8px;
+  border: 0;
+  background: transparent;
+  border-radius: calc(var(--ui-control-radius) - 2px);
+  font-size: 13px;
+}
+.segmented-control .app-button[aria-pressed="true"] {
+  background: var(--ui-strong);
+  color: var(--ui-text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.16);
+}
+.segmented-control .app-button:hover:not(:disabled) {
+  background: var(--ui-fill);
+}
+.appearance-settings {
+  margin: 8px 4px 4px;
+  padding: 0;
+  border: 0;
+}
+.appearance-settings legend {
+  margin: 4px 8px;
+  color: var(--ui-muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Existing Bootstrap controls share the same palette. */
+.ui-workspace .text-muted {
+  color: var(--ui-muted) !important;
+}
+.ui-workspace .text-info {
+  color: var(--ui-info) !important;
+}
+.ui-workspace .text-success {
+  color: var(--ui-success) !important;
+}
+.ui-workspace .text-warning {
+  color: var(--ui-warning) !important;
+}
+.ui-workspace .text-danger {
+  color: var(--ui-danger) !important;
+}
+.ui-workspace .border-secondary {
+  border-color: var(--ui-border) !important;
+}
+.ui-workspace .btn {
+  border-radius: var(--ui-control-radius);
+  min-height: 38px;
+}
+.ui-workspace .btn-primary {
+  background: var(--ui-primary-bg);
+  border-color: transparent;
+}
+.ui-workspace .btn-outline-secondary,
+.ui-workspace .btn-outline-info {
+  color: var(--ui-text);
+  border-color: var(--ui-border);
+  background: var(--ui-fill);
+}
+.ui-workspace .form-select,
+.ui-workspace .form-control {
+  color: var(--ui-text);
+  background-color: var(--ui-strong);
+  border-color: var(--ui-border);
+  border-radius: var(--ui-control-radius);
+}
+.ui-workspace .form-check-input:checked {
+  background-color: var(--ui-primary-bg);
+  border-color: var(--ui-primary-bg);
+}
+
+/* Native dialogs provide focus trapping and sit above map controls. */
+dialog.feature-dialog {
+  padding: 0;
+  width: min(var(--dialog-width, 820px), calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+}
+dialog.feature-dialog::backdrop {
+  background: var(--ui-scrim);
+}
+.feature-dialog-header,
+.feature-dialog-footer {
+  padding: 16px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--ui-border);
+}
+.feature-dialog-header h2 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+.feature-dialog-body {
+  padding: 20px 22px;
+}
+.feature-dialog-footer {
+  border-bottom: 0;
+  border-top: 1px solid var(--ui-border);
+  justify-content: flex-end;
+}
+.feature-section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  border-bottom: 1px solid var(--ui-border);
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+}
+
+/* Reused by the three statistic charts. */
+.chart-wrapper {
+  background: var(--ui-fill);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-control-radius);
+  padding: 6px;
+}
+.stat-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.stat-svg text {
+  fill: var(--ui-text);
+  font-family: inherit;
+  font-size: 10.5px;
+}
+.stat-svg .svg-title {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.stat-svg .svg-bar-value {
+  font-size: 11px;
+  font-weight: 600;
+}
+.chart-grid {
+  stroke: var(--ui-border);
+}
+.chart-legend {
+  color: var(--ui-muted);
+  font-size: 0.75rem;
+  margin: 4px 8px;
+}
+
+@media (max-width: 767.98px) {
+  .app-button,
+  .app-input,
+  .ui-workspace .btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .segmented-control .app-button {
+    min-height: 36px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-workspace *,
+  .ui-workspace *::before,
+  .ui-workspace *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

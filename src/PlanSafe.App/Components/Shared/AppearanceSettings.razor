@@ -1,0 +1,22 @@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@* Blazor owns only this empty host; JS owns its bounded subtree. *@
+<div @ref="host"></div>
+
+@code {
+    private ElementReference host;
+    private bool mounted;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await JS.InvokeVoidAsync("planSafeAppearance.mount", host);
+        mounted = true;
+    }
+    public async ValueTask DisposeAsync()
+    {
+        if (!mounted) return;
+        try { await JS.InvokeVoidAsync("planSafeAppearance.unmount", host); }
+        catch (JSDisconnectedException) { }
+    }
+}

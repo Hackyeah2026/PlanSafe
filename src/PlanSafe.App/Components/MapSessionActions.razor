@@ -1,0 +1,14 @@
+@namespace PlanSafe.App.Components
+
+<section class="map-session-actions" aria-label="Scenario actions">
+    <AppButton Class="session-current" OnClick="OnTree" aria-label='@($"Open scenario tree: {BranchName}")' title='@($"Open scenario tree: {BranchName}")'><UiIcon Kind="UiIconKind.Branch" /><span>Scenarios: @BranchName</span></AppButton>
+    <IconButton Label="New branch" OnClick="OnNewBranch"><UiIcon Kind="UiIconKind.Plus" /></IconButton>
+    <IconButton Label="Center map" OnClick="OnRecenter"><UiIcon Kind="UiIconKind.Reset" /></IconButton>
+</section>
+
+@code {
+    [Parameter] public string BranchName { get; set; } = "main";
+    [Parameter] public EventCallback OnTree { get; set; }
+    [Parameter] public EventCallback OnNewBranch { get; set; }
+    [Parameter] public EventCallback OnRecenter { get; set; }
+}
