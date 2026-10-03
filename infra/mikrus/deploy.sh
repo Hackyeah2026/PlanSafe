@@ -81,7 +81,9 @@ finish() {
             else
                 rm -f "$root/current"
                 systemctl stop plansafe-api || true
-                nginx -t && systemctl reload-or-restart nginx || true
+                if nginx -t; then
+                    systemctl reload-or-restart nginx || true
+                fi
             fi
         fi
     fi
