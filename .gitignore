@@ -85,5 +85,6 @@ dist/
 *.sqlite
 *.sqlite-*
 
-# Local helper scripts
+# Local helper scripts & agent guidelines
 redeploy.ps1
+[Aa][Gg][Ee][Nn][Tt][Ss].[Mm][Dd]

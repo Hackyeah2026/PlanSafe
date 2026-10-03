@@ -165,10 +165,38 @@ public class SimulationStatsCollector
         }
 
         float simTime = (float)engine.SimulationTime;
-        int active = Math.Max(0, engine.AgentCount - engine.EvacuatedCount);
+        int activeDots = engine.ActiveAgentCount;
+        int active = (activeDots == 0) ? 0 : Math.Max(0, engine.AgentCount - engine.EvacuatedCount);
         Stats.SimulationTime = simTime;
         Stats.ActiveAgents = active;
-        Stats.EvacuatedAgents = engine.EvacuatedCount;
+        Stats.EvacuatedAgents = (activeDots == 0) ? Stats.TotalAgents : engine.EvacuatedCount;
+
+        if (activeDots == 0)
+        {
+            Stats.CurrentPeakDensity = 0f;
+            Stats.CurrentMeanSpeed = 0f;
+            Stats.CurrentMeanDensity = 0f;
+
+            // When evacuation finishes, lock in any remaining cohorts
+            while (_currentCohortIndex < Stats.Cohorts.Count)
+            {
+                var cohort = Stats.Cohorts[_currentCohortIndex];
+                cohort.IsCompleted = true;
+                cohort.CompletedTimeSeconds = simTime;
+                cohort.DurationSeconds = Math.Max(0.01f, simTime - _lastCohortCompletedTime);
+                cohort.CurrentElapsedSeconds = cohort.DurationSeconds;
+                _lastCohortCompletedTime = simTime;
+                _currentCohortIndex++;
+            }
+
+            // Only add a single terminal point at 0 if the previous point was not zero
+            if (Stats.SpeedHistory.Count > 0 && Stats.SpeedHistory[^1].MeanSpeed > 0.001f)
+            {
+                Stats.SpeedHistory.Add(new SpeedTimeSeriesPoint(simTime, 0f, 0f));
+                Stats.DensityHistory.Add(new DensityTimeSeriesPoint(simTime, 0f, 0f));
+            }
+            return;
+        }
 
         // Check cohort completions
         while (_currentCohortIndex < Stats.Cohorts.Count)
@@ -210,34 +238,6 @@ public class SimulationStatsCollector
         float sumSqSpeed = 0f;
         float peakDensity = 0f;
         int n = 0;
-
-        int activeDots = engine.ActiveAgentCount;
-        if (activeDots == 0)
-        {
-            Stats.CurrentPeakDensity = 0f;
-            Stats.CurrentMeanSpeed = 0f;
-            Stats.CurrentMeanDensity = 0f;
-
-            // When evacuation finishes, lock in any remaining cohorts
-            while (_currentCohortIndex < Stats.Cohorts.Count)
-            {
-                var cohort = Stats.Cohorts[_currentCohortIndex];
-                cohort.IsCompleted = true;
-                cohort.CompletedTimeSeconds = simTime;
-                cohort.DurationSeconds = Math.Max(0.01f, simTime - _lastCohortCompletedTime);
-                cohort.CurrentElapsedSeconds = cohort.DurationSeconds;
-                _lastCohortCompletedTime = simTime;
-                _currentCohortIndex++;
-            }
-
-            // Only add a single terminal point at 0 if the previous point was not zero
-            if (Stats.SpeedHistory.Count > 0 && Stats.SpeedHistory[^1].MeanSpeed > 0.001f)
-            {
-                Stats.SpeedHistory.Add(new SpeedTimeSeriesPoint(simTime, 0f, 0f));
-                Stats.DensityHistory.Add(new DensityTimeSeriesPoint(simTime, 0f, 0f));
-            }
-            return;
-        }
 
         for (int i = 0; i < activeDots; i++)
         {

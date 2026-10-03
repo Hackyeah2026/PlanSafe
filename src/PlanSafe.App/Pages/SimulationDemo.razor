@@ -338,8 +338,8 @@
 
                 <hr class="border-secondary my-2" />
                 <div class="small text-muted">
-                    <div data-testid="status" role="status" aria-live="polite">Status: <strong class="@(isRunning ? "text-success" : (_engine != null && _engine.ActiveAgentCount == 0 && _engine.EvacuatedCount >= _engine.AgentCount && _engine.EvacuatedCount > 0 ? "text-info" : "text-warning"))">@(_engine != null && _engine.ActiveAgentCount == 0 && _engine.EvacuatedCount >= _engine.AgentCount && _engine.EvacuatedCount > 0 ? "Zakończona" : (isRunning ? "Uruchomiona" : "Zatrzymana"))</strong></div>
-                    <div>Aktywni agenci: @((_engine?.AgentCount ?? agentCount) - (_engine?.EvacuatedCount ?? 0)) (Ewakuowani: @(_engine?.EvacuatedCount ?? 0))</div>
+                    <div data-testid="status" role="status" aria-live="polite">Status: <strong class="@(isRunning ? "text-success" : (_engine != null && (_engine.ActiveAgentCount == 0 || (_engine.EvacuatedCount >= _engine.AgentCount && _engine.EvacuatedCount > 0)) && _engine.SimulationTime > 0 ? "text-info" : "text-warning"))">@(_engine != null && (_engine.ActiveAgentCount == 0 || (_engine.EvacuatedCount >= _engine.AgentCount && _engine.EvacuatedCount > 0)) && _engine.SimulationTime > 0 ? "Zakończona" : (isRunning ? "Uruchomiona" : "Zatrzymana"))</strong></div>
+                    <div>Aktywni agenci: @(_engine != null && _engine.ActiveAgentCount == 0 ? 0 : ((_engine?.AgentCount ?? agentCount) - (_engine?.EvacuatedCount ?? 0))) (Ewakuowani: @(_engine != null && _engine.ActiveAgentCount == 0 ? (_engine?.AgentCount ?? agentCount) : (_engine?.EvacuatedCount ?? 0)))</div>
                     <div>Symulowane kropki: @(_engine?.ActiveAgentCount ?? SimulatedAgentCount)</div>
                     <div>Fizyka tłumu: Diagram Weidmanna (gęstość-prędkość) &bull; Asymetria lider-następca</div>
                     <div>Jednostki metryczne: Promień agenta ~@(granulation > 1 ? (0.35 * (1.0 + 0.20 * Math.Sqrt(granulation - 1))).ToString("F2", System.Globalization.CultureInfo.InvariantCulture) : "0.35")m &bull; Prędkość ~1.4 m/s (5.0 km/h)</div>
@@ -539,23 +539,7 @@
                 isWebGpuSupported = false;
             }
 
-            if (isWebGpuSupported)
-            {
-                try
-                {
-                    await simulator.InvokeVoidAsync("initGpu", SimulatedAgentCount, granulation, socialRepulsionWeight, GetWorldConfigDto());
-                    activeEngine = "webgpu";
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[PlanSafe] WebGPU init failed, using Wasm CPU: {ex.Message}");
-                    activeEngine = "wasm";
-                }
-            }
-            else
-            {
-                activeEngine = "wasm";
-            }
+            activeEngine = "wasm";
 
             _engine = new CrowdSimulationEngine(worldWidth, worldHeight, agentCount);
             _engine.Granulation = granulation;
@@ -611,11 +595,15 @@
 
     private async Task ToggleSimulation()
     {
-        if (!isRunning && _engine != null && _engine.ActiveAgentCount == 0 && _engine.EvacuatedCount >= _engine.AgentCount && _engine.EvacuatedCount > 0)
+        if (!isRunning && _engine != null && (_engine.ActiveAgentCount == 0 || (_engine.EvacuatedCount >= _engine.AgentCount && _engine.EvacuatedCount > 0)) && _engine.SimulationTime > 0)
         {
             _engine.Reset();
             _engine.InitializeAgents();
             _statsCollector.Reset(_engine.AgentCount);
+            if (activeEngine == "webgpu" && simulator != null)
+            {
+                await simulator.InvokeVoidAsync("resetGpu", SimulatedAgentCount, granulation, socialRepulsionWeight);
+            }
             await RequestRender();
         }
 
@@ -639,14 +627,13 @@
         if (activeEngine == "webgpu" && simulator != null)
         {
             await simulator.InvokeVoidAsync("stepGpu", 1);
-            await RequestRender();
         }
-        else if (_engine != null)
+        if (_engine != null)
         {
             _engine.Step(0.016, timeScale);
             _statsCollector.SampleTelemetry(_engine);
-            await RequestRender();
         }
+        await RequestRender();
         await InvokeAsync(StateHasChanged);
     }
 
@@ -689,19 +676,24 @@
                 await simulator.InvokeVoidAsync("stepGpu", batch);
                 stepCount += batch;
             }
-            else if (_engine != null)
+
+            if (_engine != null)
             {
                 double scale = unlimited ? 20.0 : timeScale;
                 _engine.Step(0.016, scale);
                 _statsCollector.SampleTelemetry(_engine);
-                stepCount++;
+                if (activeEngine != "webgpu")
+                {
+                    stepCount++;
+                }
             }
 
-            if (activeEngine != "webgpu" && _engine != null && _engine.ActiveAgentCount == 0 && _engine.EvacuatedCount >= _engine.AgentCount && _engine.EvacuatedCount > 0)
+            if (_engine != null && (_engine.ActiveAgentCount == 0 || (_engine.EvacuatedCount >= _engine.AgentCount && _engine.EvacuatedCount > 0)) && _engine.SimulationTime > 0)
             {
                 isRunning = false;
                 renderFramesPerSecond = 0;
                 simulationStepsPerSecond = 0;
+                _statsCollector.SampleTelemetry(_engine);
                 await RequestRender();
                 await InvokeAsync(StateHasChanged);
                 break;
@@ -940,9 +932,10 @@
         if (simulator != null) await simulator.InvokeVoidAsync("zoom", 0.8);
     }
 
-    private void ToggleStats()
+    private async Task ToggleStats()
     {
         _showStats = !_showStats;
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task ResetCamera()

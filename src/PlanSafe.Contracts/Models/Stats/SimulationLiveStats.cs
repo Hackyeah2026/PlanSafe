@@ -21,7 +21,7 @@ public class SimulationLiveStats
         ? (int)Math.Round((float)EvacuatedAgents / TotalAgents * 100f)
         : 0;
 
-    public bool IsComplete => TotalAgents > 0 && EvacuatedAgents >= TotalAgents;
+    public bool IsComplete => TotalAgents > 0 && (EvacuatedAgents >= TotalAgents || (ActiveAgents == 0 && SimulationTime > 0));
 
     public float FormattedSimulationTimeMinutes => SimulationTime / 60.0f;
 
