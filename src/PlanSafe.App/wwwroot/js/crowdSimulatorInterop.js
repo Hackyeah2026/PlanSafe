@@ -51,28 +51,32 @@ export function initSimulator(canvasRef) {
 
     // --- Vector Field Flow Particles Setup ---
     let flowParticles = [];
-    const numFlowParticles = 450;
+    const numFlowParticles = 420;
+    const maxTrailPoints = 8;
 
     function createFlowParticle(floatArray, count) {
         const p = {
             x: 0,
             y: 0,
-            prevX: 0,
-            prevY: 0,
-            age: Math.floor(Math.random() * 40),
-            maxLife: 30 + Math.floor(Math.random() * 35)
+            trail: [],
+            age: 0,
+            maxLife: 35 + Math.floor(Math.random() * 35)
         };
         respawnFlowParticle(p, floatArray, count);
+        // Stagger initial age across lifetime so particles don't expire simultaneously
+        p.age = Math.floor(Math.random() * p.maxLife);
         return p;
     }
 
     function respawnFlowParticle(p, floatArray, count) {
         p.age = 0;
-        p.maxLife = 30 + Math.floor(Math.random() * 35);
+        p.maxLife = 35 + Math.floor(Math.random() * 35);
+        p.trail = [];
 
+        let found = false;
         // Prefer spawning directly on an actively moving agent
         if (floatArray && count > 0 && floatArray.length >= count * 5) {
-            for (let attempt = 0; attempt < 8; attempt++) {
+            for (let attempt = 0; attempt < 12; attempt++) {
                 const idx = Math.floor(Math.random() * count);
                 const u = floatArray[idx * 5 + 2];
                 const v = floatArray[idx * 5 + 3];
@@ -81,18 +85,33 @@ export function initSimulator(canvasRef) {
                     const jitterY = (Math.random() - 0.5) * 4.0;
                     p.x = Math.max(0, Math.min(worldWidth, floatArray[idx * 5] + jitterX));
                     p.y = Math.max(0, Math.min(worldHeight, floatArray[idx * 5 + 1] + jitterY));
-                    p.prevX = p.x;
-                    p.prevY = p.y;
-                    return;
+                    found = true;
+                    break;
                 }
             }
         }
 
-        // Fallback: spawn in world bounds
-        p.x = Math.random() * worldWidth;
-        p.y = Math.random() * worldHeight;
-        p.prevX = p.x;
-        p.prevY = p.y;
+        if (!found) {
+            // Fallback: spawn in world bounds
+            p.x = Math.random() * worldWidth;
+            p.y = Math.random() * worldHeight;
+        }
+
+        // Pre-seed trail backwards along local flow vector so particle never appears as a single dot
+        p.trail = [{ x: p.x, y: p.y }];
+        let curX = p.x;
+        let curY = p.y;
+        for (let step = 0; step < 5; step++) {
+            const vel = sampleVelocity(curX, curY);
+            if (!vel) break;
+            const sp = Math.hypot(vel.vx, vel.vy);
+            if (sp < 0.05) break;
+            const stepD = Math.max(0.4, Math.min(1.4, sp * 0.7));
+            curX -= (vel.vx / sp) * stepD;
+            curY -= (vel.vy / sp) * stepD;
+            if (curX < 0 || curX > worldWidth || curY < 0 || curY > worldHeight) break;
+            p.trail.unshift({ x: curX, y: curY });
+        }
     }
 
     function initFlowParticles() {
@@ -145,43 +164,69 @@ export function initSimulator(canvasRef) {
 
         targetCtx.save();
         targetCtx.lineCap = 'round';
+        targetCtx.lineJoin = 'round';
 
-        const stepScale = 0.45;
+        const scaleFactor = Math.min(1.5, Math.max(0.8, Math.sqrt(scale) * 0.45));
 
         for (let i = 0; i < flowParticles.length; i++) {
             const p = flowParticles[i];
             p.age++;
 
             const vel = sampleVelocity(p.x, p.y);
-            const speedSq = vel ? (vel.vx * vel.vx + vel.vy * vel.vy) : 0;
+            const speed = vel ? Math.hypot(vel.vx, vel.vy) : 0;
 
-            if (!vel || speedSq < 0.02 || p.age >= p.maxLife || p.x < 0 || p.x > worldWidth || p.y < 0 || p.y > worldHeight) {
+            if (!vel || speed < 0.08 || p.age >= p.maxLife || p.x < 0 || p.x > worldWidth || p.y < 0 || p.y > worldHeight) {
                 respawnFlowParticle(p, floatArray, count);
                 continue;
             }
 
-            p.prevX = p.x;
-            p.prevY = p.y;
-            p.x += vel.vx * stepScale;
-            p.y += vel.vy * stepScale;
+            // Step along flow vector
+            const stepDist = Math.max(0.45, Math.min(1.7, speed * 0.75));
+            p.x += (vel.vx / speed) * stepDist;
+            p.y += (vel.vy / speed) * stepDist;
+
+            p.trail.push({ x: p.x, y: p.y });
+            if (p.trail.length > maxTrailPoints) {
+                p.trail.shift();
+            }
+
+            const trailLen = p.trail.length;
+            if (trailLen < 2) continue;
 
             const lifeFrac = p.age / p.maxLife;
-            const alpha = Math.sin(lifeFrac * Math.PI) * 0.85;
+            // Smooth bell curve envelope: particle fades in softly and fades out before dying
+            const baseAlpha = Math.sin(lifeFrac * Math.PI);
+            if (baseAlpha <= 0.01) continue;
 
-            const s0 = worldToScreen(p.prevX, p.prevY);
-            const s1 = worldToScreen(p.x, p.y);
+            // Render ghostly line segments from faint wispy tail to luminous head
+            for (let k = 0; k < trailLen - 1; k++) {
+                const p0 = p.trail[k];
+                const p1 = p.trail[k + 1];
+                const s0 = worldToScreen(p0.x, p0.y);
+                const s1 = worldToScreen(p1.x, p1.y);
 
-            targetCtx.strokeStyle = `rgba(220, 245, 255, ${alpha.toFixed(2)})`;
-            targetCtx.lineWidth = Math.max(1.2, Math.min(2.5, 1.3 * scale));
-            targetCtx.beginPath();
-            targetCtx.moveTo(s0.x, s0.y);
-            targetCtx.lineTo(s1.x, s1.y);
-            targetCtx.stroke();
+                // Viewport culling
+                if ((s0.x < -30 && s1.x < -30) || (s0.x > canvas.width + 30 && s1.x > canvas.width + 30) ||
+                    (s0.y < -30 && s1.y < -30) || (s0.y > canvas.height + 30 && s1.y > canvas.height + 30)) {
+                    continue;
+                }
 
-            targetCtx.fillStyle = `rgba(255, 255, 255, ${Math.min(1.0, alpha * 1.25).toFixed(2)})`;
-            targetCtx.beginPath();
-            targetCtx.arc(s1.x, s1.y, Math.max(1.1, 1.3 * scale), 0, Math.PI * 2);
-            targetCtx.fill();
+                const segRatio = (k + 1) / trailLen;
+                const segAlpha = baseAlpha * (0.04 + 0.78 * Math.pow(segRatio, 1.7));
+                const lineWidth = Math.max(0.8, Math.min(2.6, (0.7 + 1.3 * segRatio) * scaleFactor));
+
+                // Ethereal ghostly cyan-white gradient from tail to head
+                const r = Math.round(180 + 65 * segRatio);
+                const g = Math.round(230 + 24 * segRatio);
+                const b = 255;
+
+                targetCtx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${segAlpha.toFixed(3)})`;
+                targetCtx.lineWidth = lineWidth;
+                targetCtx.beginPath();
+                targetCtx.moveTo(s0.x, s0.y);
+                targetCtx.lineTo(s1.x, s1.y);
+                targetCtx.stroke();
+            }
         }
 
         targetCtx.restore();
