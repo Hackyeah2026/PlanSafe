@@ -17,8 +17,8 @@ public class SimulationLiveStats
     public List<SpeedTimeSeriesPoint> SpeedHistory { get; set; } = new();
     public List<DensityTimeSeriesPoint> DensityHistory { get; set; } = new();
 
-    public int EvacuationPercent => TotalAgents > 0 
-        ? (int)Math.Round((float)EvacuatedAgents / TotalAgents * 100f) 
+    public int EvacuationPercent => TotalAgents > 0
+        ? (int)Math.Round((float)EvacuatedAgents / TotalAgents * 100f)
         : 0;
 
     public bool IsComplete => TotalAgents > 0 && EvacuatedAgents >= TotalAgents;

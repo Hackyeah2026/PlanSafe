@@ -98,7 +98,7 @@ public class SimulationStatsCollector
         // Update live elapsed time of currently in-progress cohort
         if (_currentCohortIndex < Stats.Cohorts.Count)
         {
-            Stats.Cohorts[_currentCohortIndex].CurrentElapsedSeconds = 
+            Stats.Cohorts[_currentCohortIndex].CurrentElapsedSeconds =
                 Math.Max(0f, sim.SimulationTime - _lastCohortCompletedTime);
         }
 
@@ -192,7 +192,7 @@ public class SimulationStatsCollector
 
         if (_currentCohortIndex < Stats.Cohorts.Count)
         {
-            Stats.Cohorts[_currentCohortIndex].CurrentElapsedSeconds = 
+            Stats.Cohorts[_currentCohortIndex].CurrentElapsedSeconds =
                 Math.Max(0f, simTime - _lastCohortCompletedTime);
         }
 

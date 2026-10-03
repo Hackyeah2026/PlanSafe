@@ -29,7 +29,7 @@ public class MapSession
         get => BranchName;
         set
         {
-            if (!string.IsNullOrWhiteSpace(value) && 
+            if (!string.IsNullOrWhiteSpace(value) &&
                 (string.IsNullOrWhiteSpace(BranchName) || BranchName == "main") &&
                 !value.StartsWith("Baseline Scenario", StringComparison.OrdinalIgnoreCase))
             {

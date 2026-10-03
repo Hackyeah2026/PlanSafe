@@ -222,7 +222,7 @@ public class FundamentalDiagramTests
 
         // 8 followers densely packed directly behind leader (within 0.5m - 1.8m)
         double[] followerOffsetsX = { -0.5, -0.6, -0.9, -1.0, -1.2, -1.3, -1.6, -1.7 };
-        double[] followerOffsetsY = { -0.2,  0.2, -0.3,  0.3, -0.1,  0.1, -0.2,  0.2 };
+        double[] followerOffsetsY = { -0.2, 0.2, -0.3, 0.3, -0.1, 0.1, -0.2, 0.2 };
 
         for (int i = 0; i < 8; i++)
         {
