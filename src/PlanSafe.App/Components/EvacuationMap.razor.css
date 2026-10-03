@@ -106,7 +106,7 @@
 /* Panel Header */
 ::deep .panel-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding-bottom: 16px;

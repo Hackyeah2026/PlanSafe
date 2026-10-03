@@ -326,7 +326,7 @@
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="18 15 12 9 6 15"></polyline>
                     </svg>
-                    <span>Open Controls (@(_mapItems.Count))</span>
+                    <span>Open Controls</span>
                 </button>
             </div>
         }
@@ -338,18 +338,8 @@
             <div class="handle-bar"></div>
         </div>
         <SidePanel 
-            Items="@_mapItems" 
             CensusPopulation="@_censusPopulation"
             CensusCells="@_censusCells"
-            ActiveSession="@_activeSession"
-            AllSessions="@_allSessions"
-            OnGetZonePopulation="GetZonePopulation"
-            OnDeleteItem="HandleDeleteItem" 
-            OnClearAll="HandleClearAll" 
-            OnPanToItem="HandlePanToItem" 
-            OnOpenTreeMap="() => _isTreeMapOpen = true"
-            OnOpenCreateBranch="() => _isCreateBranchOpen = true"
-            OnSelectSession="HandleSelectSessionById"
             OnStartSimulation="HandleStartSimulation"
             OnConfigureSimulation="() => _isTreeMapOpen = true"
             OnClose="ToggleMobilePanel" />
