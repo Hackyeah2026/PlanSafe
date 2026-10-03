@@ -65,6 +65,8 @@ src/PlanSafe.App/wwwroot/js/*
 .deploy.pid
 deploy.log
 dist/
+.run/
+
 
 # Visual Studio & IDEs
 .vs/
