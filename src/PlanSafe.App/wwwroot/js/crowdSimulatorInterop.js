@@ -964,7 +964,10 @@ export function initSimulator(canvasRef) {
             worldWidth: worldWidth,
             worldHeight: worldHeight,
             socialRepulsionWeight: socialWeight,
-            granulation: granulation
+            granulation: granulation,
+            obstacles: obstacles,
+            targets: targets,
+            exitZone: exitZone
         }, { add: () => {} });
         isGpuReady = true;
         console.log("%c[PlanSafe] WebGPU compute engine active", "color: #10b981; font-weight: bold;");
@@ -1020,7 +1023,10 @@ export function initSimulator(canvasRef) {
             worldWidth: worldWidth,
             worldHeight: worldHeight,
             count: config.count,
-            granulation: config.granulation
+            granulation: config.granulation,
+            obstacles: obstacles,
+            targets: targets,
+            exitZone: exitZone
         }, { add: () => {} });
     }
 
@@ -1031,7 +1037,10 @@ export function initSimulator(canvasRef) {
             worldWidth: worldWidth,
             worldHeight: worldHeight,
             socialRepulsionWeight: socialWeight,
-            granulation: granulation
+            granulation: granulation,
+            obstacles: obstacles,
+            targets: targets,
+            exitZone: exitZone
         }, { add: () => {} });
     }
 

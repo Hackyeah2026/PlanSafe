@@ -951,10 +951,10 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
 
         // 3. Corridor check matching C#
-        let corridorMinX = params.worldWidth * 0.35 - 0.5;
-        let corridorMaxX = params.worldWidth * 0.47 + 1.0;
-        let corridorMinY = params.worldHeight * 0.455;
-        let corridorMaxY = params.worldHeight * 0.545;
+        let corridorMinX = min(params.obs1.x, params.obs2.x) - 0.5;
+        let corridorMaxX = max(params.obs1.x + params.obs1.z, params.obs2.x + params.obs2.z) + 1.0;
+        let corridorMinY = min(params.obs1.y + params.obs1.w, params.obs2.y + params.obs2.w);
+        let corridorMaxY = max(params.obs1.y, params.obs2.y);
         isInsideCorridor = agent.pos.x >= corridorMinX && agent.pos.x <= corridorMaxX &&
                            agent.pos.y >= corridorMinY && agent.pos.y <= corridorMaxY;
     }
@@ -2061,6 +2061,79 @@ export class GpuSimulationEngine implements ISimulationEngine {
     return this.activeCount;
   }
 
+  private obs1: [number, number, number, number] = [70, 36, 24, 56];
+  private obs2: [number, number, number, number] = [70, 108, 24, 56];
+  private exitZone: [number, number, number, number] = [184, 80, 12, 40];
+
+  private parseObstacle(o: any): [number, number, number, number] | null {
+    if (!o) return null;
+    if (Array.isArray(o) && o.length >= 4) {
+      return [Number(o[0]), Number(o[1]), Number(o[2]), Number(o[3])];
+    }
+    const x = Number(o.x ?? o.X);
+    const y = Number(o.y ?? o.Y);
+    const w = Number(o.width ?? o.Width ?? o.w ?? o.W);
+    const h = Number(o.height ?? o.Height ?? o.h ?? o.H);
+    if (
+      Number.isFinite(x) &&
+      Number.isFinite(y) &&
+      Number.isFinite(w) &&
+      Number.isFinite(h)
+    ) {
+      return [x, y, w, h];
+    }
+    return null;
+  }
+
+  private applyEnvironment(values?: CoreCommandValues): void {
+    const rawObs = (values as any)?.obstacles;
+    if (Array.isArray(rawObs) && rawObs.length > 0) {
+      const o0 = this.parseObstacle(rawObs[0]);
+      if (o0) this.obs1 = o0;
+      if (rawObs.length > 1) {
+        const o1 = this.parseObstacle(rawObs[1]);
+        if (o1) this.obs2 = o1;
+      }
+    } else if (this.worldWidth === 60 && this.worldHeight === 40) {
+      // Hala 60m preset matching C# InitDefaultEnvironment()
+      this.obs1 = [20.0, 0.0, 8.0, 14.0];
+      this.obs2 = [20.0, 26.0, 8.0, 14.0];
+    } else {
+      // Default formula for 200m, 500m, 1000m presets
+      this.obs1 = [
+        this.worldWidth * 0.35,
+        this.worldHeight * 0.18,
+        this.worldWidth * 0.12,
+        this.worldHeight * 0.28,
+      ];
+      this.obs2 = [
+        this.worldWidth * 0.35,
+        this.worldHeight * 0.54,
+        this.worldWidth * 0.12,
+        this.worldHeight * 0.28,
+      ];
+    }
+
+    const rawExit = (values as any)?.exitZone;
+    const rawTargets = (values as any)?.targets;
+    const parsedExit = this.parseObstacle(rawExit);
+    if (parsedExit) {
+      this.exitZone = parsedExit;
+    } else if (Array.isArray(rawTargets) && rawTargets.length > 0) {
+      const parsedTgt = this.parseObstacle(rawTargets[0]);
+      if (parsedTgt) this.exitZone = parsedTgt;
+    } else if (this.worldWidth === 60 && this.worldHeight === 40) {
+      this.exitZone = [56.0, 15.0, 4.0, 10.0];
+    } else {
+      this.exitZone = [
+        this.worldWidth * 0.92,
+        this.worldHeight * 0.4,
+        this.worldWidth * 0.06,
+        this.worldHeight * 0.2,
+      ];
+    }
+  }
+
   private getAgentRadius(granulation: number): number {
     return granulation > 1
       ? 0.35 * (1.0 + 0.2 * Math.sqrt(granulation - 1))
@@ -2254,6 +2327,7 @@ export class GpuSimulationEngine implements ISimulationEngine {
       size: 64,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
+    this.applyEnvironment();
   }
 
   private updatePotentialGrid(): void {
@@ -2271,24 +2345,9 @@ export class GpuSimulationEngine implements ISimulationEngine {
       return;
     }
 
-    const obs1: [number, number, number, number] = [
-      this.worldWidth * 0.35,
-      this.worldHeight * 0.18,
-      this.worldWidth * 0.12,
-      this.worldHeight * 0.28,
-    ];
-    const obs2: [number, number, number, number] = [
-      this.worldWidth * 0.35,
-      this.worldHeight * 0.54,
-      this.worldWidth * 0.12,
-      this.worldHeight * 0.28,
-    ];
-    const exitZone: [number, number, number, number] = [
-      this.worldWidth * 0.92,
-      this.worldHeight * 0.4,
-      this.worldWidth * 0.06,
-      this.worldHeight * 0.2,
-    ];
+    const obs1 = this.obs1;
+    const obs2 = this.obs2;
+    const exitZone = this.exitZone;
 
     const grid = buildPotentialField(
       this.worldWidth,
@@ -2405,22 +2464,22 @@ export class GpuSimulationEngine implements ISimulationEngine {
     u32[7] = this.maxPerCell;
 
     // Obstacle 1: [x, y, w, h] (floats 8..11, bytes 32..47)
-    f32[8] = this.worldWidth * 0.35;
-    f32[9] = this.worldHeight * 0.18;
-    f32[10] = this.worldWidth * 0.12;
-    f32[11] = this.worldHeight * 0.28;
+    f32[8] = this.obs1[0];
+    f32[9] = this.obs1[1];
+    f32[10] = this.obs1[2];
+    f32[11] = this.obs1[3];
 
     // Obstacle 2: [x, y, w, h] (floats 12..15, bytes 48..63)
-    f32[12] = this.worldWidth * 0.35;
-    f32[13] = this.worldHeight * 0.54;
-    f32[14] = this.worldWidth * 0.12;
-    f32[15] = this.worldHeight * 0.28;
+    f32[12] = this.obs2[0];
+    f32[13] = this.obs2[1];
+    f32[14] = this.obs2[2];
+    f32[15] = this.obs2[3];
 
     // ExitZone: [x, y, w, h] (floats 16..19, bytes 64..79)
-    f32[16] = this.worldWidth * 0.92;
-    f32[17] = this.worldHeight * 0.4;
-    f32[18] = this.worldWidth * 0.06;
-    f32[19] = this.worldHeight * 0.2;
+    f32[16] = this.exitZone[0];
+    f32[17] = this.exitZone[1];
+    f32[18] = this.exitZone[2];
+    f32[19] = this.exitZone[3];
 
     u32[20] = this.granulation;
     u32[21] = this.isMapScenario ? 1 : 0;
@@ -2779,6 +2838,7 @@ export class GpuSimulationEngine implements ISimulationEngine {
       if (typeof values.granulation === "number")
         this.granulation = values.granulation;
 
+      this.applyEnvironment(values);
       if (typeof values.count === "number") this.rawCount = values.count;
       const simCount = Math.max(1, Math.ceil(this.rawCount / this.granulation));
       this.ensureSpatialGrid();
@@ -2817,11 +2877,31 @@ export class GpuSimulationEngine implements ISimulationEngine {
       if (typeof values.count === "number") this.rawCount = values.count;
       if (typeof values.granulation === "number")
         this.granulation = values.granulation;
+      this.applyEnvironment(values);
       const simCount = Math.max(1, Math.ceil(this.rawCount / this.granulation));
       this.ensureSpatialGrid();
       this.ensureKdeGrid();
       this.updatePotentialGrid();
       this.reallocateAgents(simCount);
+      this.updateSimParams();
+      return;
+    }
+
+    if (kind === "set-environment") {
+      this.activeRunGeneration++;
+      this.activeTick = 0;
+      this.dynamicFieldTimer = 0.2;
+      this.lastDynamicFieldWallTime = 0;
+      this.inFlightBatches = 0;
+      this.inFlightWorkPromise = null;
+      if (typeof values.worldWidth === "number")
+        this.worldWidth = values.worldWidth;
+      if (typeof values.worldHeight === "number")
+        this.worldHeight = values.worldHeight;
+      this.applyEnvironment(values);
+      this.ensureSpatialGrid();
+      this.ensureKdeGrid();
+      this.updatePotentialGrid();
       this.updateSimParams();
       return;
     }

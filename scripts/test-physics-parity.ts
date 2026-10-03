@@ -707,6 +707,63 @@ test("Potential field and bilinear flow direction match C# reference tests", () 
   assert.ok(wallFlow.fx >= 0.0, `Expected fx >= 0, got ${wallFlow.fx}`);
 });
 
+test("Small map 60x40 (Hala 60m) obstacle blocking and doorway flow match C# reference tests", () => {
+  const obstacles = [
+    { x: 20.0, y: 0.0, w: 8.0, h: 14.0 },
+    { x: 20.0, y: 26.0, w: 8.0, h: 14.0 },
+  ];
+  const exitZone = { x: 56.0, y: 15.0, w: 4.0, h: 10.0 };
+
+  const pot = buildStaticPotentialField(
+    60.0,
+    40.0,
+    obstacles,
+    exitZone,
+    100,
+    100,
+  );
+
+  // Doorway between obstacles (x = 24.0, y = 20.0): must be open and heading east
+  const doorFlow = getFlowDirection(24.0, 20.0, pot, 60.0, 40.0);
+  assert.ok(
+    doorFlow.fx > 0.85,
+    `Expected doorway fx > 0.85, got ${doorFlow.fx}`,
+  );
+
+  // West approach (x = 10.0, y = 20.0): must head east towards the doorway
+  const approachFlow = getFlowDirection(10.0, 20.0, pot, 60.0, 40.0);
+  assert.ok(
+    approachFlow.fx > 0.85,
+    `Expected approach fx > 0.85, got ${approachFlow.fx}`,
+  );
+
+  // Circle-box collision with north obstacle: an agent at (19.8, 5.0) penetrating the west wall
+  // must be cleanly ejected to (20.0 - 0.35 = 19.65)
+  const px = 19.8;
+  const py = 5.0;
+  const obs = obstacles[0];
+  const nbpX = Math.max(obs.x, Math.min(px, obs.x + obs.w));
+  const nbpY = Math.max(obs.y, Math.min(py, obs.y + obs.h));
+  const dx = px - nbpX;
+  const dy = py - nbpY;
+  const d = Math.sqrt(dx * dx + dy * dy);
+  const radius = 0.35;
+  assert.ok(d < radius, "Agent should penetrate obstacle pre-resolution");
+  const normX = dx / d;
+  const normY = dy / d;
+  const pen = radius - d;
+  const resolvedX = px + normX * pen;
+  const resolvedY = py + normY * pen;
+  assert.ok(
+    Math.abs(resolvedX - 19.65) < 1e-4,
+    `Expected ejected x = 19.65, got ${resolvedX}`,
+  );
+  assert.ok(
+    Math.abs(resolvedY - 5.0) < 1e-4,
+    `Expected ejected y = 5.0, got ${resolvedY}`,
+  );
+});
+
 test("Velocity smoothing inertia matches C# rules across regimes and corridors", () => {
   function getVelocityInertia(
     density: number,
