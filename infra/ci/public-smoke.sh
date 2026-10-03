@@ -13,7 +13,9 @@ check() {
     # No redirects: a 3xx is a failure, never an insecure follow-up hop.
     code=$(curl --silent --show-error --proto '=https' --connect-timeout 5 --max-time 10 \
         -o "$work/web" -w '%{http_code}' "$origin/") || return 1
-    [[ $code == 200 ]] && grep -q 'PlanSafe' "$work/web" && grep -qi '<html' "$work/web" || return 1
+    if ! [[ $code == 200 ]] || ! grep -q 'PlanSafe' "$work/web" || ! grep -qi '<html' "$work/web"; then
+        return 1
+    fi
     code=$(curl --silent --show-error --proto '=https' --connect-timeout 5 --max-time 10 \
         -o "$work/health" -w '%{http_code}' "$origin/api/health") || return 1
     [[ $code == 200 && $(<"$work/health") == OK ]]

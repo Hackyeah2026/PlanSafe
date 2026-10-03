@@ -8,7 +8,12 @@ script_dir=$(cd -- "$(dirname -- "$0")" && pwd)
 source "$script_dir/../mikrus/config.sh"
 validate_http_port
 validate_public_url
-[[ $MIKRUS_SSH_PORT =~ ^[1-9][0-9]{0,4}$ ]] && ((MIKRUS_SSH_PORT <= 65535)) || exit 2
+if ! [[ $MIKRUS_SSH_PORT =~ ^[1-9][0-9]{0,4}$ ]]; then
+    exit 2
+fi
+if ((MIKRUS_SSH_PORT > 65535)); then
+    exit 2
+fi
 ssh_dir=$(mktemp -d)
 remote=
 trap 'rm -rf -- "$ssh_dir"' EXIT
