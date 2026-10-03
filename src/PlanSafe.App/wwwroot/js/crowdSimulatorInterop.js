@@ -21,8 +21,8 @@ export function initSimulator(canvasRef) {
     let isInteractive = true;
 
     // --- Heatmap / Metric Grid Setup ---
-    const gridCols = 100;
-    const gridRows = 100;
+    const gridCols = 180;
+    const gridRows = 180;
     let offscreenCanvas = document.createElement('canvas');
     offscreenCanvas.width = gridCols;
     offscreenCanvas.height = gridRows;
@@ -181,27 +181,27 @@ export function initSimulator(canvasRef) {
         if (invert) t = 1.0 - t;
 
         const stops = [
-            { t: 0.00, r: 48, g: 0, b: 80 },
-            { t: 0.05, r: 100, g: 0, b: 60 },
-            { t: 0.10, r: 180, g: 0, b: 30 },
-            { t: 0.15, r: 255, g: 0, b: 0 },
-            { t: 0.20, r: 255, g: 42, b: 0 },
-            { t: 0.25, r: 255, g: 85, b: 0 },
-            { t: 0.30, r: 255, g: 128, b: 0 },
-            { t: 0.35, r: 255, g: 170, b: 0 },
-            { t: 0.40, r: 255, g: 212, b: 0 },
-            { t: 0.45, r: 235, g: 240, b: 0 },
-            { t: 0.50, r: 150, g: 230, b: 30 },
-            { t: 0.55, r: 70, g: 215, b: 70 },
-            { t: 0.60, r: 20, g: 205, b: 120 },
-            { t: 0.65, r: 0, g: 220, b: 170 },
-            { t: 0.70, r: 0, g: 235, b: 215 },
-            { t: 0.75, r: 0, g: 255, b: 255 },
-            { t: 0.80, r: 0, g: 205, b: 255 },
-            { t: 0.85, r: 0, g: 155, b: 255 },
-            { t: 0.90, r: 0, g: 105, b: 255 },
-            { t: 0.95, r: 0, g: 50, b: 255 },
-            { t: 1.00, r: 0, g: 0, b: 255 }
+            { t: 0.00, r: 40, g: 0, b: 70 },
+            { t: 0.05, r: 85, g: 0, b: 90 },
+            { t: 0.10, r: 160, g: 0, b: 50 },
+            { t: 0.15, r: 235, g: 0, b: 0 },
+            { t: 0.20, r: 255, g: 45, b: 0 },
+            { t: 0.25, r: 255, g: 90, b: 0 },
+            { t: 0.30, r: 255, g: 135, b: 0 },
+            { t: 0.35, r: 255, g: 180, b: 0 },
+            { t: 0.40, r: 255, g: 220, b: 0 },
+            { t: 0.45, r: 225, g: 245, b: 0 },
+            { t: 0.50, r: 140, g: 235, b: 30 },
+            { t: 0.55, r: 60, g: 220, b: 70 },
+            { t: 0.60, r: 10, g: 215, b: 130 },
+            { t: 0.65, r: 0, g: 230, b: 180 },
+            { t: 0.70, r: 0, g: 240, b: 225 },
+            { t: 0.75, r: 0, g: 245, b: 255 },
+            { t: 0.80, r: 0, g: 210, b: 255 },
+            { t: 0.85, r: 0, g: 175, b: 255 },
+            { t: 0.90, r: 0, g: 140, b: 255 },
+            { t: 0.95, r: 0, g: 105, b: 255 },
+            { t: 1.00, r: 0, g: 80, b: 255 }
         ];
 
         let i = 0;
@@ -538,8 +538,9 @@ export function initSimulator(canvasRef) {
 
             const cellMetersX = worldWidth / gridCols;
             const cellMetersY = worldHeight / gridRows;
-            const kernelRadiusMeters = Math.max(cellMetersX * 3.5, isDensity ? 20.0 : 15.0);
+            const kernelRadiusMeters = Math.max(cellMetersX * 2.0, Math.min(worldWidth * 0.035, 6.0));
             const kernelRadiusSq = kernelRadiusMeters * kernelRadiusMeters;
+            const invKernelRadiusSq = 1.0 / kernelRadiusSq;
 
             for (let i = 0; i < count; i++) {
                 const rawR = floatArray[i * 5 + 4];
@@ -572,8 +573,8 @@ export function initSimulator(canvasRef) {
                         const distSq = dx * dx + dy * dy;
 
                         if (distSq <= kernelRadiusSq) {
-                            const dist = Math.sqrt(distSq);
-                            const weight = Math.max(0, 1.0 - (dist / kernelRadiusMeters));
+                            const q = 1.0 - (distSq * invKernelRadiusSq);
+                            const weight = q * q;
 
                             if (weight > 0.001) {
                                 const idx = cy * gridCols + cx;
@@ -604,9 +605,12 @@ export function initSimulator(canvasRef) {
                 for (let i = 0; i < totalCells; i++) {
                     const w = weightSum[i];
                     const pixelOffset = i * 4;
-                    if (w > 0.001) {
+                    if (w > 0.005) {
                         const rgb = getDensityColor(w);
-                        const alpha = Math.min(255, Math.floor(Math.min(1.0, w / (trackedMaxDensity * 0.7)) * 255));
+                        const norm = Math.min(1.0, Math.max(0.0, w / (trackedMaxDensity || 2.0)));
+                        const t = Math.min(1.0, w / 0.15);
+                        const edgeFade = t * t * (3.0 - 2.0 * t);
+                        const alpha = Math.min(240, Math.floor(edgeFade * (150 + 90 * Math.pow(norm, 0.6))));
                         data[pixelOffset] = rgb.r;
                         data[pixelOffset + 1] = rgb.g;
                         data[pixelOffset + 2] = rgb.b;
@@ -619,7 +623,7 @@ export function initSimulator(canvasRef) {
                 let frameMin = Infinity, frameMax = -Infinity;
                 for (let i = 0; i < totalCells; i++) {
                     const w = weightSum[i];
-                    if (w > 0.001) {
+                    if (w > 0.005) {
                         const avgSpeed = speedSum[i] / w;
                         if (avgSpeed < frameMin) frameMin = avgSpeed;
                         if (avgSpeed > frameMax) frameMax = avgSpeed;
@@ -634,10 +638,13 @@ export function initSimulator(canvasRef) {
                 for (let i = 0; i < totalCells; i++) {
                     const w = weightSum[i];
                     const pixelOffset = i * 4;
-                    if (w > 0.001) {
+                    if (w > 0.005) {
                         const avgSpeed = speedSum[i] / w;
                         const rgb = getHeatmapSpeedColor(avgSpeed);
-                        const alpha = Math.min(255, Math.floor((w / 1.5) * 255));
+                        const normWeight = Math.min(1.0, Math.max(0.0, w / 2.0));
+                        const t = Math.min(1.0, w / 0.15);
+                        const edgeFade = t * t * (3.0 - 2.0 * t);
+                        const alpha = Math.min(240, Math.floor(edgeFade * (150 + 90 * Math.pow(normWeight, 0.6))));
                         data[pixelOffset] = rgb.r;
                         data[pixelOffset + 1] = rgb.g;
                         data[pixelOffset + 2] = rgb.b;
@@ -653,7 +660,7 @@ export function initSimulator(canvasRef) {
             trailCtx.save();
             trailCtx.imageSmoothingEnabled = true;
             trailCtx.imageSmoothingQuality = 'high';
-            trailCtx.filter = isDensity ? 'blur(6.0px)' : 'blur(8.0px)';
+            trailCtx.filter = 'blur(2.0px)';
             trailCtx.drawImage(offscreenCanvas, worldOrigin.x, worldOrigin.y, screenWorldW, screenWorldH);
             trailCtx.restore();
 
