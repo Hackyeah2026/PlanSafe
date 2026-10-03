@@ -6,6 +6,9 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:parity": "node --test scripts/test-physics-parity.ts",
+    "test:potential": "npm run build && node --test scripts/test-potential-parity.ts",
+    "test:camera": "npm run build && node --test scripts/test-camera-transform.mjs",
+    "test:gpu": "npm run build && node --test scripts/test-gpu-runtime.mjs",
     "format": "prettier --write . && dotnet format PlanSafe.slnx",
     "format:check": "prettier --check . && dotnet format PlanSafe.slnx --verify-no-changes"
   },

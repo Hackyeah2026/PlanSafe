@@ -475,7 +475,8 @@ export function buildStaticPotentialField(
         const left = 2 * i + 1;
         const right = 2 * i + 2;
         if (left < heapSize && heapPrios[left] < heapPrios[best]) best = left;
-        if (right < heapSize && heapPrios[right] < heapPrios[best]) best = right;
+        if (right < heapSize && heapPrios[right] < heapPrios[best])
+          best = right;
         if (best === i) break;
         const tn = heapNodes[i];
         const tp = heapPrios[i];
@@ -887,56 +888,6 @@ test("Adaptive spatial hash grid maintains physical cell invariants across map s
   assert.equal(grid1k.cellH, 4.0);
 });
 
-test("Dynamic field relaxation throttling preserves normal rate and caps extreme speed passes", () => {
-  function simulateRelaxationSchedule(
-    ticksPerSecond: number,
-    totalSeconds: number,
-  ) {
-    let dynamicFieldTimer = 0.2;
-    let lastDynamicFieldWallTime = 0;
-    let nowWallTime = 0;
-    let updates = 0;
-    const dt = 0.016;
-    const realTimePerTick = 1000 / ticksPerSecond;
-
-    const totalTicks = Math.round(ticksPerSecond * totalSeconds);
-    for (let tick = 0; tick < totalTicks; tick++) {
-      nowWallTime += realTimePerTick;
-      dynamicFieldTimer += dt;
-
-      const wallElapsed = nowWallTime - lastDynamicFieldWallTime;
-      const isInitial = tick === 0;
-      if (isInitial || (dynamicFieldTimer >= 0.2 && wallElapsed >= 80)) {
-        dynamicFieldTimer = 0.0;
-        lastDynamicFieldWallTime = nowWallTime;
-        updates++;
-      }
-    }
-    return updates;
-  }
-
-  // At 1x speed (60 ticks/s for 5 seconds = 300 ticks, 5.0s sim time):
-  // Should trigger ~5 times per second = ~25 times total (matching reference 0.20s intervals)
-  const updatesAt1x = simulateRelaxationSchedule(60, 5.0);
-  assert.ok(
-    updatesAt1x >= 24 && updatesAt1x <= 26,
-    `Expected ~25 updates at 1x, got ${updatesAt1x}`,
-  );
-
-  // At 20x speed (1200 ticks/s for 5 seconds):
-  // Without throttling, it would trigger 100 times/second = 500 times total!
-  // With throttling (every >= 80ms), it is capped to ~12.5 updates/second = ~62 times total
-  const updatesAt20x = simulateRelaxationSchedule(1200, 5.0);
-  assert.ok(
-    updatesAt20x <= 65,
-    `Expected <= 65 updates at 20x, got ${updatesAt20x} (throttled from 500)`,
-  );
-  assert.ok(
-    updatesAt20x >= 55,
-    `Expected >= 55 updates at 20x, got ${updatesAt20x}`,
-  );
-});
-
 test("Large 1000m map radial potential field eliminates diagonal line stream bias (Euclidean circular isocontours)", () => {
   // Test 1000m x 1000m map with exit centered on eastern boundary
   const worldSize = 1000.0;
@@ -971,11 +922,20 @@ test("Large 1000m map radial potential field eliminates diagonal line stream bia
     const px = exitCenterX - radius * Math.cos(angleRad);
     const py = exitCenterY - radius * Math.sin(angleRad);
 
-    const flow = getFlowDirection(px, py, pot, worldSize, worldSize, cols, rows);
+    const flow = getFlowDirection(
+      px,
+      py,
+      pot,
+      worldSize,
+      worldSize,
+      cols,
+      rows,
+    );
     const actualAngleRad = Math.atan2(flow.fy, flow.fx); // flow points toward exit (+x, +y)
     const expectedAngleRad = Math.atan2(exitCenterY - py, exitCenterX - px);
 
-    const errorDeg = Math.abs(actualAngleRad - expectedAngleRad) * (180.0 / Math.PI);
+    const errorDeg =
+      Math.abs(actualAngleRad - expectedAngleRad) * (180.0 / Math.PI);
     assert.ok(
       errorDeg < 6.5,
       `Angle ${angleDeg}° had directional metric error of ${errorDeg.toFixed(2)}° (must be < 6.5° with 16-direction Dijkstra, down from >15° in 8-direction)`,
@@ -1028,4 +988,3 @@ test("Small map 60x40 (Hala 60m) density accumulation produces zero false penalt
     `Old penalty was ${oldPenalty.toFixed(1)}, which created false repelling hills causing giggly oscillation`,
   );
 });
-

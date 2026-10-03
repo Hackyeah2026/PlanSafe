@@ -46,3 +46,30 @@ dotnet build PlanSafe.slnx
 npm run format
 npm run format:check
 ```
+
+Potential-field parity tests compare every cell against the C# engine:
+
+```sh
+npm run test:potential
+```
+
+To also run the production WGSL shaders and compare density, penalties, fields,
+and flow directions in headless Chrome, set `PLANSAFE_PLAYWRIGHT_MODULE` to a
+Playwright module URL and `PLANSAFE_BROWSER_PATH` to the Chrome executable before
+running the same command. GPU comparisons allow float32 rounding differences;
+the static TypeScript field comparison is exact.
+
+GPU runtime tests verify compact telemetry, direct agent rendering, reset, and
+camera transforms with the same Chrome/Playwright environment variables:
+
+```sh
+npm run test:gpu
+```
+
+The demo runs only the selected physics engine. Both engines integrate in 16 ms
+ticks; playback speed controls how many ticks run, and actual speed measures
+simulation seconds per wall-clock second. Unlimited mode measures throughput.
+The GPU agent view renders from the physics storage buffer and samples reduced
+statistics at 10 Hz. Heatmap views retain the existing Canvas renderer and agent
+readback. Potential-field convergence remains exact rather than using a fixed
+number of relaxation passes.

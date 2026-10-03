@@ -111,7 +111,7 @@ export interface ISimulationEngine {
     values: CoreCommandValues,
     profiler: ProfilingWindow,
   ): void;
-  advanceFixedTicks(ticks: number): number;
+  advanceFixedTicks(ticks: number): number | Promise<number>;
   capturePreview(): OwnedPreview | Promise<OwnedPreview>;
   syncInFlight?(maxAllowed?: number): Promise<void>;
   dispose(): void;

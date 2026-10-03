@@ -2792,8 +2792,9 @@ public class CrowdSimulationEngine
     {
         FrameCounter++;
         double totalSimTime = baseDeltaTime * timeScale;
-        double physicsDt = timeScale <= 2.0 ? 0.020 : (timeScale <= 10.0 ? 0.033 : 0.050);
-        int steps = Math.Max(1, (int)Math.Round(totalSimTime / physicsDt));
+        // Speed changes the number of ticks, never the physics integration step.
+        // WebGPU uses the same 16 ms step at every playback speed.
+        int steps = Math.Max(1, (int)Math.Ceiling(totalSimTime / 0.016 - 1e-9));
         double subDt = totalSimTime / steps;
         for (int step = 0; step < steps; step++)
         {

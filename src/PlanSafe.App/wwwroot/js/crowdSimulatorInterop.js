@@ -14,6 +14,8 @@ export function initSimulator(canvasRef, mapContainerId = null) {
     let worldHeight = 200.0;  // in meters
     let obstacles = [];
     let targets = [];
+    let weightDistance = 1.0;
+    let weightOccupancy = 0.0;
     let exitZone = { x: 184, y: 80, width: 12, height: 40 };
 
     let scale = 1.0;          // pixels per meter
@@ -85,6 +87,7 @@ export function initSimulator(canvasRef, mapContainerId = null) {
 
     // --- Last Render State for Instant Redraw (Pan, Zoom, Resize) ---
     let lastFloatArray = null;
+    let lastWasGpu = false;
     let lastCount = 0;
     let lastRenderMode = 'agents';
     let lastShowWhiskers = false;
@@ -224,7 +227,7 @@ export function initSimulator(canvasRef, mapContainerId = null) {
             }
 
             // Step along flow vector
-            const stepDist = Math.max(0.45, Math.min(1.7, speed * 0.75));
+            const stepDist = Math.max(0.45, Math.min(1.7, speed * 0.75)) * 0.5;
             p.x += (vel.vx / speed) * stepDist;
             p.y += (vel.vy / speed) * stepDist;
 
@@ -290,6 +293,28 @@ export function initSimulator(canvasRef, mapContainerId = null) {
         };
     }
 
+    function setScale(value) {
+        scale = value;
+        scaleX = value;
+        scaleY = value;
+    }
+
+    function pointerToCanvas(e) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: (e.clientX - rect.left) * canvas.width / rect.width,
+            y: (e.clientY - rect.top) * canvas.height / rect.height
+        };
+    }
+
+    function zoomAt(sx, sy, factor) {
+        const world = screenToWorld(sx, sy);
+        setScale(Math.min(Math.max(scale * factor, 0.02), 50.0));
+        offsetX = sx - world.x * scaleX;
+        offsetY = sy - world.y * scaleY;
+        redrawCurrent();
+    }
+
     function fitBounds(w, h, padding = 30) {
         if (isMapMode) {
             updateLeafletProjection();
@@ -301,9 +326,7 @@ export function initSimulator(canvasRef, mapContainerId = null) {
         const availableWidth = Math.max(canvas.width - padding * 2, 50);
         const availableHeight = Math.max(canvas.height - padding * 2, 50);
 
-        scale = Math.min(availableWidth / worldWidth, availableHeight / worldHeight);
-        scaleX = scale;
-        scaleY = scale;
+        setScale(Math.min(availableWidth / worldWidth, availableHeight / worldHeight));
         offsetX = (canvas.width - worldWidth * scale) / 2;
         offsetY = (canvas.height - worldHeight * scale) / 2;
     }
@@ -312,7 +335,9 @@ export function initSimulator(canvasRef, mapContainerId = null) {
     initFlowParticles();
 
     function redrawCurrent() {
-        if (lastFloatArray && lastCount > 0) {
+        if (lastWasGpu) {
+            void renderGpu(lastRenderMode, lastShowWhiskers, lastWhiskerLength, lastGranulation, lastShowFlowParticles);
+        } else if (lastFloatArray && lastCount > 0) {
             renderCore(lastFloatArray, lastCount, lastRenderMode, lastShowWhiskers, lastWhiskerLength, lastGranulation, lastShowFlowParticles);
         } else {
             ctx.fillStyle = '#080a0f';
@@ -335,18 +360,18 @@ export function initSimulator(canvasRef, mapContainerId = null) {
         if (!isInteractive) return;
         isDragging = true;
         canvas.style.cursor = 'grabbing';
-        const rect = canvas.getBoundingClientRect();
-        dragStartX = e.clientX - rect.left;
-        dragStartY = e.clientY - rect.top;
+        const point = pointerToCanvas(e);
+        dragStartX = point.x;
+        dragStartY = point.y;
         startOffsetX = offsetX;
         startOffsetY = offsetY;
     }
 
     function onPointerMove(e) {
         if (!isDragging || !isInteractive) return;
-        const rect = canvas.getBoundingClientRect();
-        const currentX = e.clientX - rect.left;
-        const currentY = e.clientY - rect.top;
+        const point = pointerToCanvas(e);
+        const currentX = point.x;
+        const currentY = point.y;
         offsetX = startOffsetX + (currentX - dragStartX);
         offsetY = startOffsetY + (currentY - dragStartY);
         redrawCurrent();
@@ -362,22 +387,8 @@ export function initSimulator(canvasRef, mapContainerId = null) {
         if (!isInteractive) return;
         e.preventDefault();
 
-        const rect = canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-
-        const wx = (mouseX - offsetX) / scale;
-        const wy = (mouseY - offsetY) / scale;
-
-        const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
-        const minScale = 0.02;
-        const maxScale = 50.0;
-        const newScale = Math.min(Math.max(scale * zoomFactor, minScale), maxScale);
-
-        offsetX = mouseX - wx * newScale;
-        offsetY = mouseY - wy * newScale;
-        scale = newScale;
-        redrawCurrent();
+        const point = pointerToCanvas(e);
+        zoomAt(point.x, point.y, e.deltaY < 0 ? 1.15 : 0.85);
     }
 
     function onDblClick() {
@@ -489,8 +500,8 @@ export function initSimulator(canvasRef, mapContainerId = null) {
     // --- Environment Rendering ---
     function drawWorldGrid() {
         const worldScreenOrigin = worldToScreen(0, 0);
-        const worldScreenWidth = worldWidth * scale;
-        const worldScreenHeight = worldHeight * scale;
+        const worldScreenWidth = worldWidth * scaleX;
+        const worldScreenHeight = worldHeight * scaleY;
 
         ctx.fillStyle = '#10141a';
         ctx.fillRect(worldScreenOrigin.x, worldScreenOrigin.y, worldScreenWidth, worldScreenHeight);
@@ -524,8 +535,8 @@ export function initSimulator(canvasRef, mapContainerId = null) {
         if (obstacles && obstacles.length > 0) {
             for (let obs of obstacles) {
                 const s = worldToScreen(obs.x, obs.y);
-                const sw = obs.width * scale;
-                const sh = obs.height * scale;
+                const sw = obs.width * scaleX;
+                const sh = obs.height * scaleY;
 
                 ctx.fillStyle = '#1e2836';
                 ctx.fillRect(s.x, s.y, sw, sh);
@@ -544,8 +555,8 @@ export function initSimulator(canvasRef, mapContainerId = null) {
         if (targets && targets.length > 0) {
             for (let tgt of targets) {
                 const tz = worldToScreen(tgt.x, tgt.y);
-                const tzw = tgt.width * scale;
-                const tzh = tgt.height * scale;
+                const tzw = tgt.width * scaleX;
+                const tzh = tgt.height * scaleY;
 
                 ctx.fillStyle = 'rgba(40, 167, 69, 0.25)';
                 ctx.fillRect(tz.x, tz.y, tzw, tzh);
@@ -563,8 +574,8 @@ export function initSimulator(canvasRef, mapContainerId = null) {
             }
         } else if (exitZone) {
             const ez = worldToScreen(exitZone.x, exitZone.y);
-            const ezw = exitZone.width * scale;
-            const ezh = exitZone.height * scale;
+            const ezw = exitZone.width * scaleX;
+            const ezh = exitZone.height * scaleY;
 
             ctx.fillStyle = 'rgba(40, 167, 69, 0.25)';
             ctx.fillRect(ez.x, ez.y, ezw, ezh);
@@ -733,6 +744,7 @@ export function initSimulator(canvasRef, mapContainerId = null) {
     }
 
     function renderCore(floatArray, count, renderMode, showWhiskers, whiskerLength, granulation = 1, showFlowParticles = true) {
+        lastWasGpu = false;
         lastFloatArray = floatArray;
         lastCount = count;
         lastRenderMode = renderMode;
@@ -1012,7 +1024,10 @@ export function initSimulator(canvasRef, mapContainerId = null) {
             gpuEngine = new GpuSimulationEngine();
             await gpuEngine.boot();
         }
+        await gpuEngine.syncInFlight(0);
         if (config) {
+            weightDistance = config.weightDistance ?? weightDistance;
+            weightOccupancy = config.weightOccupancy ?? weightOccupancy;
             if (config.worldWidth) worldWidth = config.worldWidth;
             if (config.worldHeight) worldHeight = config.worldHeight;
             if (config.obstacles) obstacles = config.obstacles;
@@ -1028,16 +1043,18 @@ export function initSimulator(canvasRef, mapContainerId = null) {
             granulation: granulation,
             obstacles: obstacles,
             targets: targets,
-            exitZone: exitZone
+            exitZone: exitZone,
+            weightDistance: weightDistance,
+            weightOccupancy: weightOccupancy
         }, { add: () => {} });
         isGpuReady = true;
         console.log("%c[PlanSafe] WebGPU compute engine active", "color: #10b981; font-weight: bold;");
         return true;
     }
 
-    function stepGpu(ticks) {
+    async function stepGpu(ticks) {
         if (!gpuEngine || !isGpuReady) return;
-        gpuEngine.advanceFixedTicks(ticks);
+        await gpuEngine.advanceFixedTicks(ticks);
     }
 
     let gpuFloatArray = null;
@@ -1053,6 +1070,28 @@ export function initSimulator(canvasRef, mapContainerId = null) {
     async function renderGpu(renderMode, showWhiskers, whiskerLength, granulation = 1, showFlowParticles = true) {
         if (!gpuEngine || !isGpuReady) return;
         try {
+            lastRenderMode = renderMode;
+            lastShowWhiskers = showWhiskers;
+            lastWhiskerLength = whiskerLength;
+            lastGranulation = granulation;
+            lastShowFlowParticles = showFlowParticles;
+            lastWasGpu = true;
+            if (isMapMode) updateLeafletProjection();
+            if (renderMode === 'agents') {
+                const surface = await gpuEngine.drawAgents(canvas.width, canvas.height,
+                    scaleX, scaleY, offsetX, offsetY, isMapMode ? 4.0 : 3.2,
+                    granulation, showWhiskers, whiskerLength);
+                if (isMapMode) {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                } else {
+                    ctx.fillStyle = '#080a0f';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    drawEnvironment();
+                }
+                ctx.drawImage(surface, 0, 0);
+                if (!isMapMode) drawScaleBar();
+                return;
+            }
             const preview = await gpuEngine.capturePreview();
             const count = preview.count;
             if (!count || count <= 0) return;
@@ -1066,13 +1105,17 @@ export function initSimulator(canvasRef, mapContainerId = null) {
                 floatArray[i * 5 + 4] = target[4 * count + i];
             }
             renderCore(floatArray, count, renderMode, showWhiskers, whiskerLength, granulation, showFlowParticles);
+            lastWasGpu = true;
         } catch (err) {
             console.error("[PlanSafe] renderGpu error:", err);
         }
     }
 
-    function setGpuWorldConfig(config) {
+    async function setGpuWorldConfig(config) {
         if (!gpuEngine || !isGpuReady) return;
+        await gpuEngine.syncInFlight(0);
+        weightDistance = config.weightDistance ?? weightDistance;
+        weightOccupancy = config.weightOccupancy ?? weightOccupancy;
         if (config.worldWidth) worldWidth = config.worldWidth;
         if (config.worldHeight) worldHeight = config.worldHeight;
         if (config.obstacles) obstacles = config.obstacles;
@@ -1087,12 +1130,15 @@ export function initSimulator(canvasRef, mapContainerId = null) {
             granulation: config.granulation,
             obstacles: obstacles,
             targets: targets,
-            exitZone: exitZone
+            exitZone: exitZone,
+            weightDistance: weightDistance,
+            weightOccupancy: weightOccupancy
         }, { add: () => {} });
     }
 
-    function resetGpu(count, granulation, socialWeight) {
+    async function resetGpu(count, granulation, socialWeight) {
         if (!gpuEngine || !isGpuReady) return;
+        await gpuEngine.syncInFlight(0);
         gpuEngine.dispatch('plansafe-sim', 'reset', {
             count: count,
             worldWidth: worldWidth,
@@ -1101,7 +1147,9 @@ export function initSimulator(canvasRef, mapContainerId = null) {
             granulation: granulation,
             obstacles: obstacles,
             targets: targets,
-            exitZone: exitZone
+            exitZone: exitZone,
+            weightDistance: weightDistance,
+            weightOccupancy: weightOccupancy
         }, { add: () => {} });
     }
 
@@ -1111,10 +1159,27 @@ export function initSimulator(canvasRef, mapContainerId = null) {
         initGpu: initGpu,
         stepGpu: stepGpu,
         renderGpu: renderGpu,
+        getGpuTelemetry: async () => gpuEngine && isGpuReady ? await gpuEngine.captureTelemetry() : null,
         setGpuWorldConfig: setGpuWorldConfig,
+        setGpuEnvironment: async function (config) {
+            targets = config.targets ?? targets;
+            weightDistance = config.weightDistance ?? weightDistance;
+            weightOccupancy = config.weightOccupancy ?? weightOccupancy;
+            if (gpuEngine && isGpuReady) {
+                await gpuEngine.syncInFlight(0);
+                gpuEngine.dispatch('plansafe-sim', 'set-environment', config, { add: () => {} });
+            }
+        },
         resetGpu: resetGpu,
+        setGpuWeight: async function (value) {
+            if (!gpuEngine || !isGpuReady) return;
+            await gpuEngine.syncInFlight(0);
+            gpuEngine.dispatch('plansafe-sim', 'weight', { socialRepulsionWeight: value }, { add: () => {} });
+        },
         isWebGpuSupported: function () { return isWebGpuSupported(); },
         setWorldConfig: function (config) {
+            weightDistance = config.weightDistance ?? weightDistance;
+            weightOccupancy = config.weightOccupancy ?? weightOccupancy;
             if (config.worldWidth) worldWidth = config.worldWidth;
             if (config.worldHeight) worldHeight = config.worldHeight;
             if (config.obstacles) obstacles = config.obstacles;
@@ -1134,7 +1199,7 @@ export function initSimulator(canvasRef, mapContainerId = null) {
             redrawCurrent();
         },
         setTransform: function (t) {
-            if (t.scale !== undefined) scale = t.scale;
+            if (t.scale !== undefined) setScale(t.scale);
             if (t.offsetX !== undefined) offsetX = t.offsetX;
             if (t.offsetY !== undefined) offsetY = t.offsetY;
             redrawCurrent();
@@ -1147,15 +1212,7 @@ export function initSimulator(canvasRef, mapContainerId = null) {
             redrawCurrent();
         },
         zoom: function (factor) {
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
-            const wx = (centerX - offsetX) / scale;
-            const wy = (centerY - offsetY) / scale;
-            const newScale = Math.min(Math.max(scale * factor, 0.02), 50.0);
-            scale = newScale;
-            offsetX = centerX - wx * scale;
-            offsetY = centerY - wy * scale;
-            redrawCurrent();
+            zoomAt(canvas.width / 2, canvas.height / 2, factor);
         },
         setInteractive: function (enabled) {
             isInteractive = !!enabled;
