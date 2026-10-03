@@ -1,0 +1,64 @@
+:root {
+  --ui-base: #f0f2f5;
+  --ui-surface: rgba(255, 255, 255, 0.64);
+  --ui-strong: rgba(255, 255, 255, 0.86);
+  --ui-solid: #fff;
+  --ui-text: #172033;
+  --ui-muted: #475569;
+  --ui-accent: #0a84ff;
+  --ui-info: #0071a4;
+  --ui-success: #1a7f45;
+  --ui-warning: #a85b00;
+  --ui-danger: #b91c1c;
+  --ui-border: rgba(15, 23, 42, 0.1);
+  --ui-edge: rgba(255, 255, 255, 0.8);
+  --ui-fill: rgba(15, 23, 42, 0.06);
+  /* Darker filled blue preserves white-label contrast. Accent matches EvacuFlow. */
+  --ui-primary-bg: #075fc8;
+  --ui-primary-text: #fff;
+  --ui-success-bg: #166534;
+  --ui-success-text: #fff;
+  --ui-danger-bg: #b91c1c;
+  --ui-danger-text: #fff;
+  --ui-blur: blur(26px) saturate(180%);
+  --ui-scrim: rgba(15, 23, 42, 0.28);
+  --ui-shadow:
+    0 12px 40px rgba(15, 23, 42, 0.18), 0 1px 3px rgba(15, 23, 42, 0.08);
+  --ui-panel-radius: 12px;
+  --ui-control-radius: 8px;
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 16px;
+  --ui-space-6: 24px;
+}
+[data-bs-theme="dark"] {
+  --ui-base: #181a21;
+  --ui-surface: rgba(24, 26, 33, 0.6);
+  --ui-strong: rgba(28, 30, 38, 0.88);
+  --ui-solid: #1b1e25;
+  --ui-text: #f1f5f9;
+  --ui-muted: #b9c1cf;
+  --ui-info: #5ac8fa;
+  --ui-success: #30d158;
+  --ui-warning: #ffb340;
+  --ui-danger: #fca5a5;
+  --ui-border: rgba(255, 255, 255, 0.12);
+  --ui-edge: rgba(255, 255, 255, 0.18);
+  --ui-fill: rgba(255, 255, 255, 0.08);
+  --ui-shadow: 0 14px 44px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.4);
+  --ui-scrim: rgba(0, 0, 0, 0.5);
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --ui-surface: var(--ui-solid);
+    --ui-strong: var(--ui-solid);
+    --ui-blur: none;
+  }
+}
+@supports not (backdrop-filter: blur(1px)) {
+  :root {
+    --ui-surface: var(--ui-solid);
+    --ui-strong: var(--ui-solid);
+  }
+}

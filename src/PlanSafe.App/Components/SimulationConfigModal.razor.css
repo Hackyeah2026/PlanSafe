@@ -1,268 +1,45 @@
-/* Simulation Config Modal Styles */
-
-.modal-backdrop-fade {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.65);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    z-index: 1050;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    animation: fadeIn 0.2s ease-out;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-.sim-config-modal-card {
-    background: rgba(15, 23, 42, 0.96);
-    border: 1px solid rgba(71, 85, 105, 0.6);
-    border-radius: 14px;
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
-    width: 720px;
-    max-width: 95vw;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    color: #f1f5f9;
-    animation: modalScaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes modalScaleUp {
-    from {
-        opacity: 0;
-        transform: scale(0.96) translateY(8px);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1) translateY(0);
-    }
-}
-
-/* Header */
 .sim-config-modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 20px;
-    border-bottom: 1px solid rgba(51, 65, 85, 0.6);
-    background: rgba(15, 23, 42, 0.8);
+  align-items: flex-start;
 }
-
 .config-icon-box {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    background: rgba(56, 189, 248, 0.12);
-    border: 1px solid rgba(56, 189, 248, 0.25);
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  color: var(--ui-accent);
 }
-
-.sim-config-title {
-    margin: 0;
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: #f8fafc;
-    letter-spacing: -0.01em;
-}
-
 .sim-config-subtitle {
-    font-size: 0.75rem;
-    color: #94a3b8;
-    margin-top: 1px;
+  margin-top: 4px;
+  color: var(--ui-muted);
+  font-size: 12px;
 }
-
-.btn-config-close {
-    background: transparent;
-    border: none;
-    color: #94a3b8;
-    width: 30px;
-    height: 30px;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.15s ease;
-}
-
-.btn-config-close:hover {
-    background: rgba(239, 68, 68, 0.15);
-    color: #f87171;
-}
-
-/* Body */
-.sim-config-modal-body {
-    padding: 18px 20px;
-    overflow-y: auto;
-    flex: 1;
-    scrollbar-width: thin;
-    scrollbar-color: #334155 transparent;
-}
-
-.sim-config-modal-body::-webkit-scrollbar {
-    width: 6px;
-}
-
-.sim-config-modal-body::-webkit-scrollbar-thumb {
-    background: #334155;
-    border-radius: 3px;
-}
-
-/* Section Cards */
 .config-section-card {
-    background: rgba(30, 41, 59, 0.45);
-    border: 1px solid rgba(51, 65, 85, 0.5);
-    border-radius: 10px;
-    padding: 14px 16px;
+  padding: 0;
 }
-
+.config-section-card + .config-section-card {
+  padding-top: 16px;
+  border-top: 1px solid var(--ui-border);
+}
 .config-section-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #e2e8f0;
-    margin-bottom: 14px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+  margin-bottom: 16px;
+  font-size: 14px;
+  font-weight: 600;
 }
-
-.section-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    display: inline-block;
+.config-value {
+  color: var(--ui-info);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
-
-.dot-cyan {
-    background: #38bdf8;
-    box-shadow: 0 0 6px rgba(56, 189, 248, 0.6);
+.weight-summary {
+  padding: 8px 0;
 }
-
-.dot-indigo {
-    background: #818cf8;
-    box-shadow: 0 0 6px rgba(129, 140, 248, 0.6);
-}
-
-.dot-amber {
-    background: #f59e0b;
-    box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
-}
-
-.dot-emerald {
-    background: #10b981;
-    box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
-}
-
-/* Preset Buttons */
-.preset-pill-btn {
-    flex: 1;
-    padding: 6px 10px;
-    border-radius: 6px;
-    font-size: 0.72rem;
-    font-weight: 600;
-    background: rgba(51, 65, 85, 0.35);
-    border: 1px solid rgba(71, 85, 105, 0.4);
-    color: #cbd5e1;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    text-align: center;
-}
-
-.preset-pill-btn:hover {
-    background: rgba(71, 85, 105, 0.5);
-    color: #ffffff;
-}
-
-.preset-pill-btn.active {
-    background: rgba(56, 189, 248, 0.2);
-    border-color: rgba(56, 189, 248, 0.5);
-    color: #38bdf8;
-}
-
-/* Footer */
 .sim-config-modal-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 20px;
-    border-top: 1px solid rgba(51, 65, 85, 0.6);
-    background: rgba(15, 23, 42, 0.85);
+  flex-wrap: wrap;
 }
-
-.btn-config-action {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
-    border-radius: 8px;
-    font-size: 0.82rem;
-    font-weight: 600;
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: all 0.15s ease;
+.sim-config-modal-footer > div {
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
-
-.btn-config-action.btn-secondary {
-    background: rgba(51, 65, 85, 0.4);
-    border-color: rgba(71, 85, 105, 0.5);
-    color: #cbd5e1;
-}
-
-.btn-config-action.btn-secondary:hover {
-    background: rgba(71, 85, 105, 0.6);
-    color: #ffffff;
-}
-
-.btn-config-action.btn-primary {
-    background: rgba(56, 189, 248, 0.2);
-    border-color: rgba(56, 189, 248, 0.5);
-    color: #38bdf8;
-}
-
-.btn-config-action.btn-primary:hover {
-    background: rgba(56, 189, 248, 0.35);
-    color: #ffffff;
-    box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
-}
-
-.btn-config-action.btn-success {
-    background: rgba(16, 185, 129, 0.2);
-    border-color: rgba(16, 185, 129, 0.5);
-    color: #34d399;
-}
-
-.btn-config-action.btn-success:hover {
-    background: rgba(16, 185, 129, 0.35);
-    color: #ffffff;
-    box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
-}
-
-.btn-config-reset {
-    background: transparent;
-    border: none;
-    color: #64748b;
-    font-size: 0.78rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: color 0.15s ease;
-    padding: 4px 8px;
-}
-
-.btn-config-reset:hover {
-    color: #94a3b8;
-    text-decoration: underline;
+@media (max-width: 767.98px) {
+  .sim-config-modal-header,
+  .sim-config-modal-body,
+  .sim-config-modal-footer {
+    padding: 12px 16px;
+  }
 }

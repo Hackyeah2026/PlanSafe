@@ -20,4 +20,7 @@
 
   processes.app.exec = "dotnet watch --project src/PlanSafe.App run --urls http://127.0.0.1:5000";
   processes.api.exec = "dotnet watch --project src/PlanSafe.Api run --urls http://127.0.0.1:5001";
+
+  scripts.format.exec = "npm run format";
+  scripts.format-check.exec = "npm run format:check";
 }

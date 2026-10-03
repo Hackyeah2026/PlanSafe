@@ -1,0 +1,59 @@
+@namespace PlanSafe.App.Components
+
+<section class="map-drawing-tools surface-panel" aria-label="Map drawing tools">
+    <div class="drawing-categories" role="group" aria-label="Drawing category">
+        <AppButton Class="drawing-tool" aria-label="Navigate" title="Navigate" Pressed='@(Category == "navigate")' OnClick='() => OnCategory.InvokeAsync("navigate")'>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path d="M3 10 21 3l-7 18-3-8z" /></svg><span>Navigate</span>
+        </AppButton>
+        <AppButton Class="drawing-tool drawing-tool--zone" aria-label="Evac Zone" title="Evacuation zone" Pressed='@(Category == "evac")' OnClick='() => OnCategory.InvokeAsync("evac")'>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 2 10 8-4 12H6L2 10z" /></svg><span>Evac Zone</span>
+        </AppButton>
+        @if (Category == "evac")
+        {
+            @ShapeChoices
+        }
+        <AppButton Class="drawing-tool drawing-tool--safe" aria-label="Safe Location" title="Safe location" Pressed='@(Category == "safe")' OnClick='() => OnCategory.InvokeAsync("safe")'>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 9c0 5-7 12-7 12S5 14 5 9a7 7 0 1 1 14 0Z" /><circle cx="12" cy="9" r="2" /></svg><span>Safe Location</span>
+        </AppButton>
+        @if (Category == "safe")
+        {
+            @ShapeChoices
+        }
+        <AppButton Class="drawing-tool drawing-tool--blockade" aria-label="Blockade" title="Blockade" Pressed='@(Category == "blockade")' OnClick='() => OnCategory.InvokeAsync("blockade")'>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="m12 2 7 18H5zM3 22h18M8 12h8M6 17h12" /></svg><span>Blockade</span>
+        </AppButton>
+    </div>
+</section>
+@if (Category != "navigate" && DrawMode != "none")
+{
+    <div class="drawing-instructions surface-panel" aria-label="Drawing instructions">
+        <span role="status">@(Hint ?? "Click on the map to define shape")</span>
+        <div class="drawing-instruction-actions">
+            @if ((DrawMode is "evac_polygon" or "safe_polygon" or "polygon") && PointCount >= 3)
+            {
+                <AppButton Class="drawing-finish" OnClick="OnFinish">Done</AppButton>
+            }
+            <AppButton OnClick="OnCancel">Cancel (Esc)</AppButton>
+        </div>
+    </div>
+}
+
+@code {
+    private RenderFragment ShapeChoices => @<div role="group" aria-label="Shape" class="drawing-shapes">
+        <AppButton aria-label="Polygon" title="Polygon" Pressed='@(Shape == "polygon")' OnClick='() => OnShape.InvokeAsync("polygon")'>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 2 10 8-4 12H6L2 10z" /></svg><span>Polygon</span>
+        </AppButton>
+        <AppButton aria-label="Circle" title="Circle" Pressed='@(Shape == "circle")' OnClick='() => OnShape.InvokeAsync("circle")'>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9" /></svg><span>Circle</span>
+        </AppButton>
+    </div>;
+    [Parameter] public string Category { get; set; } = "navigate";
+    [Parameter] public string Shape { get; set; } = "polygon";
+    [Parameter] public string DrawMode { get; set; } = "none";
+    [Parameter] public string? Hint { get; set; }
+    [Parameter] public int PointCount { get; set; }
+    [Parameter] public EventCallback<string> OnCategory { get; set; }
+    [Parameter] public EventCallback<string> OnShape { get; set; }
+    [Parameter] public EventCallback OnFinish { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+}

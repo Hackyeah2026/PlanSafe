@@ -1,0 +1,33 @@
+@namespace PlanSafe.App.Components
+@using PlanSafe.Contracts.Models.Simulation
+
+<ModalDialog Width="500px" IsOpen="true" Class="publish-dialog" LabelledBy="publish-title">
+    <div class="feature-dialog-header">
+        <h2 id="publish-title">Plan Ewakuacji Opublikowany</h2>
+        <button type="button" class="app-button app-icon-button" data-dialog-close aria-label="Zamknij" @onclick="OnClose"><UiIcon Kind="UiIconKind.Close" /></button>
+    </div>
+    <div class="feature-dialog-body">
+        <p class="small ui-muted">Sesja: @Plan.SessionId</p>
+        <p>Zeskanuj kod QR lub przekaż link ewakuowanym obywatelom.</p>
+        <div class="publish-qr">@((MarkupString)WrapSvgResponsive(Plan.QrCodeSvg))</div>
+        <p class="small">SCHRONY: @ShelterCount · BLOKADY: @ObstacleCount · OBSZAR: @WorldWidth.ToString("F0")m</p>
+        <label for="citizen-url">Widok obywatela:</label>
+        <input id="citizen-url" type="text" class="app-input w-100" readonly value="@Plan.EvacuateUrl" />
+        <a class="app-button" href="@Plan.EvacuateUrl" target="_blank" rel="noopener">Otwórz <UiIcon Kind="UiIconKind.ArrowRight" /></a>
+    </div>
+    <div class="feature-dialog-footer"><AppButton OnClick="OnClose">Zamknij</AppButton></div>
+</ModalDialog>
+@code {
+    [Parameter, EditorRequired] public PublishPlanResponse Plan { get; set; } = default!;
+    [Parameter] public int ShelterCount { get; set; }
+    [Parameter] public int ObstacleCount { get; set; }
+    [Parameter] public double WorldWidth { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    private static string WrapSvgResponsive(string? svg)
+    {
+        if (string.IsNullOrWhiteSpace(svg)) return string.Empty;
+        if (svg.StartsWith("<svg", StringComparison.OrdinalIgnoreCase))
+            return "<svg style=\"width: 100%; height: 100%; max-width: 100%; max-height: 100%; display: block;\" " + svg[4..];
+        return svg;
+    }
+}

@@ -1,25 +1,24 @@
 @namespace PlanSafe.App.Components
-@using PlanSafe.Contracts.Models.Session
 
-@if (IsOpen)
-{
-    <div class="modal-backdrop-fade" @onclick="HandleBackdropClick">
+<ModalDialog Width="720px" IsOpen="IsOpen" Class="sim-config-dialog" LabelledBy="sim-config-title">
+    @if (IsOpen)
+    {
         <div class="sim-config-modal-card" @onclick:stopPropagation>
             <!-- Modal Header -->
-            <div class="sim-config-modal-header">
+            <div class="feature-dialog-header sim-config-modal-header">
                 <div class="d-flex align-items-center gap-2">
                     <div class="config-icon-box">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="3"></circle>
                             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
                         </svg>
                     </div>
                     <div>
-                        <h5 class="sim-config-title">Konfiguracja Symulacji & Ewakuacji</h5>
+                        <h2 id="sim-config-title" class="sim-config-title">Konfiguracja Symulacji & Ewakuacji</h2>
                         <div class="sim-config-subtitle">Dostosuj parametry fizyki tłumu, dystrybucji schronów i wyświetlania</div>
                     </div>
                 </div>
-                <button type="button" class="btn-config-close" @onclick="Close" aria-label="Close">
+                <button type="button" class="app-button app-icon-button" data-dialog-close @onclick="Close" aria-label="Close">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
                         <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -28,7 +27,7 @@
             </div>
 
             <!-- Modal Body -->
-            <div class="sim-config-modal-body">
+            <div class="feature-dialog-body sim-config-modal-body">
                 <div class="row g-3">
                     <!-- Column 1: Populacja & Dynamika -->
                     <div class="col-md-6">
@@ -55,9 +54,9 @@
                                 <div class="mb-3">
                                     <div class="d-flex justify-content-between align-items-center mb-1 small">
                                         <span class="text-muted">Liczba Agentów:</span>
-                                        <span class="badge bg-secondary font-monospace">@_localConfig.AgentCount</span>
+                                        <span class="config-value">@_localConfig.AgentCount</span>
                                     </div>
-                                    <input type="range" class="form-range" min="50" max="50000" step="50" @bind="_localConfig.AgentCount" />
+                                    <input type="range" aria-label="Liczba agentów" class="form-range" min="50" max="50000" step="50" @bind="_localConfig.AgentCount" />
                                     <div class="d-flex justify-content-between text-muted" style="font-size: 0.65rem;">
                                         <span>50</span>
                                         <span>10 000</span>
@@ -71,9 +70,9 @@
                             <div class="mb-3">
                                 <div class="d-flex justify-content-between align-items-center mb-1 small">
                                     <span class="text-muted">Granulacja:</span>
-                                    <span class="badge bg-secondary font-monospace">@_localConfig.Granulation @(_localConfig.Granulation == 1 ? "agent / kropkę" : "agentów / kropkę")</span>
+                                    <span class="config-value">@_localConfig.Granulation @(_localConfig.Granulation == 1 ? "agent / kropkę" : "agentów / kropkę")</span>
                                 </div>
-                                <input type="range" class="form-range" min="1" max="25" step="1" @bind="_localConfig.Granulation" />
+                                <input type="range" aria-label="Granulacja" class="form-range" min="1" max="25" step="1" @bind="_localConfig.Granulation" />
                                 <div class="d-flex justify-content-between text-muted" style="font-size: 0.65rem;">
                                     <span>1:1 (Mikro)</span>
                                     <span>10:1</span>
@@ -85,9 +84,9 @@
                             <div class="mb-2">
                                 <div class="d-flex justify-content-between align-items-center mb-1 small">
                                     <span class="text-muted">Siła Odpychania Tłumu:</span>
-                                    <span class="badge bg-secondary font-monospace">@_localConfig.SocialRepulsionWeight.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)</span>
+                                    <span class="config-value">@_localConfig.SocialRepulsionWeight.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)</span>
                                 </div>
-                                <input type="range" class="form-range" min="0" max="10" step="0.5" @bind="_localConfig.SocialRepulsionWeight" />
+                                <input type="range" aria-label="Siła odpychania tłumu" class="form-range" min="0" max="10" step="0.5" @bind="_localConfig.SocialRepulsionWeight" />
                             </div>
                         </div>
 
@@ -100,9 +99,9 @@
                             <div class="mb-3">
                                 <div class="d-flex justify-content-between align-items-center mb-1 small">
                                     <span class="text-muted">Tempo symulacji:</span>
-                                    <span class="badge bg-info text-dark font-monospace">@(_localConfig.Unlimited ? "Bez limitu" : $"{_localConfig.TimeScale.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}×")</span>
+                                    <span class="config-value">@(_localConfig.Unlimited ? "Bez limitu" : $"{_localConfig.TimeScale.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}×")</span>
                                 </div>
-                                <input type="range" class="form-range" min="1.0" max="50.0" step="1.0" disabled="@_localConfig.Unlimited" @bind="_localConfig.TimeScale" />
+                                <input type="range" aria-label="Tempo symulacji" class="form-range" min="1.0" max="50.0" step="1.0" disabled="@_localConfig.Unlimited" @bind="_localConfig.TimeScale" />
                                 <div class="d-flex justify-content-between text-muted" style="font-size: 0.65rem;">
                                     <span>1.0× (Czas rzecz.)</span>
                                     <span>25.0×</span>
@@ -116,7 +115,7 @@
 
                             <div class="mb-2">
                                 <label class="form-label small text-muted mb-1" for="modal-fps">Limit FPS podglądu</label>
-                                <select id="modal-fps" class="form-select form-select-sm bg-dark text-white border-secondary" @bind="_localConfig.RenderFps">
+                                <select id="modal-fps" class="form-select form-select-sm" @bind="_localConfig.RenderFps">
                                     <option value="15">15 FPS</option>
                                     <option value="30">30 FPS</option>
                                     <option value="60">60 FPS</option>
@@ -137,20 +136,20 @@
                             <div class="mb-2">
                                 <label class="form-label small text-muted mb-1 d-block">Szybki wybór scenariusza:</label>
                                 <div class="btn-group w-100 btn-group-sm mb-2" role="group">
-                                    <button type="button" class="btn @(Math.Abs(_localConfig.WeightDistance - 1.0) < 0.05 && Math.Abs(_localConfig.WeightOccupancy) < 0.05 ? "btn-warning text-dark fw-bold" : "btn-outline-secondary")" @onclick="() => SetScenario(1.0, 0.0)">
+                                    <button type="button" class="btn @(Math.Abs(_localConfig.WeightDistance - 1.0) < 0.05 && Math.Abs(_localConfig.WeightOccupancy) < 0.05 ? "btn-primary" : "btn-outline-secondary")" @onclick="() => SetScenario(1.0, 0.0)">
                                         Scenariusz A (1:0)
                                     </button>
-                                    <button type="button" class="btn @(Math.Abs(_localConfig.WeightDistance - 0.5) < 0.05 && Math.Abs(_localConfig.WeightOccupancy - 0.5) < 0.05 ? "btn-success fw-bold" : "btn-outline-secondary")" @onclick="() => SetScenario(0.5, 0.5)">
+                                    <button type="button" class="btn @(Math.Abs(_localConfig.WeightDistance - 0.5) < 0.05 && Math.Abs(_localConfig.WeightOccupancy - 0.5) < 0.05 ? "btn-primary" : "btn-outline-secondary")" @onclick="() => SetScenario(0.5, 0.5)">
                                         Scenariusz B (0.5:0.5)
                                     </button>
-                                    <button type="button" class="btn @(Math.Abs(_localConfig.WeightDistance - 0.2) < 0.05 && Math.Abs(_localConfig.WeightOccupancy - 0.8) < 0.05 ? "btn-info text-dark fw-bold" : "btn-outline-secondary")" @onclick="() => SetScenario(0.2, 0.8)">
+                                    <button type="button" class="btn @(Math.Abs(_localConfig.WeightDistance - 0.2) < 0.05 && Math.Abs(_localConfig.WeightOccupancy - 0.8) < 0.05 ? "btn-primary" : "btn-outline-secondary")" @onclick="() => SetScenario(0.2, 0.8)">
                                         Scenariusz C (0.2:0.8)
                                     </button>
                                 </div>
                             </div>
 
                             <!-- Proporcja Wag -->
-                            <div class="p-2 bg-dark bg-opacity-60 rounded border border-secondary mb-3">
+                            <div class="weight-summary mb-3">
                                 <div class="d-flex justify-content-between align-items-center mb-1 small">
                                     <span class="text-muted">Balans wag (Suma = 1.00):</span>
                                     <span>
@@ -173,18 +172,18 @@
                             <div class="mb-2">
                                 <div class="d-flex justify-content-between align-items-center mb-1 small">
                                     <span class="text-info fw-semibold">Waga odległości (w_dist):</span>
-                                    <span class="badge bg-secondary font-monospace">@_localConfig.WeightDistance.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)</span>
+                                    <span class="config-value">@_localConfig.WeightDistance.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)</span>
                                 </div>
-                                <input type="range" class="form-range" min="0" max="1" step="0.01" value="@_localConfig.WeightDistance.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" @oninput="OnWeightDistInput" />
+                                <input type="range" aria-label="Waga odległości" class="form-range" min="0" max="1" step="0.01" value="@_localConfig.WeightDistance.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" @oninput="OnWeightDistInput" />
                             </div>
 
                             <!-- Suwak Wagi Obłożenia -->
                             <div class="mb-2">
                                 <div class="d-flex justify-content-between align-items-center mb-1 small">
                                     <span class="text-warning fw-semibold">Waga obłożenia (w_occ):</span>
-                                    <span class="badge bg-secondary font-monospace">@_localConfig.WeightOccupancy.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)</span>
+                                    <span class="config-value">@_localConfig.WeightOccupancy.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)</span>
                                 </div>
-                                <input type="range" class="form-range" min="0" max="1" step="0.01" value="@_localConfig.WeightOccupancy.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" @oninput="OnWeightOccInput" />
+                                <input type="range" aria-label="Waga obłożenia" class="form-range" min="0" max="1" step="0.01" value="@_localConfig.WeightOccupancy.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" @oninput="OnWeightOccInput" />
                             </div>
                         </div>
 
@@ -196,7 +195,7 @@
 
                             <div class="mb-3">
                                 <label class="form-label small text-muted mb-1" for="modal-render-mode">Tryb Wyświetlania na Mapie</label>
-                                <select id="modal-render-mode" class="form-select form-select-sm bg-dark text-white border-secondary" @bind="_localConfig.RenderMode">
+                                <select id="modal-render-mode" class="form-select form-select-sm" @bind="_localConfig.RenderMode">
                                     <option value="agents">Agenci (Pozycje jednostek na ulicach)</option>
                                     <option value="heatmap">Mapa Ciepła (Prędkość przepływu)</option>
                                     <option value="density">Mapa Ciepła (Gęstość tłumu)</option>
@@ -213,9 +212,9 @@
                                 <div class="mb-2">
                                     <div class="d-flex justify-content-between align-items-center mb-1 small">
                                         <span class="text-muted">Długość wąsów:</span>
-                                        <span class="badge bg-secondary font-monospace">@_localConfig.WhiskerLength.ToString("F1", System.Globalization.CultureInfo.InvariantCulture) m</span>
+                                        <span class="config-value">@_localConfig.WhiskerLength.ToString("F1", System.Globalization.CultureInfo.InvariantCulture) m</span>
                                     </div>
-                                    <input type="range" class="form-range" min="1.0" max="5.0" step="0.5" @bind="_localConfig.WhiskerLength" />
+                                    <input type="range" aria-label="Długość wąsów" class="form-range" min="1.0" max="5.0" step="0.5" @bind="_localConfig.WhiskerLength" />
                                 </div>
                             }
                         </div>
@@ -224,18 +223,18 @@
             </div>
 
             <!-- Modal Footer -->
-            <div class="sim-config-modal-footer">
-                <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="ResetToDefaults">
+            <div class="feature-dialog-footer sim-config-modal-footer">
+                <button type="button" class="app-button" @onclick="ResetToDefaults">
                     Przywróć domyślne
                 </button>
                 <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-outline-light btn-sm px-3" @onclick="Close">
+                    <button type="button" class="app-button" @onclick="Close">
                         Anuluj
                     </button>
-                    <button type="button" class="btn btn-primary btn-sm px-3 fw-bold" @onclick="SaveAndClose">
+                    <button type="button" class="app-button" @onclick="SaveAndClose">
                         Zapisz
                     </button>
-                    <button type="button" class="btn btn-success btn-sm px-3 fw-bold d-flex align-items-center gap-1" @onclick="SaveAndStart">
+                    <button type="button" class="app-button app-button--primary" @onclick="SaveAndStart">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                             <polygon points="5 3 19 12 5 21 5 3"></polygon>
                         </svg>
@@ -244,111 +243,5 @@
                 </div>
             </div>
         </div>
-    </div>
-}
-
-@code {
-    [Parameter] public bool IsOpen { get; set; }
-    [Parameter] public SimulationConfig Config { get; set; } = new();
-    [Parameter] public int CensusPopulation { get; set; } = 0;
-    [Parameter] public EventCallback<SimulationConfig> OnSave { get; set; }
-    [Parameter] public EventCallback OnStartSimulation { get; set; }
-    [Parameter] public EventCallback OnClose { get; set; }
-
-    private SimulationConfig _localConfig = new();
-
-    protected override void OnParametersSet()
-    {
-        if (IsOpen)
-        {
-            _localConfig = Config.Clone();
-        }
     }
-
-    private void SetCensusMode(bool useGus)
-    {
-        _localConfig.UseGusCensus = useGus;
-        if (useGus && CensusPopulation > 0)
-        {
-            _localConfig.AgentCount = CensusPopulation;
-        }
-    }
-
-    private void SetScenario(double wDist, double wOcc)
-    {
-        _localConfig.WeightDistance = Math.Clamp(Math.Round(wDist, 2), 0.0, 1.0);
-        _localConfig.WeightOccupancy = Math.Round(1.0 - _localConfig.WeightDistance, 2);
-    }
-
-    private void OnWeightDistInput(ChangeEventArgs e)
-    {
-        if (double.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var val))
-        {
-            _localConfig.WeightDistance = Math.Clamp(Math.Round(val, 2), 0.0, 1.0);
-            _localConfig.WeightOccupancy = Math.Round(1.0 - _localConfig.WeightDistance, 2);
-        }
-    }
-
-    private void OnWeightOccInput(ChangeEventArgs e)
-    {
-        if (double.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var val))
-        {
-            _localConfig.WeightOccupancy = Math.Clamp(Math.Round(val, 2), 0.0, 1.0);
-            _localConfig.WeightDistance = Math.Round(1.0 - _localConfig.WeightOccupancy, 2);
-        }
-    }
-
-    private void ResetToDefaults()
-    {
-        _localConfig = new SimulationConfig
-        {
-            UseGusCensus = true,
-            AgentCount = CensusPopulation > 0 ? CensusPopulation : 400,
-            Granulation = 1,
-            TimeScale = 1.0f,
-            Unlimited = false,
-            SocialRepulsionWeight = 4.5,
-            WhiskerLength = 2.5,
-            ShowWhiskers = false,
-            RenderMode = "agents",
-            RenderFps = "30",
-            WeightDistance = 0.5,
-            WeightOccupancy = 0.5
-        };
-    }
-
-    private async Task SaveAndClose()
-    {
-        if (OnSave.HasDelegate)
-        {
-            await OnSave.InvokeAsync(_localConfig);
-        }
-        await Close();
-    }
-
-    private async Task SaveAndStart()
-    {
-        if (OnSave.HasDelegate)
-        {
-            await OnSave.InvokeAsync(_localConfig);
-        }
-        await Close();
-        if (OnStartSimulation.HasDelegate)
-        {
-            await OnStartSimulation.InvokeAsync();
-        }
-    }
-
-    private async Task Close()
-    {
-        if (OnClose.HasDelegate)
-        {
-            await OnClose.InvokeAsync();
-        }
-    }
-
-    private async Task HandleBackdropClick()
-    {
-        await Close();
-    }
-}
+</ModalDialog>
