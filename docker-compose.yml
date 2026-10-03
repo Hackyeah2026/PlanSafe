@@ -1,9 +1,0 @@
-services:
-  plansafe-frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: plansafe-frontend
-    ports:
-      - "${PORT:-5171}:80"
-    restart: unless-stopped
