@@ -49,11 +49,27 @@ elif cmd == "curl":
         if bad: sys.exit(22)
         print("OK")
     else:
+        import re
+        config = (base / "etc/nginx/sites-available/plansafe.conf").read_text()
+        port = re.search(r"listen ([0-9]+) ", config)
+        if port and not url.startswith("http://127.0.0.1:" + port[1] + "/"):
+            sys.exit(7)
         missing = url.endswith(("/api", "/api/unknown", "/_framework/missing.js"))
         print("503" if bad else "404" if missing else "200", end="")
 elif cmd == "nginx":
     if (base / "nginx-fail").exists(): sys.exit(1)
-elif cmd in ("systemctl", "sleep", "ldd"): pass
+elif cmd == "systemctl":
+    with (base / "systemctl.log").open("a") as log:
+        log.write(" ".join(args) + "\\n")
+    if args == ["restart", "systemd-journald"] and (base / "journald-fail").exists():
+        sys.exit(23)
+    if args == ["restart", "plansafe-api"] and (base / "api-fail-once").exists():
+        (base / "api-fail-once").unlink()
+        sys.exit(42)
+elif cmd == "systemd-detect-virt":
+    print("lxc" if (base / "lxc").exists() else "none")
+    sys.exit(0 if (base / "lxc").exists() else 1)
+elif cmd in ("sleep", "ldd"): pass
 else: raise RuntimeError(cmd)
 """
 
@@ -70,7 +86,7 @@ class DeployTests(unittest.TestCase):
             text = (SOURCE / name).read_text().replace("/srv/plansafe", str(self.root))
             text = text.replace("/etc/", str(self.base / "etc") + "/")
             (self.scripts / name).write_text(text)
-        for name in ("archive.py", "nginx.conf", "plansafe-api.service"):
+        for name in ("archive.py", "nginx.conf", "plansafe-api.service", "config.sh"):
             shutil.copy(SOURCE / name, self.scripts)
         for directory in (
             "nginx/sites-available",
@@ -99,6 +115,7 @@ class DeployTests(unittest.TestCase):
             "systemctl",
             "sleep",
             "ldd",
+            "systemd-detect-virt",
         ):
             (self.bin / command).symlink_to(mock)
         real_install = shutil.which("install")
@@ -108,6 +125,7 @@ class DeployTests(unittest.TestCase):
             SANDBOX=str(self.base),
             REAL_INSTALL=real_install,
             PATH=f"{self.bin}:{os.environ['PATH']}",
+            MIKRUS_HTTP_PORT="20303",
         )
 
     def invoke(self, script, *args, ok=True):
@@ -169,6 +187,130 @@ class DeployTests(unittest.TestCase):
         self.assertEqual(data.stat().st_ino, inode)
         self.assertFalse((self.base / "etc/nginx/sites-enabled/default").exists())
         self.assertEqual((self.root / "data").stat().st_mode & 0o777, 0o700)
+
+    def test_custom_port_and_lxc_override_repeat(self):
+        (self.base / "lxc").touch()
+        self.env["MIKRUS_HTTP_PORT"] = "23456"
+        self.invoke("provision.sh")
+        dropin = (
+            self.base
+            / "etc/systemd/system/systemd-journald.service.d/10-lxc-credentials.conf"
+        )
+        self.assertEqual(dropin.read_text(), "[Service]\nImportCredential=\n")
+        self.invoke("provision.sh")
+        self.assertEqual(dropin.read_text(), "[Service]\nImportCredential=\n")
+        config = (self.base / "etc/nginx/sites-available/plansafe.conf").read_text()
+        self.assertIn("listen 23456 default_server;", config)
+        self.assertIn("listen [::]:23456 default_server;", config)
+        self.assertNotIn("listen 80", config)
+        calls = (self.base / "systemctl.log").read_text().splitlines()
+        self.assertLess(
+            calls.index("daemon-reload"), calls.index("restart systemd-journald")
+        )
+
+    def test_non_lxc_preserves_unrelated_dropin(self):
+        directory = self.base / "etc/systemd/system/systemd-journald.service.d"
+        directory.mkdir()
+        marker = directory / "other.conf"
+        marker.write_text("unrelated")
+        self.invoke("provision.sh")
+        self.assertEqual(marker.read_text(), "unrelated")
+        self.assertFalse((directory / "10-lxc-credentials.conf").exists())
+        managed = directory / "10-lxc-credentials.conf"
+        managed.write_text("existing administrator config")
+        self.invoke("provision.sh")
+        self.assertEqual(managed.read_text(), "existing administrator config")
+
+    def test_invalid_port_before_writes(self):
+        for port in ("", "80", "22", "5001", "65536", "20303;touch /tmp/x", "020303"):
+            with self.subTest(port=port):
+                self.env["MIKRUS_HTTP_PORT"] = port
+                self.invoke("provision.sh", ok=False)
+                self.assertFalse(self.root.exists())
+
+    def test_lxc_dropin_rollback_and_symlink_safety(self):
+        (self.base / "lxc").touch()
+        self.deploy(1, bad=True, ok=False)
+        directory = self.base / "etc/systemd/system/systemd-journald.service.d"
+        self.assertFalse(directory.exists())
+        target = self.base / "outside"
+        target.mkdir()
+        directory.symlink_to(target)
+        self.invoke("provision.sh", ok=False)
+        self.assertEqual(list(target.iterdir()), [])
+
+    def test_lxc_previous_dropin_restored_on_failure(self):
+        (self.base / "lxc").touch()
+        self.deploy(1)
+        directory = self.base / "etc/systemd/system/systemd-journald.service.d"
+        override = directory / "10-lxc-credentials.conf"
+        override.write_text("previous credential config")
+        unrelated = directory / "other.conf"
+        unrelated.write_text("unrelated")
+        self.deploy(2, bad=True, ok=False)
+        self.assertEqual(override.read_text(), "previous credential config")
+        self.assertEqual(unrelated.read_text(), "unrelated")
+
+    def test_journald_restart_failure_is_optional_during_provision(self):
+        (self.base / "journald-fail").touch()
+        result = self.invoke("provision.sh")
+        self.assertIn("WARNING: journald log bounds activation failed", result.stderr)
+        config = self.base / "etc/systemd/journald.conf.d/plansafe.conf"
+        self.assertEqual(
+            config.read_text(),
+            "[Journal]\nSystemMaxUse=32M\nRuntimeMaxUse=8M\nMaxRetentionSec=7day\n",
+        )
+
+    def test_journald_restart_failure_does_not_block_activation(self):
+        (self.base / "journald-fail").touch()
+        release, result = self.deploy(1)
+        self.assertIn("WARNING: journald log bounds activation failed", result.stderr)
+        self.assertIn("Activated " + release, result.stdout)
+        self.assertEqual(os.readlink(self.root / "current"), "releases/" + release)
+        self.assertEqual((self.root / "deployed").read_text(), "1 1\n")
+        self.assert_clean()
+
+    def test_journald_rollback_failure_preserves_api_failure_status(self):
+        current, _ = self.deploy(1)
+        marker = (self.root / "deployed").read_bytes()
+        config = self.base / "etc/systemd/journald.conf.d/plansafe.conf"
+        config.write_text("previous journal config\n")
+        (self.base / "systemctl.log").write_text("")
+        (self.base / "journald-fail").touch()
+        (self.base / "api-fail-once").touch()
+        failed, result = self.deploy(2, ok=False)
+        self.assertEqual(result.returncode, 42)
+        self.assertIn("WARNING: journald log bounds activation failed", result.stderr)
+        self.assertIn("WARNING: journald configuration recovery failed", result.stderr)
+        self.assertNotIn("ALERT", result.stderr)
+        self.assertEqual(config.read_text(), "previous journal config\n")
+        self.assertEqual(os.readlink(self.root / "current"), "releases/" + current)
+        self.assertEqual((self.root / "deployed").read_bytes(), marker)
+        self.assertFalse((self.root / "releases" / failed).exists())
+        self.assertEqual(
+            (self.base / "systemctl.log").read_text().splitlines(),
+            [
+                "daemon-reload",
+                "enable nginx plansafe-api",
+                "reset-failed systemd-journald",
+                "restart systemd-journald",
+                "restart plansafe-api",
+                "daemon-reload",
+                "restart systemd-journald",
+                "restart plansafe-api",
+                "reload-or-restart nginx",
+            ],
+        )
+        self.assert_clean()
+
+    def test_port_change_rollback_restores_old_listener(self):
+        current, _ = self.deploy(1)
+        config = self.base / "etc/nginx/sites-available/plansafe.conf"
+        previous = config.read_text()
+        self.env["MIKRUS_HTTP_PORT"] = "23456"
+        self.deploy(2, bad=True, ok=False)
+        self.assertEqual(config.read_text(), previous)
+        self.assertEqual(os.readlink(self.root / "current"), "releases/" + current)
 
     def test_activation_retention_stale_and_health_rollback(self):
         first, _ = self.deploy(1)

@@ -97,6 +97,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           MIKRUS_HOST: ${{ vars.MIKRUS_HOST }}
           MIKRUS_SSH_PORT: ${{ vars.MIKRUS_SSH_PORT }}
+          MIKRUS_HTTP_PORT: ${{ vars.MIKRUS_HTTP_PORT }}
+          MIKRUS_PUBLIC_URL: ${{ vars.MIKRUS_PUBLIC_URL }}
           MIKRUS_KEY: ${{ secrets.MIKRUS_KEY }}
           MIKRUS_KNOWN_HOSTS: ${{ secrets.MIKRUS_KNOWN_HOSTS }}
           RELEASE_ID: >-
