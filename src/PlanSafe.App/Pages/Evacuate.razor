@@ -1,5 +1,8 @@
 @page "/evacuate"
 @using PlanSafe.App.Simulation
+@using PlanSafe.Contracts.Models.Session
+@using PlanSafe.App.Services
+@inject IMapSessionService SessionService
 @inject IJSRuntime JS
 @implements IDisposable
 
@@ -74,12 +77,23 @@
                 </div>
             </div>
 
-            <!-- Preset Scenario -->
+            <!-- Scenario Selector: Map Sessions + Hardcoded Presets -->
             <div class="d-flex align-items-center gap-2">
                 <label class="small text-secondary mb-0">Scenario:</label>
-                <select class="form-select form-select-sm bg-black text-white border-secondary" style="width: 250px;" @onchange="OnScenarioChanged">
-                    <option value="bottleneck" selected>Two Obstacles & Narrow Corridor</option>
-                    <option value="open">Open Arena Evacuation</option>
+                <select class="form-select form-select-sm bg-black text-white border-secondary" style="width: 280px;" value="@_currentPresetKey" @onchange="OnScenarioChanged">
+                    @if (_allSessions.Count > 0)
+                    {
+                        <optgroup label="Map Sessions (Branches)">
+                            @foreach (var s in _allSessions)
+                            {
+                                <option value="@("session:" + s.Id)">🌿 @s.BranchName: @s.Name</option>
+                            }
+                        </optgroup>
+                    }
+                    <optgroup label="Hardcoded Presets">
+                        <option value="bottleneck">Two Obstacles & Narrow Corridor</option>
+                        <option value="open">Open Arena Evacuation</option>
+                    </optgroup>
                 </select>
             </div>
 
@@ -154,6 +168,27 @@
     private bool _showFlowVectors = false;
     private CancellationTokenSource? _simLoopCts;
 
+    private List<MapSession> _allSessions = new();
+    private MapSession? _activeSession;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _allSessions = await SessionService.GetAllSessionsAsync();
+            _activeSession = await SessionService.GetActiveSessionAsync();
+            if (_activeSession != null)
+            {
+                _currentPresetKey = $"session:{_activeSession.Id}";
+                _agentCount = _activeSession.SimulationConfig?.AgentCount ?? 400;
+            }
+        }
+        catch
+        {
+            _currentPresetKey = "bottleneck";
+        }
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -167,6 +202,20 @@
 
     private void InitSimulation()
     {
+        if (_currentPresetKey.StartsWith("session:"))
+        {
+            string sessionId = _currentPresetKey.Substring("session:".Length);
+            var session = _allSessions.FirstOrDefault(s => s.Id == sessionId) ?? _activeSession;
+            if (session != null)
+            {
+                var compiled = SessionSimulationCompiler.Compile(session);
+                _grid = compiled.Grid;
+                _sim = new CrowdSimulator(_grid, maxAgents: 3000);
+                compiled.PopulateAgents(_sim, _agentCount);
+                return;
+            }
+        }
+
         var preset = (_currentPresetKey == "open")
             ? MapPresets.CreateOpenArena()
             : MapPresets.CreateTwoObstaclesNarrowCorridor();

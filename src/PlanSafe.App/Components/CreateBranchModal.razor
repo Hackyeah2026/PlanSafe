@@ -1,0 +1,203 @@
+@namespace PlanSafe.App.Components
+@using PlanSafe.Contracts.Models.Session
+
+@if (IsOpen)
+{
+    <div class="modal-backdrop-fade" @onclick="HandleBackdropClick">
+        <div class="branch-modal-card" @onclick:stopPropagation>
+            <!-- Modal Header -->
+            <div class="branch-modal-header">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="branch-icon-box">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="6" y1="3" x2="6" y2="15"></line>
+                            <circle cx="18" cy="6" r="3"></circle>
+                            <circle cx="6" cy="18" r="3"></circle>
+                            <path d="M18 9a9 9 0 0 1-9 9"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h5 class="branch-modal-title">Create Scenario Branch</h5>
+                        <div class="branch-modal-subtitle">Branch off to test alternative evacuation variables</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-branch-modal-close" @onclick="Close" aria-label="Close">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Parent Lineage Banner -->
+            @if (ParentSession != null)
+            {
+                <div class="parent-info-banner">
+                    <div class="parent-label">Branching from:</div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="parent-branch-badge">🌿 @ParentSession.BranchName</span>
+                    </div>
+                    <div class="parent-items-summary">
+                        Includes: @ParentSession.EvacZoneCount Evac Zones • @ParentSession.SafeZoneCount Safe Havens • @ParentSession.BlockadeCount Blockades
+                    </div>
+                </div>
+            }
+
+            <!-- Form Content -->
+            <div class="branch-modal-body">
+                @if (!string.IsNullOrEmpty(_errorMessage))
+                {
+                    <div class="branch-alert-error">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <span>@_errorMessage</span>
+                    </div>
+                }
+
+                <div class="form-group mb-3">
+                    <label class="form-label-custom">
+                        <span>Branch Identifier</span>
+                        <small class="form-hint">e.g. scenario/bridge-closure, test/florian-blockade</small>
+                    </label>
+                    <div class="input-prefix-wrapper">
+                        <span class="input-prefix">🌿</span>
+                        <input type="text" 
+                               class="form-control-custom" 
+                               placeholder="scenario/my-hypothesis" 
+                               @bind="_branchName" 
+                               @bind:event="oninput" 
+                               autofocus />
+                    </div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label class="form-label-custom">
+                        <span>Hypothesis / Description <small class="text-secondary">(Optional)</small></span>
+                    </label>
+                    <textarea class="form-control-custom form-textarea-custom" 
+                              rows="2" 
+                              placeholder="Describe what condition or blockage is being tested in this scenario..." 
+                              @bind="_description"></textarea>
+                </div>
+
+                <div class="form-check-custom">
+                    <label class="check-container">
+                        <input type="checkbox" @bind="_copyItems" />
+                        <span class="checkmark"></span>
+                        <span class="check-text">
+                            <strong>Inherit parent map features</strong>
+                            <small class="d-block text-secondary">Deep-clones existing zones and blockades into the new branch for isolated editing.</small>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Footer Actions -->
+            <div class="branch-modal-footer">
+                <button type="button" class="btn-modal-secondary" @onclick="Close">
+                    Cancel
+                </button>
+                <button type="button" class="btn-modal-primary" @onclick="HandleCreate" disabled="@_isSubmitting">
+                    @if (_isSubmitting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                        <span>Branching...</span>
+                    }
+                    else
+                    {
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1">
+                            <line x1="6" y1="3" x2="6" y2="15"></line>
+                            <circle cx="18" cy="6" r="3"></circle>
+                            <circle cx="6" cy="18" r="3"></circle>
+                            <path d="M18 9a9 9 0 0 1-9 9"></path>
+                        </svg>
+                        <span>Create & Checkout Branch</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public MapSession? ParentSession { get; set; }
+    [Parameter] public EventCallback<SessionBranchRequest> OnBranchCreated { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string _branchName = string.Empty;
+    private string? _description;
+    private bool _copyItems = true;
+    private bool _isSubmitting = false;
+    private string? _errorMessage;
+
+    protected override void OnParametersSet()
+    {
+        if (IsOpen && string.IsNullOrWhiteSpace(_branchName) && ParentSession != null)
+        {
+            int rnd = new Random().Next(100, 999);
+            _branchName = $"scenario/branch-{rnd}";
+            _description = null;
+            _copyItems = true;
+            _errorMessage = null;
+        }
+    }
+
+    private async Task HandleCreate()
+    {
+        if (ParentSession == null) return;
+
+        if (string.IsNullOrWhiteSpace(_branchName))
+        {
+            _errorMessage = "Please specify a branch identifier (e.g. scenario/new-blockade).";
+            return;
+        }
+
+        _errorMessage = null;
+        _isSubmitting = true;
+
+        var request = new SessionBranchRequest
+        {
+            ParentSessionId = ParentSession.Id,
+            BranchName = _branchName.Trim(),
+            Description = _description?.Trim(),
+            CopyItems = _copyItems
+        };
+
+        try
+        {
+            if (OnBranchCreated.HasDelegate)
+            {
+                await OnBranchCreated.InvokeAsync(request);
+            }
+            Close();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private void HandleBackdropClick()
+    {
+        Close();
+    }
+
+    private void Close()
+    {
+        _branchName = string.Empty;
+        _description = null;
+        _errorMessage = null;
+        if (OnClose.HasDelegate)
+        {
+            OnClose.InvokeAsync();
+        }
+    }
+}

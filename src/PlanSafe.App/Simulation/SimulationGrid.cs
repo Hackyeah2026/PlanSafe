@@ -68,6 +68,8 @@ public class SimulationGrid
 
     public bool IsInBounds(int c, int r) => c >= 0 && c < Cols && r >= 0 && r < Rows;
 
+    public CellType GetCell(int c, int r) => IsInBounds(c, r) ? (CellType)Cells[GetIndex(c, r)] : CellType.Obstacle;
+
     public bool IsPassable(int c, int r)
     {
         if (!IsInBounds(c, r)) return false;

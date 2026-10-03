@@ -1,4 +1,5 @@
 @namespace PlanSafe.App.Components
+@using PlanSafe.Contracts.Models.Map
 
 <div class="command-panel">
     <!-- Panel Header -->
@@ -33,11 +34,192 @@
         </div>
     </div>
 
+    <!-- Scenario Session & Git Branching Card -->
+    <div class="scenario-branch-card">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="branch-pill-badge" title="Active Scenario Branch">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="me-1">
+                    <line x1="6" y1="3" x2="6" y2="15"></line>
+                    <circle cx="18" cy="6" r="3"></circle>
+                    <circle cx="6" cy="18" r="3"></circle>
+                    <path d="M18 9a9 9 0 0 1-9 9"></path>
+                </svg>
+                <span>@(ActiveSession?.BranchName ?? "main")</span>
+            </span>
+
+            <div class="d-flex align-items-center gap-1">
+                <button type="button" class="btn-scenario-action btn-open-tree" @onclick="HandleOpenTreeMap" title="View Scenario Tree Map">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="6" y1="3" x2="6" y2="15"></line>
+                        <circle cx="18" cy="6" r="3"></circle>
+                        <circle cx="6" cy="18" r="3"></circle>
+                        <path d="M18 9a9 9 0 0 1-9 9"></path>
+                    </svg>
+                    <span>Tree Map</span>
+                </button>
+                <button type="button" class="btn-scenario-action btn-add-branch" @onclick="HandleOpenCreateBranch" title="Create child branch off this session">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    <span>Branch</span>
+                </button>
+            </div>
+        </div>
+
+        @if (AllSessions != null && AllSessions.Count > 1)
+        {
+            <div class="scenario-selector-wrapper mt-2">
+                <select class="form-select form-select-sm scenario-select" 
+                        value="@ActiveSession?.Id" 
+                        @onchange="HandleSessionDropdownChange">
+                    @foreach (var s in AllSessions)
+                    {
+                        <option value="@s.Id">🌿 @s.BranchName</option>
+                    }
+                </select>
+            </div>
+        }
+    </div>
+
+    <!-- Zones, Blockades & Safe Locations Management Section -->
+    <div class="action-section">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="section-label m-0">Zones & Infrastructure</div>
+            @if (Items != null && Items.Count > 0)
+            {
+                <button type="button" class="btn-clear-all" @onclick="HandleClearAll" title="Remove all map objects">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                    Clear All
+                </button>
+            }
+        </div>
+
+        <!-- Infrastructure Summary Pills -->
+        <div class="infra-summary-grid">
+            <div class="infra-pill pill-zone" title="Evacuation Zones (Orange)">
+                <span class="pill-dot zone-dot"></span>
+                <span class="pill-title">Evac Zones</span>
+                <span class="pill-count">@GetZoneCount()</span>
+            </div>
+            <div class="infra-pill pill-safe" title="Safe Locations (Green)">
+                <span class="pill-dot safe-dot"></span>
+                <span class="pill-title">Safe Zones</span>
+                <span class="pill-count">@GetSafeZoneCount()</span>
+            </div>
+            <div class="infra-pill pill-blockade" title="Blockades (Red)">
+                <span class="pill-dot blockade-dot"></span>
+                <span class="pill-title">Blockades</span>
+                <span class="pill-count">@GetBlockadeCount()</span>
+            </div>
+        </div>
+
+        <!-- Items Management List -->
+        <div class="items-list-container">
+            @if (Items == null || Items.Count == 0)
+            {
+                <div class="empty-items-card">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" class="empty-icon">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
+                    <div class="empty-title">No zones or blockades defined</div>
+                    <div class="empty-desc">Select Evac Zone, Safe Location, or Blockade on the top toolbar to define areas on the map.</div>
+                </div>
+            }
+            else
+            {
+                <div class="items-scroll-list">
+                    @foreach (var item in Items)
+                    {
+                        <div class="item-card @item.CardCssClass">
+                            <div class="item-indicator">
+                                @switch (item)
+                                {
+                                    case SafeCircleZoneItem:
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <circle cx="12" cy="12" r="9"></circle>
+                                        </svg>
+                                        break;
+                                    case SafePolygonZoneItem:
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <polygon points="12 2 22 8.5 18 21 6 21 2 8.5 12 2"></polygon>
+                                        </svg>
+                                        break;
+                                    case SafePointZoneItem:
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                        </svg>
+                                        break;
+                                    case BlockadeZoneItem:
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <line x1="4" y1="20" x2="20" y2="4"></line>
+                                            <circle cx="4" cy="20" r="2.5" fill="currentColor"></circle>
+                                            <circle cx="20" cy="4" r="2.5" fill="currentColor"></circle>
+                                        </svg>
+                                        break;
+                                    case EvacCircleZoneItem:
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <circle cx="12" cy="12" r="9"></circle>
+                                        </svg>
+                                        break;
+                                    default:
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ea580c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <polygon points="12 2 22 8.5 18 21 6 21 2 8.5 12 2"></polygon>
+                                        </svg>
+                                        break;
+                                }
+                            </div>
+                            <div class="item-info">
+                                <div class="item-name">@item.Name</div>
+                                <div class="item-meta">
+                                    <span class="item-type-label">@item.DisplayLabel</span>
+                                    @if (!string.IsNullOrEmpty(item.MetricInfo))
+                                    {
+                                        <span class="item-metric-separator">•</span>
+                                        <span class="item-metric">@item.MetricInfo</span>
+                                    }
+                                    @if (item.Category == ZoneCategory.EvacuationZone && OnGetZonePopulation != null)
+                                    {
+                                        var pop = OnGetZonePopulation(item);
+                                        if (pop > 0)
+                                        {
+                                            <span class="item-metric-separator">•</span>
+                                            <span class="item-metric" style="color: #f97316; font-weight: 600;">@pop.ToString("N0") pop (GUS)</span>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                            <div class="item-actions">
+                                <button type="button" class="btn-item-action btn-item-pan" @onclick="() => HandlePanTo(item.Id)" title="Focus on map">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                </button>
+                                <button type="button" class="btn-item-action btn-item-delete" @onclick="() => HandleDelete(item.Id)" title="Remove item">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="3 6 5 6 21 6"></polyline>
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
     <!-- Simulation Action Buttons -->
     <div class="action-section">
         <div class="section-label">Simulation Controls</div>
         
-        <button type="button" class="btn-command btn-configure" title="Configure simulation parameters and evacuation routes">
+        <button type="button" class="btn-command btn-configure" @onclick="HandleConfigureSimulation" title="Configure simulation parameters and evacuation routes">
             <span class="btn-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="12" cy="12" r="3"></circle>
@@ -47,7 +229,7 @@
             <span class="btn-text">Configure simulation/evacuation</span>
         </button>
 
-        <button type="button" class="btn-command btn-start-simulation" title="Start crowd movement simulation">
+        <button type="button" class="btn-command btn-start-simulation" @onclick="HandleStartSimulation" title="Start crowd movement simulation">
             <span class="btn-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                     <polygon points="5 3 19 12 5 21 5 3"></polygon>
@@ -68,10 +250,27 @@
         </button>
     </div>
 
-    <!-- Live Telemetry / Overview (Preparation for Next Round) -->
+    <!-- Live Telemetry / Overview -->
     <div class="metrics-section">
         <div class="section-label">Operational Overview</div>
         
+        <div class="metric-card">
+            <div class="metric-label">GUS NSP 2021 Evacuees</div>
+            <div class="metric-value highlight" style="color: #f97316;">
+                @CensusPopulation.ToString("N0") <span style="font-size: 0.8rem; font-weight: 500; color: #a1a1aa;">occupants</span>
+            </div>
+            <div class="metric-sub">
+                @if (CensusCells > 0)
+                {
+                    <span>@CensusCells census cells (125m) • 1:1 census occupancy</span>
+                }
+                else
+                {
+                    <span>Draw evacuation zone to estimate census evacuees</span>
+                }
+            </div>
+        </div>
+
         <div class="metric-card">
             <div class="metric-label">Initial Location (Test)</div>
             <div class="metric-value">Center of Kraków</div>
@@ -88,21 +287,111 @@
                 <div class="metric-value">OpenStreetMap</div>
             </div>
         </div>
-
-        <div class="upcoming-banner">
-            <div class="banner-title">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="12" y1="16" x2="12" y2="12"></line>
-                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                </svg>
-                Next Round Readiness
-            </div>
-            <p class="banner-desc">Agent crowd rendering, emergency evacuation routes, and safe destination zones will be activated in the next iteration.</p>
-        </div>
     </div>
 </div>
 
 @code {
+    [Parameter] public List<MapZoneItem> Items { get; set; } = new();
+    [Parameter] public int CensusPopulation { get; set; } = 0;
+    [Parameter] public int CensusCells { get; set; } = 0;
+    [Parameter] public Func<MapZoneItem, int>? OnGetZonePopulation { get; set; }
+    [Parameter] public EventCallback<string> OnDeleteItem { get; set; }
+    [Parameter] public EventCallback OnClearAll { get; set; }
+    [Parameter] public EventCallback<string> OnPanToItem { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public PlanSafe.Contracts.Models.Session.MapSession? ActiveSession { get; set; }
+    [Parameter] public List<PlanSafe.Contracts.Models.Session.MapSession>? AllSessions { get; set; }
+    [Parameter] public EventCallback OnOpenTreeMap { get; set; }
+    [Parameter] public EventCallback OnOpenCreateBranch { get; set; }
+    [Parameter] public EventCallback<string> OnSelectSession { get; set; }
+    [Parameter] public EventCallback OnStartSimulation { get; set; }
+    [Parameter] public EventCallback OnConfigureSimulation { get; set; }
+
+    private int GetZoneCount() => Items?.Count(i => i.Category == ZoneCategory.EvacuationZone) ?? 0;
+    private int GetBlockadeCount() => Items?.Count(i => i.Category == ZoneCategory.Blockade) ?? 0;
+    private int GetSafeZoneCount() => Items?.Count(i => i.Category == ZoneCategory.SafeLocation) ?? 0;
+
+    private string GetItemTypeLabel(string type) => type switch
+    {
+        "circle_zone" => "Evac Zone (Circle)",
+        "polygon_zone" => "Evac Zone (Polygon)",
+        "safe_circle" => "Safe Zone (Circle)",
+        "safe_polygon" => "Safe Zone (Polygon)",
+        "safe_point" => "Safe Location",
+        "blockade" => "Blockade",
+        _ => "Zone"
+    };
+
+    private string GetItemCardClass(string type) => type switch
+    {
+        "circle_zone" or "polygon_zone" => "card-zone",
+        "safe_circle" or "safe_polygon" or "safe_point" => "card-safe",
+        "blockade" => "card-blockade",
+        _ => ""
+    };
+
+    private async Task HandleDelete(string id)
+    {
+        if (OnDeleteItem.HasDelegate)
+        {
+            await OnDeleteItem.InvokeAsync(id);
+        }
+    }
+
+    private async Task HandlePanTo(string id)
+    {
+        if (OnPanToItem.HasDelegate)
+        {
+            await OnPanToItem.InvokeAsync(id);
+        }
+    }
+
+    private async Task HandleClearAll()
+    {
+        if (OnClearAll.HasDelegate)
+        {
+            await OnClearAll.InvokeAsync();
+        }
+    }
+
+    private async Task HandleOpenTreeMap()
+    {
+        if (OnOpenTreeMap.HasDelegate)
+        {
+            await OnOpenTreeMap.InvokeAsync();
+        }
+    }
+
+    private async Task HandleOpenCreateBranch()
+    {
+        if (OnOpenCreateBranch.HasDelegate)
+        {
+            await OnOpenCreateBranch.InvokeAsync();
+        }
+    }
+
+    private async Task HandleSessionDropdownChange(ChangeEventArgs e)
+    {
+        var selectedId = e.Value?.ToString();
+        if (!string.IsNullOrEmpty(selectedId) && OnSelectSession.HasDelegate)
+        {
+            await OnSelectSession.InvokeAsync(selectedId);
+        }
+    }
+
+    private async Task HandleStartSimulation()
+    {
+        if (OnStartSimulation.HasDelegate)
+        {
+            await OnStartSimulation.InvokeAsync();
+        }
+    }
+
+    private async Task HandleConfigureSimulation()
+    {
+        if (OnConfigureSimulation.HasDelegate)
+        {
+            await OnConfigureSimulation.InvokeAsync();
+        }
+    }
 }

@@ -60,7 +60,6 @@ window.PlanSafeRenderer = {
 
     const uintCells =
       cells instanceof Uint8Array ? cells : new Uint8Array(cells);
-
     try {
       rendererInstance = new CrowdWebGLRenderer(canvas);
       console.log(
@@ -73,7 +72,6 @@ window.PlanSafeRenderer = {
       );
       rendererInstance = new CrowdCanvasRenderer(canvas);
     }
-
     rendererInstance.setGrid(width, height, cellSize, cols, rows, uintCells);
     window.PlanSafeRenderer.rendererInstance = rendererInstance;
     return true;

@@ -1,5 +1,13 @@
 @namespace PlanSafe.App.Components
+@using System.Text.Json
+@using PlanSafe.Contracts.Models.Map
+@using PlanSafe.App.Services
+@using PlanSafe.Contracts.Models.Session
 @inject IMapInterop MapInterop
+@inject IMapSessionService SessionService
+@inject NavigationManager Navigation
+@inject PlanSafe.App.Services.Gus.IGusCensusService CensusService
+@inject PlanSafe.App.Services.Gus.IGusOccupantGenerator OccupantGenerator
 @implements IAsyncDisposable
 
 <div class="map-module-layout">
@@ -7,19 +15,307 @@
     <div class="map-area">
         <div id="@MapContainerId" class="map-viewport"></div>
 
-        <!-- Floating Map Quick Actions -->
-        <div class="map-floating-controls">
-            <button type="button" class="btn-recenter" @onclick="HandleRecenter" title="Reset view to initial test location (Kraków)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <polygon points="12 8 8 12 12 16 12 8"></polygon>
-                    <line x1="12" y1="2" x2="12" y2="4"></line>
-                    <line x1="12" y1="20" x2="12" y2="22"></line>
-                    <line x1="2" y1="12" x2="4" y2="12"></line>
-                    <line x1="20" y1="12" x2="22" y2="12"></line>
+        <!-- Desktop Floating Drawing Toolbar (Hidden on mobile < 992px) -->
+        <div class="map-drawing-toolbar desktop-floating-bar">
+            <!-- Navigate / Pan -->
+            <button type="button" 
+                    class="tool-btn @(_activeCategory == "navigate" ? "active" : "")" 
+                    @onclick='() => SelectCategory("navigate")' 
+                    title="Pan & Navigate (Default)">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path>
+                    <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path>
+                    <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path>
+                    <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
                 </svg>
-                <span>Center Map</span>
+                <span class="tool-label">Navigate</span>
             </button>
+
+            <div class="tool-separator"></div>
+
+            <!-- Evacuation Zone (Dark Orange) -->
+            <button type="button" 
+                    class="tool-btn btn-tool-zone @(_activeCategory == "evac" ? "active" : "")" 
+                    @onclick='() => SelectCategory("evac")' 
+                    title="Evacuation Zone (Dark Orange)">
+                <span class="category-dot zone-dot"></span>
+                <span class="tool-label">Evac Zone</span>
+            </button>
+
+            <!-- Safe Location (Green) -->
+            <button type="button" 
+                    class="tool-btn btn-tool-safe @(_activeCategory == "safe" ? "active" : "")" 
+                    @onclick='() => SelectCategory("safe")' 
+                    title="Safe Location (Green)">
+                <span class="category-dot safe-dot"></span>
+                <span class="tool-label">Safe Location</span>
+            </button>
+
+            <!-- Blockade (Red Line) -->
+            <button type="button" 
+                    class="tool-btn btn-tool-blockade @(_activeCategory == "blockade" ? "active" : "")" 
+                    @onclick='() => SelectCategory("blockade")' 
+                    title="Blockade (Red Line: start to end)">
+                <span class="category-dot blockade-dot"></span>
+                <span class="tool-label">Blockade</span>
+            </button>
+
+            <!-- Shape Selector (Polygon / Circle) for Evac & Safe Zones -->
+            @if (_activeCategory == "evac" || _activeCategory == "safe")
+            {
+                <div class="tool-separator"></div>
+                <div class="shape-toggle-group">
+                    <button type="button" 
+                            class="shape-btn @(_selectedShape == "polygon" ? "active" : "")" 
+                            @onclick='() => SelectShape("polygon")' 
+                            title="Polygon (immediately confirmed on 3rd click, click more points to expand)">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="12 2 22 8.5 18 21 6 21 2 8.5 12 2"></polygon>
+                        </svg>
+                        <span>Polygon</span>
+                    </button>
+                    <button type="button" 
+                            class="shape-btn @(_selectedShape == "circle" ? "active" : "")" 
+                            @onclick='() => SelectShape("circle")' 
+                            title="Circle (center + radius)">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="9"></circle>
+                        </svg>
+                        <span>Circle</span>
+                    </button>
+                </div>
+            }
+        </div>
+
+        <!-- Desktop Floating Active Tool Instruction Pill (Hidden on mobile) -->
+        @if (_activeCategory != "navigate" && _activeDrawMode != "none")
+        {
+            <div class="draw-instruction-pill desktop-floating-bar">
+                <div class="instruction-content">
+                    <span class="pulsing-record-dot"></span>
+                    <span class="instruction-text">@(_activeDrawHint ?? "Click on the map to define shape")</span>
+                </div>
+                <div class="instruction-actions">
+                    @if ((_activeDrawMode == "evac_polygon" || _activeDrawMode == "safe_polygon" || _activeDrawMode == "polygon") && _currentPointCount >= 3)
+                    {
+                        <button type="button" class="btn-instruction-action btn-finish-polygon" @onclick="FinishPolygon" title="Finish drawing polygon (already confirmed)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            Done
+                        </button>
+                    }
+                    <button type="button" class="btn-instruction-action btn-cancel-draw" @onclick="CancelDrawing" title="Cancel drawing mode (Esc)">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                        Cancel (Esc)
+                    </button>
+                </div>
+            </div>
+        }
+
+        <!-- Desktop Floating Scenario Branch Capsule (Top Right - Hidden on mobile) -->
+        <div class="map-floating-controls desktop-floating-bar">
+            <div class="branch-floating-badge-group">
+                <!-- Active Branch Indicator (Click to open Scenario Tree) -->
+                <button type="button" 
+                        class="btn-branch-pill" 
+                        @onclick="() => _isTreeMapOpen = true" 
+                        title="Active Branch: @(_activeSession?.BranchName ?? "main") • Click to view Scenario Tree">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="branch-pill-icon">
+                        <line x1="6" y1="3" x2="6" y2="15"></line>
+                        <circle cx="18" cy="6" r="3"></circle>
+                        <circle cx="6" cy="18" r="3"></circle>
+                        <path d="M18 9a9 9 0 0 1-9 9"></path>
+                    </svg>
+                    <span class="branch-pill-tag">@(_activeSession?.BranchName ?? "main")</span>
+                </button>
+
+                <div class="branch-pill-divider"></div>
+
+                <!-- Create Branch Button -->
+                <button type="button" 
+                        class="btn-floating-pill-action btn-pill-branch" 
+                        @onclick="() => _isCreateBranchOpen = true" 
+                        title="Fork child branch from '@(_activeSession?.BranchName)'">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    <span>Branch</span>
+                </button>
+
+                <!-- Tree Map Button -->
+                <button type="button" 
+                        class="btn-floating-pill-action btn-pill-tree" 
+                        @onclick="() => _isTreeMapOpen = true" 
+                        title="Open visual scenario tree map">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="6" y1="3" x2="6" y2="15"></line>
+                        <circle cx="18" cy="6" r="3"></circle>
+                        <circle cx="6" cy="18" r="3"></circle>
+                        <path d="M18 9a9 9 0 0 1-9 9"></path>
+                    </svg>
+                    <span>Tree Map</span>
+                </button>
+
+                <div class="branch-pill-divider"></div>
+
+                <!-- Center Map Button -->
+                <button type="button" 
+                        class="btn-floating-pill-action btn-pill-center" 
+                        @onclick="HandleRecenter" 
+                        title="Reset map view to center">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="2" x2="12" y2="6"></line>
+                        <line x1="12" y1="18" x2="12" y2="22"></line>
+                        <line x1="2" y1="12" x2="6" y2="12"></line>
+                        <line x1="18" y1="12" x2="22" y2="12"></line>
+                    </svg>
+                    <span>Center</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Unified Top Control Panel (Replaces separate floating panels on mobile < 992px) -->
+        <div class="mobile-unified-panel">
+            <!-- Row 1: Scenario Branch & Quick Actions -->
+            <div class="mobile-panel-header-row">
+                <button type="button" 
+                        class="btn-branch-pill mobile-branch-pill" 
+                        @onclick="() => _isTreeMapOpen = true" 
+                        title="Active Branch: @(_activeSession?.BranchName ?? "main") • Tap to view Tree">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="branch-pill-icon">
+                        <line x1="6" y1="3" x2="6" y2="15"></line>
+                        <circle cx="18" cy="6" r="3"></circle>
+                        <circle cx="6" cy="18" r="3"></circle>
+                        <path d="M18 9a9 9 0 0 1-9 9"></path>
+                    </svg>
+                    <span class="branch-pill-tag">@(_activeSession?.BranchName ?? "main")</span>
+                </button>
+
+                <div class="mobile-action-buttons">
+                    <button type="button" 
+                            class="btn-floating-pill-action btn-pill-branch" 
+                            @onclick="() => _isCreateBranchOpen = true" 
+                            title="Fork branch">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        <span>Branch</span>
+                    </button>
+
+                    <button type="button" 
+                            class="btn-floating-pill-action btn-pill-tree" 
+                            @onclick="() => _isTreeMapOpen = true" 
+                            title="Tree Map">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="6" y1="3" x2="6" y2="15"></line>
+                            <circle cx="18" cy="6" r="3"></circle>
+                            <circle cx="6" cy="18" r="3"></circle>
+                            <path d="M18 9a9 9 0 0 1-9 9"></path>
+                        </svg>
+                        <span>Tree</span>
+                    </button>
+
+                    <button type="button" 
+                            class="btn-floating-pill-action btn-pill-center" 
+                            @onclick="HandleRecenter" 
+                            title="Center map">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="2" x2="12" y2="6"></line>
+                            <line x1="12" y1="18" x2="12" y2="22"></line>
+                            <line x1="2" y1="12" x2="6" y2="12"></line>
+                            <line x1="18" y1="12" x2="22" y2="12"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Subtle Separator -->
+            <div class="mobile-panel-separator"></div>
+
+            <!-- Row 2: Drawing Tools or Drawing Progress Banner -->
+            @if (_activeCategory != "navigate" && _activeDrawMode != "none")
+            {
+                <div class="mobile-drawing-active-strip">
+                    <div class="d-flex align-items-center gap-2 min-w-0 flex-grow-1">
+                        <span class="pulsing-record-dot"></span>
+                        <span class="mobile-instruction-text text-truncate">@(_activeDrawHint ?? "Click map to draw")</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                        @if ((_activeDrawMode == "evac_polygon" || _activeDrawMode == "safe_polygon" || _activeDrawMode == "polygon") && _currentPointCount >= 3)
+                        {
+                            <button type="button" class="btn-instruction-action btn-finish-polygon" @onclick="FinishPolygon">
+                                Done
+                            </button>
+                        }
+                        <button type="button" class="btn-instruction-action btn-cancel-draw" @onclick="CancelDrawing">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="mobile-tools-strip">
+                    <button type="button" 
+                            class="tool-btn mobile-tool-btn @(_activeCategory == "navigate" ? "active" : "")" 
+                            @onclick='() => SelectCategory("navigate")' 
+                            title="Pan">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path></svg>
+                        <span>Pan</span>
+                    </button>
+
+                    <button type="button" 
+                            class="tool-btn mobile-tool-btn btn-tool-zone @(_activeCategory == "evac" ? "active" : "")" 
+                            @onclick='() => SelectCategory("evac")' 
+                            title="Evac Zone">
+                        <span class="category-dot zone-dot"></span>
+                        <span>Evac</span>
+                    </button>
+
+                    <button type="button" 
+                            class="tool-btn mobile-tool-btn btn-tool-safe @(_activeCategory == "safe" ? "active" : "")" 
+                            @onclick='() => SelectCategory("safe")' 
+                            title="Safe Location">
+                        <span class="category-dot safe-dot"></span>
+                        <span>Safe</span>
+                    </button>
+
+                    <button type="button" 
+                            class="tool-btn mobile-tool-btn btn-tool-blockade @(_activeCategory == "blockade" ? "active" : "")" 
+                            @onclick='() => SelectCategory("blockade")' 
+                            title="Blockade">
+                        <span class="category-dot blockade-dot"></span>
+                        <span>Block</span>
+                    </button>
+
+                    @if (_activeCategory == "evac" || _activeCategory == "safe")
+                    {
+                        <div class="tool-separator"></div>
+                        <div class="shape-toggle-group">
+                            <button type="button" 
+                                    class="shape-btn mobile-shape-btn @(_selectedShape == "polygon" ? "active" : "")" 
+                                    @onclick='() => SelectShape("polygon")' 
+                                    title="Polygon">
+                                Poly
+                            </button>
+                            <button type="button" 
+                                    class="shape-btn mobile-shape-btn @(_selectedShape == "circle" ? "active" : "")" 
+                                    @onclick='() => SelectShape("circle")' 
+                                    title="Circle">
+                                Circle
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
         </div>
 
         <!-- Mobile Drawer Toggle Tab -->
@@ -30,7 +326,7 @@
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="18 15 12 9 6 15"></polyline>
                     </svg>
-                    <span>Open Controls</span>
+                    <span>Open Controls (@(_mapItems.Count))</span>
                 </button>
             </div>
         }
@@ -41,23 +337,242 @@
         <div class="drawer-drag-handle d-md-none" @onclick="ToggleMobilePanel">
             <div class="handle-bar"></div>
         </div>
-        <SidePanel OnClose="ToggleMobilePanel" />
+        <SidePanel 
+            Items="@_mapItems" 
+            CensusPopulation="@_censusPopulation"
+            CensusCells="@_censusCells"
+            ActiveSession="@_activeSession"
+            AllSessions="@_allSessions"
+            OnGetZonePopulation="GetZonePopulation"
+            OnDeleteItem="HandleDeleteItem" 
+            OnClearAll="HandleClearAll" 
+            OnPanToItem="HandlePanToItem" 
+            OnOpenTreeMap="() => _isTreeMapOpen = true"
+            OnOpenCreateBranch="() => _isCreateBranchOpen = true"
+            OnSelectSession="HandleSelectSessionById"
+            OnStartSimulation="HandleStartSimulation"
+            OnConfigureSimulation="() => _isTreeMapOpen = true"
+            OnClose="ToggleMobilePanel" />
     </aside>
+
+    <!-- Scenario Modals -->
+    <CreateBranchModal 
+        IsOpen="@_isCreateBranchOpen" 
+        ParentSession="@_branchParentSession" 
+        OnBranchCreated="HandleBranchCreated" 
+        OnClose="() => _isCreateBranchOpen = false" />
+
+    <SessionTreeModal 
+        IsOpen="@_isTreeMapOpen" 
+        OnCheckoutSession="HandleCheckoutSession" 
+        OnRequestBranch="HandleRequestBranchFromTree" 
+        OnClose="() => _isTreeMapOpen = false" />
 </div>
 
 @code {
     private string MapContainerId { get; set; } = $"map-{Guid.NewGuid():N}";
     private bool isMobilePanelOpen = false;
     private bool isMapInitialized = false;
+    private DotNetObjectReference<EvacuationMap>? _dotNetRef;
+
+    private List<MapZoneItem> _mapItems = new();
+    private MapSession? _activeSession;
+    private List<MapSession> _allSessions = new();
+    private MapSession? _branchParentSession;
+    private bool _isCreateBranchOpen = false;
+    private bool _isTreeMapOpen = false;
+
+    private string _activeCategory = "navigate"; // "navigate", "evac", "safe", "blockade"
+    private string _selectedShape = "polygon"; // "polygon", "circle"
+    private string _activeDrawMode = "none";
+    private string? _activeDrawHint;
+    private int _currentPointCount = 0;
+    private int _censusPopulation = 0;
+    private int _censusCells = 0;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender && !isMapInitialized)
         {
             isMapInitialized = true;
-            // Center of Kraków: [50.0614, 19.9366] at zoom 14
-            await MapInterop.InitializeMapAsync(MapContainerId, 50.0614, 19.9366, 14);
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await CensusService.EnsureLoadedAsync();
+
+            _activeSession = await SessionService.GetActiveSessionAsync();
+            _allSessions = await SessionService.GetAllSessionsAsync();
+            _branchParentSession = _activeSession;
+
+            double lat = _activeSession.MapCenter is { Length: >= 2 } ? _activeSession.MapCenter[0] : 50.0614;
+            double lng = _activeSession.MapCenter is { Length: >= 2 } ? _activeSession.MapCenter[1] : 19.9366;
+            int zoom = _activeSession.ZoomLevel > 0 ? _activeSession.ZoomLevel : 14;
+
+            await MapInterop.InitializeMapAsync(MapContainerId, lat, lng, zoom, _dotNetRef);
+            await MapInterop.LoadSessionItemsAsync(MapContainerId, _activeSession.Items, lat, lng, zoom);
+            _mapItems = _activeSession.Items;
+
+            RecalculateCensusData();
+            StateHasChanged();
         }
+    }
+
+    [JSInvokable]
+    public async Task OnItemsUpdated(string itemsJson)
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(itemsJson))
+            {
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                _mapItems = JsonSerializer.Deserialize<List<MapZoneItem>>(itemsJson, options) ?? new();
+            }
+            else
+            {
+                _mapItems.Clear();
+            }
+
+            if (_activeSession != null)
+            {
+                _activeSession.Items = _mapItems;
+                await SessionService.SaveSessionAsync(_activeSession);
+                _allSessions = await SessionService.GetAllSessionsAsync();
+            }
+
+            RecalculateCensusData();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EvacuationMap] Error deserializing map items: {ex.Message}");
+        }
+    }
+
+    private async Task HandleCheckoutSession(MapSession session)
+    {
+        _activeSession = session;
+        _branchParentSession = session;
+        _mapItems = session.Items;
+        _isTreeMapOpen = false;
+
+        double lat = session.MapCenter is { Length: >= 2 } ? session.MapCenter[0] : 50.0614;
+        double lng = session.MapCenter is { Length: >= 2 } ? session.MapCenter[1] : 19.9366;
+        int zoom = session.ZoomLevel > 0 ? session.ZoomLevel : 14;
+
+        await MapInterop.LoadSessionItemsAsync(MapContainerId, session.Items, lat, lng, zoom);
+        RecalculateCensusData();
+        StateHasChanged();
+    }
+
+    private async Task HandleSelectSessionById(string sessionId)
+    {
+        var target = await SessionService.SetActiveSessionAsync(sessionId);
+        await HandleCheckoutSession(target);
+    }
+
+    private void HandleRequestBranchFromTree(MapSession parent)
+    {
+        _branchParentSession = parent;
+        _isTreeMapOpen = false;
+        _isCreateBranchOpen = true;
+    }
+
+    private async Task HandleBranchCreated(SessionBranchRequest request)
+    {
+        var newBranch = await SessionService.CreateBranchAsync(request);
+        _allSessions = await SessionService.GetAllSessionsAsync();
+        await HandleCheckoutSession(newBranch);
+    }
+
+    private void HandleStartSimulation()
+    {
+        Navigation.NavigateTo("/evacuate");
+    }
+
+    private void RecalculateCensusData()
+    {
+        if (CensusService.IsLoaded)
+        {
+            var (pop, cells) = CensusService.CalculateEvacuationPopulation(_mapItems);
+            _censusPopulation = pop;
+            _censusCells = cells;
+        }
+    }
+
+    private int GetZonePopulation(MapZoneItem zone)
+    {
+        if (!CensusService.IsLoaded || zone.Category != ZoneCategory.EvacuationZone) return 0;
+        return CensusService.CalculateZonePopulation(zone);
+    }
+
+    [JSInvokable]
+    public void OnDrawModeChanged(string mode, string? hint, int pointCount = 0)
+    {
+        _activeDrawMode = mode ?? "none";
+        _activeDrawHint = hint;
+        _currentPointCount = pointCount;
+
+        if (_activeDrawMode == "none")
+        {
+            _activeCategory = "navigate";
+        }
+        StateHasChanged();
+    }
+
+    private async Task SelectCategory(string category)
+    {
+        _activeCategory = category;
+        _currentPointCount = 0;
+
+        string targetMode = ResolveTargetMode();
+        await MapInterop.SetDrawModeAsync(MapContainerId, targetMode);
+    }
+
+    private async Task SelectShape(string shape)
+    {
+        _selectedShape = shape;
+        _currentPointCount = 0;
+
+        string targetMode = ResolveTargetMode();
+        await MapInterop.SetDrawModeAsync(MapContainerId, targetMode);
+    }
+
+    private string ResolveTargetMode()
+    {
+        return _activeCategory switch
+        {
+            "navigate" => "none",
+            "evac" => _selectedShape == "circle" ? "evac_circle" : "evac_polygon",
+            "safe" => _selectedShape == "circle" ? "safe_circle" : "safe_polygon",
+            "blockade" => "blockade",
+            _ => "none"
+        };
+    }
+
+    private async Task FinishPolygon()
+    {
+        await MapInterop.FinishPolygonAsync(MapContainerId);
+    }
+
+    private async Task CancelDrawing()
+    {
+        _activeCategory = "navigate";
+        _activeDrawMode = "none";
+        _currentPointCount = 0;
+        await MapInterop.CancelCurrentDrawingAsync(MapContainerId);
+    }
+
+    private async Task HandleDeleteItem(string itemId)
+    {
+        await MapInterop.DeleteMapItemAsync(MapContainerId, itemId);
+    }
+
+    private async Task HandleClearAll()
+    {
+        await MapInterop.ClearAllMapItemsAsync(MapContainerId);
+    }
+
+    private async Task HandlePanToItem(string itemId)
+    {
+        await MapInterop.PanToMapItemAsync(MapContainerId, itemId);
     }
 
     private async Task HandleRecenter()
@@ -69,7 +584,6 @@
     {
         isMobilePanelOpen = !isMobilePanelOpen;
         StateHasChanged();
-        // Give time for CSS transition to settle, then invalidate map size
         await Task.Delay(250);
         await MapInterop.InvalidateSizeAsync(MapContainerId);
     }
@@ -80,5 +594,6 @@
         {
             await MapInterop.DisposeMapAsync(MapContainerId);
         }
+        _dotNetRef?.Dispose();
     }
 }
