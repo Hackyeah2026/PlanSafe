@@ -40,6 +40,15 @@ export function initSimulator(canvasRef) {
     let trackedMaxSpeed = 2.0;
     let trackedMaxDensity = 5.0;
 
+    // --- Last Render State for Instant Redraw (Pan, Zoom, Resize) ---
+    let lastFloatArray = null;
+    let lastCount = 0;
+    let lastRenderMode = 'agents';
+    let lastShowWhiskers = false;
+    let lastWhiskerLength = 2.5;
+    let lastGranulation = 1;
+    let lastShowFlowParticles = true;
+
     // --- Vector Field Flow Particles Setup ---
     let flowParticles = [];
     const numFlowParticles = 450;
@@ -62,7 +71,7 @@ export function initSimulator(canvasRef) {
         p.maxLife = 30 + Math.floor(Math.random() * 35);
 
         // Prefer spawning directly on an actively moving agent
-        if (floatArray && count > 0) {
+        if (floatArray && count > 0 && floatArray.length >= count * 5) {
             for (let attempt = 0; attempt < 8; attempt++) {
                 const idx = Math.floor(Math.random() * count);
                 const u = floatArray[idx * 5 + 2];
@@ -207,15 +216,6 @@ export function initSimulator(canvasRef) {
 
     fitBounds(worldWidth, worldHeight);
     initFlowParticles();
-
-    // --- Last Render State for Instant Redraw (Pan, Zoom, Resize) ---
-    let lastFloatArray = null;
-    let lastCount = 0;
-    let lastRenderMode = 'agents';
-    let lastShowWhiskers = false;
-    let lastWhiskerLength = 2.5;
-    let lastGranulation = 1;
-    let lastShowFlowParticles = true;
 
     function redrawCurrent() {
         if (lastFloatArray && lastCount > 0) {
