@@ -4,13 +4,25 @@
 
 @if (IsOpen)
 {
+    @if (_isDragging)
+    {
+        <div class="stats-drag-shield"
+             @onpointermove="OnDragMove"
+             @onpointerup="EndDrag"
+             @onpointercancel="EndDrag"></div>
+    }
+
     <div class="stats-floating-overlay" style="@GetOverlayStyle()">
         <div class="stats-panel @(_isMinimized ? "minimized" : "") @(_isMaximized ? "maximized" : "")">
             
             <!-- Window Drag & Action Header -->
-            <div class="stats-header" @onmousedown="StartDrag">
+            <div class="stats-header @(_isDragging ? "is-dragging" : "")" 
+                 @onpointerdown="StartDrag" 
+                 @onpointermove="OnDragMove" 
+                 @onpointerup="EndDrag" 
+                 @ondblclick="ToggleMaximize">
                 <div class="header-left">
-                    <span class="drag-grip">⋮⋮</span>
+                    <span class="drag-grip" title="Przeciągnij, aby przesunąć okno (kliknij dwukrotnie, aby wyśrodkować/zresetować pozycję)" @ondblclick="ResetPosition" @ondblclick:stopPropagation>⋮⋮</span>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="18" y1="20" x2="18" y2="10"></line>
                         <line x1="12" y1="20" x2="12" y2="4"></line>
@@ -20,10 +32,20 @@
                     
                     @if (IsLive)
                     {
-                        <span class="live-pill live">
-                            <span class="pulse-dot"></span>
-                            LIVE SIMULATION
-                        </span>
+                        @if (Stats.IsComplete || (Stats.ActiveAgents == 0 && Stats.SimulationTime > 0))
+                        {
+                            <span class="live-pill completed">
+                                <span class="check-icon">✓</span>
+                                SIMULATION ENDED
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="live-pill live">
+                                <span class="pulse-dot"></span>
+                                LIVE SIMULATION
+                            </span>
+                        }
                     }
                     else
                     {
@@ -33,7 +55,7 @@
                     }
                 </div>
 
-                <div class="header-actions" @onmousedown:stopPropagation>
+                <div class="header-actions" @onmousedown:stopPropagation @onpointerdown:stopPropagation @ondblclick:stopPropagation>
                     <button type="button" class="btn-stat-action" @onclick="ToggleMinimize" title="@(_isMinimized ? "Expand" : "Minimize")">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             @if (_isMinimized)
@@ -99,7 +121,7 @@
                     </div>
                     <div class="kpi-block border-primary">
                         <span class="kpi-label">SIMULATION TIME</span>
-                        <span class="kpi-val text-light">@Stats.SimulationTime.ToString("0.0", CultureInfo.InvariantCulture)s <small class="text-secondary">(@(Stats.SimulationTime / 60f).ToString("0.0", CultureInfo.InvariantCulture)m)</small></span>
+                        <span class="kpi-val text-light">@Stats.SimulationTime.ToString("0.0", CultureInfo.InvariantCulture)s <small class="text-secondary">(@((Stats.SimulationTime / 60f).ToString("0.0", CultureInfo.InvariantCulture))m)</small></span>
                     </div>
                     <div class="kpi-block border-info">
                         <span class="kpi-label">MEAN SPEED</span>
@@ -277,23 +299,23 @@
                                         <svg viewBox="0 0 @fsSW @fsSH" class="stat-svg" preserveAspectRatio="xMidYMid meet">
                                             <defs>
                                                 <linearGradient id="fsSpeedBandGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-                                                    <stop offset="0%" stop-color="#30123b" stop-opacity="0.45" />
-                                                    <stop offset="12%" stop-color="#4662d8" stop-opacity="0.50" />
-                                                    <stop offset="25%" stop-color="#28b7e2" stop-opacity="0.55" />
-                                                    <stop offset="38%" stop-color="#1ae4b6" stop-opacity="0.60" />
+                                                    <stop offset="0%" stop-color="#d73027" stop-opacity="0.85" />
+                                                    <stop offset="12%" stop-color="#f56e29" stop-opacity="0.80" />
+                                                    <stop offset="25%" stop-color="#faba39" stop-opacity="0.75" />
+                                                    <stop offset="38%" stop-color="#bdf838" stop-opacity="0.70" />
                                                     <stop offset="50%" stop-color="#63fe62" stop-opacity="0.65" />
-                                                    <stop offset="63%" stop-color="#bdf838" stop-opacity="0.70" />
-                                                    <stop offset="75%" stop-color="#faba39" stop-opacity="0.75" />
-                                                    <stop offset="88%" stop-color="#f56e29" stop-opacity="0.80" />
-                                                    <stop offset="100%" stop-color="#d73027" stop-opacity="0.85" />
+                                                    <stop offset="63%" stop-color="#1ae4b6" stop-opacity="0.60" />
+                                                    <stop offset="75%" stop-color="#28b7e2" stop-opacity="0.55" />
+                                                    <stop offset="88%" stop-color="#4662d8" stop-opacity="0.50" />
+                                                    <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.45" />
                                                 </linearGradient>
                                                 <linearGradient id="fsTurboSpeedLine" x1="0%" y1="100%" x2="0%" y2="0%">
-                                                    <stop offset="0%" stop-color="#4662d8" />
-                                                    <stop offset="20%" stop-color="#28b7e2" />
-                                                    <stop offset="40%" stop-color="#1ae4b6" />
-                                                    <stop offset="60%" stop-color="#63fe62" />
-                                                    <stop offset="80%" stop-color="#faba39" />
-                                                    <stop offset="100%" stop-color="#f14424" />
+                                                    <stop offset="0%" stop-color="#f14424" />
+                                                    <stop offset="20%" stop-color="#faba39" />
+                                                    <stop offset="40%" stop-color="#63fe62" />
+                                                    <stop offset="60%" stop-color="#1ae4b6" />
+                                                    <stop offset="80%" stop-color="#28b7e2" />
+                                                    <stop offset="100%" stop-color="#38bdf8" />
                                                 </linearGradient>
                                             </defs>
 
@@ -667,23 +689,23 @@
                                     <defs>
                                         <!-- Turbo Colormap for Speed Single Band & Mean Line -->
                                         <linearGradient id="speedBandGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-                                            <stop offset="0%" stop-color="#30123b" stop-opacity="0.45" />
-                                            <stop offset="12%" stop-color="#4662d8" stop-opacity="0.50" />
-                                            <stop offset="25%" stop-color="#28b7e2" stop-opacity="0.55" />
-                                            <stop offset="38%" stop-color="#1ae4b6" stop-opacity="0.60" />
+                                            <stop offset="0%" stop-color="#d73027" stop-opacity="0.85" />
+                                            <stop offset="12%" stop-color="#f56e29" stop-opacity="0.80" />
+                                            <stop offset="25%" stop-color="#faba39" stop-opacity="0.75" />
+                                            <stop offset="38%" stop-color="#bdf838" stop-opacity="0.70" />
                                             <stop offset="50%" stop-color="#63fe62" stop-opacity="0.65" />
-                                            <stop offset="63%" stop-color="#bdf838" stop-opacity="0.70" />
-                                            <stop offset="75%" stop-color="#faba39" stop-opacity="0.75" />
-                                            <stop offset="88%" stop-color="#f56e29" stop-opacity="0.80" />
-                                            <stop offset="100%" stop-color="#d73027" stop-opacity="0.85" />
+                                            <stop offset="63%" stop-color="#1ae4b6" stop-opacity="0.60" />
+                                            <stop offset="75%" stop-color="#28b7e2" stop-opacity="0.55" />
+                                            <stop offset="88%" stop-color="#4662d8" stop-opacity="0.50" />
+                                            <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.45" />
                                         </linearGradient>
                                         <linearGradient id="turboSpeedLine" x1="0%" y1="100%" x2="0%" y2="0%">
-                                            <stop offset="0%" stop-color="#4662d8" />
-                                            <stop offset="20%" stop-color="#28b7e2" />
-                                            <stop offset="40%" stop-color="#1ae4b6" />
-                                            <stop offset="60%" stop-color="#63fe62" />
-                                            <stop offset="80%" stop-color="#faba39" />
-                                            <stop offset="100%" stop-color="#f14424" />
+                                            <stop offset="0%" stop-color="#f14424" />
+                                            <stop offset="20%" stop-color="#faba39" />
+                                            <stop offset="40%" stop-color="#63fe62" />
+                                            <stop offset="60%" stop-color="#1ae4b6" />
+                                            <stop offset="80%" stop-color="#28b7e2" />
+                                            <stop offset="100%" stop-color="#38bdf8" />
                                         </linearGradient>
                                     </defs>
 
@@ -829,6 +851,13 @@
     // Draggable position
     private double _posX = 24;
     private double _posY = 70;
+    private double _dragX = 0;
+    private double _dragY = 0;
+    private bool _isDragging = false;
+    private double _dragStartX;
+    private double _dragStartY;
+    private double _dragOriginX;
+    private double _dragOriginY;
 
     private static string F(float val) => val.ToString("0.##", CultureInfo.InvariantCulture);
     private static string F(double val) => val.ToString("0.##", CultureInfo.InvariantCulture);
@@ -889,14 +918,50 @@
     {
         if (_isMaximized)
         {
-            return "position: fixed; top: 8px; left: 8px; right: 8px; bottom: 8px; z-index: 1200; width: calc(100vw - 16px); height: calc(100vh - 16px);";
+            return "position: fixed; top: 8px; left: 8px; right: 8px; bottom: 8px; z-index: 1200; width: calc(100vw - 16px); height: calc(100vh - 16px); transform: none !important;";
         }
-        return $"position: fixed; top: {_posY}px; right: {_posX}px; z-index: 1200; max-height: calc(100vh - 90px);";
+        string transform = (_dragX != 0 || _dragY != 0)
+            ? $" transform: translate({_dragX.ToString("0.#", CultureInfo.InvariantCulture)}px, {_dragY.ToString("0.#", CultureInfo.InvariantCulture)}px);"
+            : "";
+        return $"position: fixed; top: {_posY}px; right: {_posX}px; z-index: 1200; max-height: calc(100vh - 90px);{transform}";
     }
 
-    private void StartDrag(MouseEventArgs e)
+    private void StartDrag(PointerEventArgs e)
     {
-        // Simple drag anchor
+        if (_isMaximized || e.Button != 0) return;
+        _isDragging = true;
+        _dragStartX = e.ClientX;
+        _dragStartY = e.ClientY;
+        _dragOriginX = _dragX;
+        _dragOriginY = _dragY;
+    }
+
+    private void OnDragMove(PointerEventArgs e)
+    {
+        if (!_isDragging || _isMaximized) return;
+        if (e.Buttons == 0)
+        {
+            EndDrag(e);
+            return;
+        }
+
+        double newDragX = _dragOriginX + (e.ClientX - _dragStartX);
+        double newDragY = _dragOriginY + (e.ClientY - _dragStartY);
+
+        // Clamping bounds to ensure the header always stays reachable on screen
+        _dragX = Math.Clamp(newDragX, -2500, 750);
+        _dragY = Math.Clamp(newDragY, -60, 900);
+    }
+
+    private void EndDrag(PointerEventArgs e)
+    {
+        _isDragging = false;
+    }
+
+    private void ResetPosition()
+    {
+        _dragX = 0;
+        _dragY = 0;
     }
 
     private void ToggleMinimize()

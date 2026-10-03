@@ -6,6 +6,9 @@ const mapInstances = new Map();
 
 // Helper to expose global bridge for popup click actions
 window.PlanSafeMap = {
+    getMap: (containerId) => {
+        return mapInstances.get(containerId)?.map;
+    },
     deleteItem: (containerId, itemId) => {
         deleteMapItem(containerId, itemId);
     },
@@ -870,6 +873,7 @@ export function centerOnKrakow(containerId) {
 export function disposeMap(containerId) {
     const entry = mapInstances.get(containerId);
     if (entry) {
+        entry.dotNetRef = null;
         if (entry._keydownHandler) {
             window.removeEventListener('keydown', entry._keydownHandler);
         }

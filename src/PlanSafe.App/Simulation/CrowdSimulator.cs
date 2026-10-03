@@ -280,17 +280,30 @@ public class CrowdSimulator
                             // Czołowe zderzenie ze ścianą: nadaj wektor styczny do ściany omijający przeszkodę
                             float tan1X = -normalY;
                             float tan1Y = normalX;
-                            float obsCenterY = obs.Y + obs.Height * 0.5f;
-                            float bypassSign = (py < obsCenterY) ? -1.0f : 1.0f;
-                            if (tan1Y * bypassSign >= 0f)
+                            float dotFlow = flowDirX * tan1X + flowDirY * tan1Y;
+                            if (dotFlow > 0.001f)
                             {
                                 travelDirectionX = tan1X;
                                 travelDirectionY = tan1Y;
                             }
-                            else
+                            else if (dotFlow < -0.001f)
                             {
                                 travelDirectionX = -tan1X;
                                 travelDirectionY = -tan1Y;
+                            }
+                            else
+                            {
+                                float dotVel = normVelX * tan1X + normVelY * tan1Y;
+                                if (dotVel >= 0f)
+                                {
+                                    travelDirectionX = tan1X;
+                                    travelDirectionY = tan1Y;
+                                }
+                                else
+                                {
+                                    travelDirectionX = -tan1X;
+                                    travelDirectionY = -tan1Y;
+                                }
                             }
                         }
                     }

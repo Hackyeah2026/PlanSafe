@@ -5,6 +5,7 @@
     "lib": ["ES2022", "DOM"],
     "strict": true,
     "noEmitOnError": true,
+    "skipLibCheck": true,
     "rootDir": "src/PlanSafe.App/TypeScript",
     "outDir": "src/PlanSafe.App/wwwroot/js"
   },
