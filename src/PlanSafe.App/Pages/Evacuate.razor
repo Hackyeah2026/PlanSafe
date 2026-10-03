@@ -117,12 +117,34 @@
                     </div>
                 </div>
 
+                <!-- Wybór Silnika Obliczeniowego (WebGPU / Wasm CPU) -->
+                <div class="mb-3">
+                    <label class="form-label d-flex justify-content-between small text-muted">
+                        <span>Silnik obliczeniowy:</span>
+                        <strong class="text-white">@(activeEngine == "webgpu" ? "WebGPU Compute (GPU)" : "Wasm CPU")</strong>
+                    </label>
+                    <div class="btn-group w-100 btn-group-sm" role="group">
+                        <button type="button" class="btn @(activeEngine == "webgpu" ? "btn-primary" : "btn-outline-secondary")" disabled="@(!ready || !isWebGpuSupported)" @onclick='() => SetEngine("webgpu")'>
+                            WebGPU (GPU)
+                        </button>
+                        <button type="button" class="btn @(activeEngine == "wasm" ? "btn-primary" : "btn-outline-secondary")" disabled="@(!ready)" @onclick='() => SetEngine("wasm")'>
+                            Wasm CPU
+                        </button>
+                    </div>
+                    @if (!isWebGpuSupported && activeEngine == "wasm")
+                    {
+                        <div class="text-muted small mt-1" style="font-size: 0.7rem;">
+                            WebGPU niedostępne w tej przeglądarce &bull; Aktywny silnik Wasm CPU
+                        </div>
+                    }
+                </div>
+
                 <!-- Przyspieszenie Czasu -->
                 <div class="mb-3">
                     <label class="form-label d-flex justify-content-between align-items-center flex-wrap gap-1 small" for="time-scale">
                         <span>Tempo symulacji:</span>
                         <div class="d-flex gap-1 align-items-center">
-                            <span class="badge bg-warning text-dark" title="Silnik obliczeniowy symulatora">Wasm CPU</span>
+                            <span class="badge @(activeEngine == "webgpu" ? "bg-primary" : "bg-warning text-dark")" title="Silnik obliczeniowy symulatora">@(activeEngine == "webgpu" ? "WebGPU" : "Wasm CPU")</span>
                             <span data-testid="target-speed" class="badge bg-info text-dark">Cel: @(unlimited ? "Bez limitu" : $"{timeScale.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}×")</span>
                             <span data-testid="actual-speed" class="badge @(isRunning ? (ActualSpeed >= (unlimited ? 1.0 : timeScale * 0.85) ? "bg-success" : "bg-warning text-dark") : "bg-secondary")">Rzeczywiste tempo: @ActualSpeed.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)×</span>
                         </div>
@@ -432,6 +454,8 @@
     private string renderFps = "30";
 
     private double ActualSpeed => simulationStepsPerSecond * 0.016;
+    private string activeEngine = "webgpu";
+    private bool isWebGpuSupported;
     private string renderMode = "agents";
     private bool showWhiskers;
     private bool isRunning;
@@ -483,12 +507,48 @@
         }
     }
 
+    private object GetWorldConfigDto() => new
+    {
+        worldWidth = worldWidth,
+        worldHeight = worldHeight,
+        obstacles = obstacles.Select(o => new { x = o.X, y = o.Y, width = o.Width, height = o.Height }),
+        targets = targets.Select(t => new { x = t.X, y = t.Y, width = t.Width, height = t.Height, name = t.Name, id = t.Id }),
+        exitZone = targets.FirstOrDefault() is { } ez ? new { x = ez.X, y = ez.Y, width = ez.Width, height = ez.Height } : null
+    };
+
     private async Task InitializeEngine()
     {
         try
         {
             module ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/crowdSimulatorInterop.js");
             simulator ??= await module.InvokeAsync<IJSObjectReference>("initSimulator", canvas);
+
+            try
+            {
+                isWebGpuSupported = await module.InvokeAsync<bool>("checkWebGpuSupport");
+            }
+            catch
+            {
+                isWebGpuSupported = false;
+            }
+
+            if (isWebGpuSupported)
+            {
+                try
+                {
+                    await simulator.InvokeVoidAsync("initGpu", SimulatedAgentCount, granulation, socialRepulsionWeight, GetWorldConfigDto());
+                    activeEngine = "webgpu";
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[PlanSafe] WebGPU init failed, using Wasm CPU: {ex.Message}");
+                    activeEngine = "wasm";
+                }
+            }
+            else
+            {
+                activeEngine = "wasm";
+            }
 
             _engine = new CrowdSimulationEngine(worldWidth, worldHeight, agentCount);
             _engine.Granulation = granulation;
@@ -506,6 +566,26 @@
         {
             publishError = $"Błąd inicjalizacji widoku: {ex.Message}";
         }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SetEngine(string engine)
+    {
+        if (engine == "webgpu" && !isWebGpuSupported) return;
+        activeEngine = engine;
+        if (activeEngine == "webgpu" && simulator != null)
+        {
+            try
+            {
+                await simulator.InvokeVoidAsync("initGpu", SimulatedAgentCount, granulation, socialRepulsionWeight, GetWorldConfigDto());
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PlanSafe] Failed to switch to WebGPU: {ex.Message}");
+                activeEngine = "wasm";
+            }
+        }
+        await RequestRender();
         await InvokeAsync(StateHasChanged);
     }
 
@@ -549,10 +629,17 @@
 
     private async Task StepSimulation()
     {
-        if (_engine == null) return;
-        _engine.Step(0.016, timeScale);
-        _statsCollector.SampleTelemetry(_engine);
-        await RequestRender();
+        if (activeEngine == "webgpu" && simulator != null)
+        {
+            await simulator.InvokeVoidAsync("stepGpu", 1);
+            await RequestRender();
+        }
+        else if (_engine != null)
+        {
+            _engine.Step(0.016, timeScale);
+            _statsCollector.SampleTelemetry(_engine);
+            await RequestRender();
+        }
         await InvokeAsync(StateHasChanged);
     }
 
@@ -562,6 +649,11 @@
         isRunning = false;
         renderFramesPerSecond = 0;
         simulationStepsPerSecond = 0;
+
+        if (activeEngine == "webgpu" && simulator != null)
+        {
+            await simulator.InvokeVoidAsync("resetGpu", SimulatedAgentCount, granulation, socialRepulsionWeight);
+        }
 
         if (_engine != null)
         {
@@ -582,14 +674,23 @@
         int frameCount = 0;
         int stepCount = 0;
 
-        while (!ct.IsCancellationRequested && isRunning && _engine != null)
+        while (!ct.IsCancellationRequested && isRunning)
         {
-            double scale = unlimited ? 20.0 : timeScale;
-            _engine.Step(0.016, scale);
-            _statsCollector.SampleTelemetry(_engine);
-            stepCount++;
+            if (activeEngine == "webgpu" && simulator != null)
+            {
+                int batch = unlimited ? 20 : Math.Max(1, (int)Math.Round(timeScale));
+                await simulator.InvokeVoidAsync("stepGpu", batch);
+                stepCount += batch;
+            }
+            else if (_engine != null)
+            {
+                double scale = unlimited ? 20.0 : timeScale;
+                _engine.Step(0.016, scale);
+                _statsCollector.SampleTelemetry(_engine);
+                stepCount++;
+            }
 
-            if (_engine.ActiveAgentCount == 0 && _engine.EvacuatedCount >= _engine.AgentCount && _engine.EvacuatedCount > 0)
+            if (activeEngine != "webgpu" && _engine != null && _engine.ActiveAgentCount == 0 && _engine.EvacuatedCount >= _engine.AgentCount && _engine.EvacuatedCount > 0)
             {
                 isRunning = false;
                 renderFramesPerSecond = 0;
@@ -644,24 +745,32 @@
 
     private async Task RequestRender()
     {
-        if (simulator == null || _engine == null) return;
+        if (simulator == null) return;
         try
         {
-            int count = _engine.SimulatedAgentCount;
-            await simulator.InvokeVoidAsync("render",
-                _engine.AgentPositionX[..count],
-                _engine.AgentPositionY[..count],
-                _engine.AgentVelocityX[..count],
-                _engine.AgentVelocityY[..count],
-                _engine.AgentRadius[..count],
-                count,
-                renderMode,
-                showWhiskers,
-                whiskerLength,
-                granulation);
+            if (activeEngine == "webgpu")
+            {
+                await simulator.InvokeVoidAsync("renderGpu", renderMode, showWhiskers, whiskerLength, granulation);
+            }
+            else if (_engine != null)
+            {
+                int count = _engine.SimulatedAgentCount;
+                await simulator.InvokeVoidAsync("render",
+                    _engine.AgentPositionX[..count],
+                    _engine.AgentPositionY[..count],
+                    _engine.AgentVelocityX[..count],
+                    _engine.AgentVelocityY[..count],
+                    _engine.AgentRadius[..count],
+                    count,
+                    renderMode,
+                    showWhiskers,
+                    whiskerLength,
+                    granulation);
+            }
         }
-        catch
+        catch (Exception ex)
         {
+            Console.WriteLine($"[PlanSafe] RequestRender error: {ex.Message}");
         }
     }
 
@@ -683,6 +792,19 @@
         }
 
         await SyncWorldConfigAsync();
+        if (activeEngine == "webgpu" && simulator != null)
+        {
+            await simulator.InvokeVoidAsync("setGpuWorldConfig", new
+            {
+                worldWidth = worldWidth,
+                worldHeight = worldHeight,
+                obstacles = obstacles.Select(o => new { x = o.X, y = o.Y, width = o.Width, height = o.Height }),
+                targets = targets.Select(t => new { x = t.X, y = t.Y, width = t.Width, height = t.Height, name = t.Name, id = t.Id }),
+                exitZone = targets.FirstOrDefault() is { } ez ? new { x = ez.X, y = ez.Y, width = ez.Width, height = ez.Height } : null,
+                count = SimulatedAgentCount,
+                granulation = granulation
+            });
+        }
         await RequestRender();
     }
 
@@ -695,6 +817,11 @@
             _statsCollector.Reset(_engine.AgentCount);
             await RequestRender();
         }
+        if (activeEngine == "webgpu" && simulator != null)
+        {
+            await simulator.InvokeVoidAsync("resetGpu", SimulatedAgentCount, granulation, socialRepulsionWeight);
+            await RequestRender();
+        }
     }
 
     private async Task ApplyGranulation()
@@ -705,6 +832,11 @@
             _statsCollector.Reset(_engine.AgentCount);
             await RequestRender();
         }
+        if (activeEngine == "webgpu" && simulator != null)
+        {
+            await simulator.InvokeVoidAsync("resetGpu", SimulatedAgentCount, granulation, socialRepulsionWeight);
+            await RequestRender();
+        }
     }
 
     private Task ApplyWeight()
@@ -712,6 +844,10 @@
         if (_engine != null)
         {
             _engine.SocialRepulsionWeight = socialRepulsionWeight;
+        }
+        if (activeEngine == "webgpu" && simulator != null)
+        {
+            _ = simulator.InvokeVoidAsync("resetGpu", SimulatedAgentCount, granulation, socialRepulsionWeight);
         }
         return Task.CompletedTask;
     }

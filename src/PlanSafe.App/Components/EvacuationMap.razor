@@ -415,24 +415,58 @@
     private int _censusPopulation = 0;
     private int _censusCells = 0;
 
+    private bool _disposed = false;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && !isMapInitialized)
+        if (firstRender && !isMapInitialized && !_disposed)
         {
             isMapInitialized = true;
-            _dotNetRef = DotNetObjectReference.Create(this);
             await CensusService.EnsureLoadedAsync();
+            if (_disposed) return;
 
             _activeSession = await SessionService.GetActiveSessionAsync();
+            if (_disposed) return;
+
             _allSessions = await SessionService.GetAllSessionsAsync();
+            if (_disposed) return;
+
             _branchParentSession = _activeSession;
 
             double lat = _activeSession.MapCenter is { Length: >= 2 } ? _activeSession.MapCenter[0] : 50.0614;
             double lng = _activeSession.MapCenter is { Length: >= 2 } ? _activeSession.MapCenter[1] : 19.9366;
             int zoom = _activeSession.ZoomLevel > 0 ? _activeSession.ZoomLevel : 14;
 
-            await MapInterop.InitializeMapAsync(MapContainerId, lat, lng, zoom, _dotNetRef);
-            await MapInterop.LoadSessionItemsAsync(MapContainerId, _activeSession.Items, lat, lng, zoom);
+            _dotNetRef = DotNetObjectReference.Create(this);
+            if (_disposed)
+            {
+                _dotNetRef.Dispose();
+                _dotNetRef = null;
+                return;
+            }
+
+            try
+            {
+                await MapInterop.InitializeMapAsync(MapContainerId, lat, lng, zoom, _dotNetRef);
+            }
+            catch (Exception) when (_disposed)
+            {
+                return;
+            }
+
+            if (_disposed) return;
+
+            try
+            {
+                await MapInterop.LoadSessionItemsAsync(MapContainerId, _activeSession.Items, lat, lng, zoom);
+            }
+            catch (Exception) when (_disposed)
+            {
+                return;
+            }
+
+            if (_disposed) return;
+
             _mapItems = _activeSession.Items;
 
             RecalculateCensusData();
@@ -443,6 +477,7 @@
     [JSInvokable]
     public async Task OnItemsUpdated(string itemsJson)
     {
+        if (_disposed) return;
         try
         {
             if (!string.IsNullOrWhiteSpace(itemsJson))
@@ -459,15 +494,17 @@
             {
                 _activeSession.Items = _mapItems;
                 await SessionService.SaveSessionAsync(_activeSession);
+                if (_disposed) return;
                 _allSessions = await SessionService.GetAllSessionsAsync();
             }
 
+            if (_disposed) return;
             RecalculateCensusData();
             StateHasChanged();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[EvacuationMap] Error deserializing map items: {ex.Message}");
+            Console.WriteLine($"[PlanSafe] Error deserializing map items: {ex.Message}");
         }
     }
 
@@ -531,6 +568,7 @@
     [JSInvokable]
     public void OnDrawModeChanged(string mode, string? hint, int pointCount = 0)
     {
+        if (_disposed) return;
         _activeDrawMode = mode ?? "none";
         _activeDrawHint = hint;
         _currentPointCount = pointCount;
@@ -615,10 +653,28 @@
 
     public async ValueTask DisposeAsync()
     {
+        _disposed = true;
         if (isMapInitialized)
         {
-            await MapInterop.DisposeMapAsync(MapContainerId);
+            try
+            {
+                await MapInterop.DisposeMapAsync(MapContainerId);
+            }
+            catch
+            {
+                // Ignore JS disconnected or unmount errors
+            }
         }
-        _dotNetRef?.Dispose();
+        try
+        {
+            _dotNetRef?.Dispose();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        finally
+        {
+            _dotNetRef = null;
+        }
     }
 }

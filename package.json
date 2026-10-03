@@ -1,13 +1,17 @@
 {
   "name": "plansafe",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:parity": "node --test scripts/test-physics-parity.ts",
     "format": "prettier --write . && dotnet format PlanSafe.slnx",
     "format:check": "prettier --check . && dotnet format PlanSafe.slnx --verify-no-changes"
   },
   "devDependencies": {
+    "@types/node": "^26.6.4",
+    "@webgpu/types": "^0.1.74",
     "prettier": "3.9.9",
     "typescript": "7.0.2"
   }

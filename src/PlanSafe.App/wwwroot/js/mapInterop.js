@@ -870,6 +870,7 @@ export function centerOnKrakow(containerId) {
 export function disposeMap(containerId) {
     const entry = mapInstances.get(containerId);
     if (entry) {
+        entry.dotNetRef = null;
         if (entry._keydownHandler) {
             window.removeEventListener('keydown', entry._keydownHandler);
         }

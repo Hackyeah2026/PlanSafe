@@ -1,3 +1,9 @@
+import { GpuSimulationEngine, isWebGpuSupported } from "./crowdSimulatorGpu.js";
+
+export function checkWebGpuSupport() {
+    return isWebGpuSupported();
+}
+
 export function initSimulator(canvasRef) {
     const canvas = canvasRef;
     const ctx = canvas.getContext('2d', { alpha: false });
@@ -747,9 +753,111 @@ export function initSimulator(canvasRef) {
         drawScaleBar();
     }
 
+    // --- WebGPU Compute Simulation Strategy ---
+    let gpuEngine = null;
+    let isGpuReady = false;
+
+    async function initGpu(agentCount, granulation, socialWeight, config) {
+        if (!isWebGpuSupported()) {
+            throw new Error("WebGPU is not supported in this environment.");
+        }
+        if (!gpuEngine) {
+            gpuEngine = new GpuSimulationEngine();
+            await gpuEngine.boot();
+        }
+        if (config) {
+            if (config.worldWidth) worldWidth = config.worldWidth;
+            if (config.worldHeight) worldHeight = config.worldHeight;
+            if (config.obstacles) obstacles = config.obstacles;
+            if (config.targets) targets = config.targets;
+            if (config.exitZone) exitZone = config.exitZone;
+            fitBounds(worldWidth, worldHeight);
+        }
+        gpuEngine.dispatch('plansafe-sim', 'init', {
+            count: agentCount,
+            worldWidth: worldWidth,
+            worldHeight: worldHeight,
+            socialRepulsionWeight: socialWeight,
+            granulation: granulation
+        }, { add: () => {} });
+        isGpuReady = true;
+        console.log("%c[PlanSafe] WebGPU compute engine active", "color: #10b981; font-weight: bold;");
+        return true;
+    }
+
+    function stepGpu(ticks) {
+        if (!gpuEngine || !isGpuReady) return;
+        gpuEngine.advanceFixedTicks(ticks);
+    }
+
+    let gpuFloatArray = null;
+
+    function ensureGpuFloatArray(count) {
+        const required = count * 5;
+        if (!gpuFloatArray || gpuFloatArray.length < required) {
+            gpuFloatArray = new Float32Array(required);
+        }
+        return gpuFloatArray;
+    }
+
+    async function renderGpu(renderMode, showWhiskers, whiskerLength, granulation = 1) {
+        if (!gpuEngine || !isGpuReady) return;
+        try {
+            const preview = await gpuEngine.capturePreview();
+            const count = preview.count;
+            if (!count || count <= 0) return;
+            const floatArray = ensureGpuFloatArray(count);
+            const target = preview.values;
+            for (let i = 0; i < count; i++) {
+                floatArray[i * 5] = target[i];
+                floatArray[i * 5 + 1] = target[count + i];
+                floatArray[i * 5 + 2] = target[2 * count + i];
+                floatArray[i * 5 + 3] = target[3 * count + i];
+                floatArray[i * 5 + 4] = target[4 * count + i];
+            }
+            renderCore(floatArray, count, renderMode, showWhiskers, whiskerLength, granulation);
+        } catch (err) {
+            console.error("[PlanSafe] renderGpu error:", err);
+        }
+    }
+
+    function setGpuWorldConfig(config) {
+        if (!gpuEngine || !isGpuReady) return;
+        if (config.worldWidth) worldWidth = config.worldWidth;
+        if (config.worldHeight) worldHeight = config.worldHeight;
+        if (config.obstacles) obstacles = config.obstacles;
+        if (config.targets) targets = config.targets;
+        if (config.exitZone) exitZone = config.exitZone;
+        fitBounds(worldWidth, worldHeight);
+
+        gpuEngine.dispatch('plansafe-sim', 'preset', {
+            worldWidth: worldWidth,
+            worldHeight: worldHeight,
+            count: config.count,
+            granulation: config.granulation
+        }, { add: () => {} });
+    }
+
+    function resetGpu(count, granulation, socialWeight) {
+        if (!gpuEngine || !isGpuReady) return;
+        gpuEngine.dispatch('plansafe-sim', 'reset', {
+            count: count,
+            worldWidth: worldWidth,
+            worldHeight: worldHeight,
+            socialRepulsionWeight: socialWeight,
+            granulation: granulation
+        }, { add: () => {} });
+    }
+
     return {
         render: render,
         renderBinary: renderBinary,
+        initGpu: initGpu,
+        stepGpu: stepGpu,
+        renderGpu: renderGpu,
+        setGpuWorldConfig: setGpuWorldConfig,
+        resetGpu: resetGpu,
+        isWebGpuSupported: function () { return isWebGpuSupported(); },
         setWorldConfig: function (config) {
             if (config.worldWidth) worldWidth = config.worldWidth;
             if (config.worldHeight) worldHeight = config.worldHeight;
@@ -788,6 +896,11 @@ export function initSimulator(canvasRef) {
             isInteractive = !!enabled;
         },
         dispose: function () {
+            if (gpuEngine) {
+                try { gpuEngine.dispose(); } catch (e) { }
+                gpuEngine = null;
+                isGpuReady = false;
+            }
             canvas.removeEventListener('pointerdown', onPointerDown);
             window.removeEventListener('pointermove', onPointerMove);
             window.removeEventListener('pointerup', onPointerUp);
