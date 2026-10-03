@@ -1,0 +1,141 @@
+@namespace PlanSafe.App.Components
+@using PlanSafe.Contracts.Models.Map
+
+<div class="command-panel">
+    <!-- Panel Header: Mode only -->
+    <div class="panel-header">
+        <div class="status-badge">
+            <span class="status-dot"></span>
+            <span class="status-text">@Mode</span>
+        </div>
+        @if (OnClose.HasDelegate)
+        {
+            <button type="button" class="btn-panel-close" @onclick="OnClose" aria-label="Close panel" title="Close controls">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        }
+    </div>
+
+    <!-- Simulation Action Buttons -->
+    <div class="action-section">
+        <div class="section-label">Simulation Controls</div>
+        
+        <button type="button" class="btn-command btn-configure" @onclick="HandleConfigureSimulation" title="Configure simulation parameters and evacuation routes">
+            <span class="btn-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+            </span>
+            <span class="btn-text">Configure simulation/evacuation</span>
+        </button>
+
+        <button type="button" class="btn-command btn-start-simulation" @onclick="HandleStartSimulation" title="Start crowd movement simulation">
+            <span class="btn-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+            </span>
+            <span class="btn-text">Start simulation</span>
+        </button>
+
+        <button type="button" class="btn-command btn-start-evacuation" title="Trigger citizen evacuation protocol">
+            <span class="btn-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+            </span>
+            <span class="btn-text">Start evacuation</span>
+        </button>
+
+        <button type="button" class="btn-command btn-statistics" @onclick="HandleOpenStatistics" title="Open evacuation statistics and analytics">
+            <span class="btn-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+            </span>
+            <span class="btn-text">Statistics</span>
+        </button>
+    </div>
+
+    <!-- Live Telemetry / Overview -->
+    <div class="metrics-section">
+        <div class="section-label">Operational Overview</div>
+        
+        <div class="metric-card">
+            <div class="metric-label">GUS NSP 2021 Evacuees</div>
+            <div class="metric-value highlight" style="color: #f97316;">
+                @CensusPopulation.ToString("N0") <span style="font-size: 0.8rem; font-weight: 500; color: #a1a1aa;">occupants</span>
+            </div>
+            <div class="metric-sub">
+                @if (CensusCells > 0)
+                {
+                    <span>@CensusCells census cells (125m) • 1:1 census occupancy</span>
+                }
+                else
+                {
+                    <span>Draw evacuation zone to estimate census evacuees</span>
+                }
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-label">Initial Location (Test)</div>
+            <div class="metric-value">Center of Kraków</div>
+            <div class="metric-sub">50.0614° N, 19.9366° E</div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Mode { get; set; } = "Standby";
+    [Parameter] public int CensusPopulation { get; set; } = 0;
+    [Parameter] public int CensusCells { get; set; } = 0;
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnStartSimulation { get; set; }
+    [Parameter] public EventCallback OnConfigureSimulation { get; set; }
+    [Parameter] public EventCallback OnOpenStatistics { get; set; }
+
+    // Retained for backward compatibility with existing callers
+    [Parameter] public List<MapZoneItem>? Items { get; set; }
+    [Parameter] public Func<MapZoneItem, int>? OnGetZonePopulation { get; set; }
+    [Parameter] public EventCallback<string> OnDeleteItem { get; set; }
+    [Parameter] public EventCallback OnClearAll { get; set; }
+    [Parameter] public EventCallback<string> OnPanToItem { get; set; }
+    [Parameter] public PlanSafe.Contracts.Models.Session.MapSession? ActiveSession { get; set; }
+    [Parameter] public List<PlanSafe.Contracts.Models.Session.MapSession>? AllSessions { get; set; }
+    [Parameter] public EventCallback OnOpenTreeMap { get; set; }
+    [Parameter] public EventCallback OnOpenCreateBranch { get; set; }
+    [Parameter] public EventCallback<string> OnSelectSession { get; set; }
+
+    private async Task HandleStartSimulation()
+    {
+        if (OnStartSimulation.HasDelegate)
+        {
+            await OnStartSimulation.InvokeAsync();
+        }
+    }
+
+    private async Task HandleConfigureSimulation()
+    {
+        if (OnConfigureSimulation.HasDelegate)
+        {
+            await OnConfigureSimulation.InvokeAsync();
+        }
+    }
+
+    private async Task HandleOpenStatistics()
+    {
+        if (OnOpenStatistics.HasDelegate)
+        {
+            await OnOpenStatistics.InvokeAsync();
+        }
+    }
+}

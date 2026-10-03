@@ -1,0 +1,362 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using PlanSafe.Contracts.Models.Simulation;
+
+namespace PlanSafe.App.Simulation;
+
+/// <summary>
+/// Mathematical target selection algorithm based on distance and occupancy weighting.
+/// Implements Cost(T_i) = w_dist * (dist / D_max) + w_occ * (Occupancy / Capacity)
+/// with hard capacity limits, roadblock penalties, and overflow fallback.
+/// </summary>
+public static class TargetSelector
+{
+    public const double DefaultMaxDistance = 1000.0;
+    public const double CapacityOverflowPenalty = 1e9;
+    public const double RoadblockBlockagePenalty = 5e8;
+
+    public static TargetAssignmentResponse SelectTarget(
+        double px,
+        double py,
+        IReadOnlyList<EvacuationTarget> targets,
+        double weightDistance = 1.0,
+        double weightOccupancy = 0.0,
+        double? maxDistance = null)
+    {
+        if (targets == null || targets.Count == 0)
+        {
+            return new TargetAssignmentResponse(
+                Target: null,
+                Distance: 0.0,
+                OccupancyRatio: 0.0,
+                Instructions: "Brak dostępnych punktów ewakuacji.",
+                CalculatedCost: double.PositiveInfinity,
+                IsSimulationEngineBased: false,
+                TargetEvaluations: Array.Empty<TargetEvaluationDto>());
+        }
+
+        var activeTargets = targets.Where(t => t.IsActive).ToList();
+        if (activeTargets.Count == 0)
+        {
+            return new TargetAssignmentResponse(
+                Target: null,
+                Distance: 0.0,
+                OccupancyRatio: 0.0,
+                Instructions: "Brak aktywnych punktów ewakuacyjnych.",
+                CalculatedCost: double.PositiveInfinity,
+                IsSimulationEngineBased: false,
+                TargetEvaluations: Array.Empty<TargetEvaluationDto>());
+        }
+
+        // Clamp negative weights to zero
+        double wDist = Math.Max(0.0, weightDistance);
+        double wOcc = Math.Max(0.0, weightOccupancy);
+
+        // Normalize distance scale D_max
+        double dMax = maxDistance.GetValueOrDefault(0.0);
+        if (dMax <= 0.0)
+        {
+            double calculatedMaxDist = activeTargets.Max(t => CalculateDistance(px, py, t));
+            dMax = Math.Max(1.0, calculatedMaxDist > 0.0 ? calculatedMaxDist : DefaultMaxDistance);
+        }
+
+        // Determine if at least one target has available capacity
+        bool hasAnyTargetWithCapacity = activeTargets.Any(t => t.CurrentOccupancy < t.Capacity);
+
+        EvacuationTarget? bestTarget = null;
+        double minCost = double.PositiveInfinity;
+        double bestDistance = 0.0;
+        double bestOccupancyRatio = 0.0;
+        var evaluations = new List<TargetEvaluationDto>();
+
+        foreach (var target in activeTargets)
+        {
+            double dist = CalculateDistance(px, py, target);
+            double normalizedDist = Math.Clamp(dist / dMax, 0.0, 10.0);
+
+            int capacity = Math.Max(1, target.Capacity);
+            double occRatio = (double)target.CurrentOccupancy / capacity;
+
+            double distCost = wDist * normalizedDist;
+            double occCost = wOcc * occRatio;
+            double cost = distCost + occCost;
+
+            // Hard limit rule: if target is full and other non-full targets exist, apply extreme penalty
+            bool isFull = target.CurrentOccupancy >= capacity;
+            if (isFull && hasAnyTargetWithCapacity)
+            {
+                cost += CapacityOverflowPenalty;
+            }
+
+            if (cost < minCost)
+            {
+                minCost = cost;
+                bestTarget = target;
+                bestDistance = dist;
+                bestOccupancyRatio = occRatio;
+            }
+
+            evaluations.Add(new TargetEvaluationDto(
+                TargetId: target.Id,
+                TargetName: target.Name,
+                WalkableDistance: Math.Round(dist, 1),
+                NormalizedDistance: Math.Round(normalizedDist, 3),
+                OccupancyRatio: Math.Round(occRatio, 3),
+                DistanceCost: Math.Round(distCost, 4),
+                OccupancyCost: Math.Round(occCost, 4),
+                TotalCost: Math.Round(cost, 4),
+                IsFull: isFull,
+                IsSelected: false));
+        }
+
+        if (bestTarget == null)
+        {
+            bestTarget = activeTargets[0];
+            bestDistance = CalculateDistance(px, py, bestTarget);
+            bestOccupancyRatio = bestTarget.OccupancyRatio;
+        }
+
+        // Mark the selected candidate
+        for (int i = 0; i < evaluations.Count; i++)
+        {
+            if (evaluations[i].TargetId == bestTarget.Id)
+            {
+                evaluations[i] = evaluations[i] with { IsSelected = true };
+                break;
+            }
+        }
+
+        double bearingDeg = GeoMath.CalculateEuclideanBearingDegrees(px, py, bestTarget.CenterX, bestTarget.CenterY);
+        string instructions = FormatInstructions(bestTarget, bestDistance, bestOccupancyRatio);
+
+        return new TargetAssignmentResponse(
+            Target: bestTarget,
+            Distance: Math.Round(bestDistance, 1),
+            OccupancyRatio: Math.Round(bestOccupancyRatio, 3),
+            Instructions: instructions,
+            CalculatedCost: Math.Round(minCost, 4),
+            BearingDegrees: bearingDeg,
+            FlowDirectionX: Math.Cos(bearingDeg * Math.PI / 180.0),
+            FlowDirectionY: Math.Sin(bearingDeg * Math.PI / 180.0),
+            IsSimulationEngineBased: false,
+            TargetEvaluations: evaluations);
+    }
+
+    /// <summary>
+    /// Geographic target selection using real GPS coordinates and Haversine distance.
+    /// </summary>
+    public static TargetAssignmentResponse SelectGeoTarget(
+        double citizenLat,
+        double citizenLng,
+        IReadOnlyList<EvacuationTarget> targets,
+        double weightDistance = 1.0,
+        double weightOccupancy = 0.0,
+        double? maxDistanceMeters = null,
+        IReadOnlyList<IReadOnlyList<(double Lat, double Lng)>>? roadblocks = null)
+    {
+        if (targets == null || targets.Count == 0)
+        {
+            return new TargetAssignmentResponse(
+                Target: null,
+                Distance: 0.0,
+                OccupancyRatio: 0.0,
+                Instructions: "Brak dostępnych punktów ewakuacji na mapie.",
+                CalculatedCost: double.PositiveInfinity,
+                IsSimulationEngineBased: false,
+                TargetEvaluations: Array.Empty<TargetEvaluationDto>());
+        }
+
+        var activeTargets = targets.Where(t => t.IsActive).ToList();
+        if (activeTargets.Count == 0)
+        {
+            return new TargetAssignmentResponse(
+                Target: null,
+                Distance: 0.0,
+                OccupancyRatio: 0.0,
+                Instructions: "Brak aktywnych punktów ewakuacyjnych na mapie.",
+                CalculatedCost: double.PositiveInfinity,
+                IsSimulationEngineBased: false,
+                TargetEvaluations: Array.Empty<TargetEvaluationDto>());
+        }
+
+        double wDist = Math.Max(0.0, weightDistance);
+        double wOcc = Math.Max(0.0, weightOccupancy);
+
+        double dMax = maxDistanceMeters.GetValueOrDefault(0.0);
+        if (dMax <= 0.0)
+        {
+            double calculatedMaxDist = activeTargets.Max(t =>
+                GeoMath.CalculateDistanceMeters(citizenLat, citizenLng, t.Latitude ?? t.Y, t.Longitude ?? t.X));
+            dMax = Math.Max(100.0, calculatedMaxDist > 0.0 ? calculatedMaxDist : DefaultMaxDistance);
+        }
+
+        bool hasAnyTargetWithCapacity = activeTargets.Any(t => t.CurrentOccupancy < t.Capacity);
+
+        EvacuationTarget? bestTarget = null;
+        double minCost = double.PositiveInfinity;
+        double bestDistance = 0.0;
+        double bestOccupancyRatio = 0.0;
+        var evaluations = new List<TargetEvaluationDto>();
+
+        foreach (var target in activeTargets)
+        {
+            double targetLat = target.Latitude ?? target.Y;
+            double targetLng = target.Longitude ?? target.X;
+
+            double dist = GeoMath.CalculateDistanceMeters(citizenLat, citizenLng, targetLat, targetLng);
+            double normalizedDist = Math.Clamp(dist / dMax, 0.0, 10.0);
+
+            int capacity = Math.Max(1, target.Capacity);
+            double occRatio = (double)target.CurrentOccupancy / capacity;
+
+            double distCost = wDist * normalizedDist;
+            double occCost = wOcc * occRatio;
+            double cost = distCost + occCost;
+
+            bool isFull = target.CurrentOccupancy >= capacity;
+            if (isFull && hasAnyTargetWithCapacity)
+            {
+                cost += CapacityOverflowPenalty;
+            }
+
+            // Roadblock intersection test
+            if (roadblocks != null && roadblocks.Count > 0)
+            {
+                bool hitsRoadblock = false;
+                foreach (var line in roadblocks)
+                {
+                    for (int i = 0; i + 1 < line.Count; i++)
+                    {
+                        if (GeoMath.SegmentsIntersect(citizenLat, citizenLng, targetLat, targetLng, line[i].Lat, line[i].Lng, line[i + 1].Lat, line[i + 1].Lng))
+                        {
+                            hitsRoadblock = true;
+                            break;
+                        }
+                    }
+                    if (hitsRoadblock) break;
+                }
+
+                if (hitsRoadblock)
+                {
+                    cost += RoadblockBlockagePenalty;
+                }
+            }
+
+            if (cost < minCost)
+            {
+                minCost = cost;
+                bestTarget = target;
+                bestDistance = dist;
+                bestOccupancyRatio = occRatio;
+            }
+
+            evaluations.Add(new TargetEvaluationDto(
+                TargetId: target.Id,
+                TargetName: target.Name,
+                WalkableDistance: Math.Round(dist, 1),
+                NormalizedDistance: Math.Round(normalizedDist, 3),
+                OccupancyRatio: Math.Round(occRatio, 3),
+                DistanceCost: Math.Round(distCost, 4),
+                OccupancyCost: Math.Round(occCost, 4),
+                TotalCost: Math.Round(cost, 4),
+                IsFull: isFull,
+                IsSelected: false));
+        }
+
+        if (bestTarget == null)
+        {
+            bestTarget = activeTargets[0];
+            bestDistance = GeoMath.CalculateDistanceMeters(citizenLat, citizenLng, bestTarget.Latitude ?? bestTarget.Y, bestTarget.Longitude ?? bestTarget.X);
+            bestOccupancyRatio = bestTarget.OccupancyRatio;
+        }
+
+        for (int i = 0; i < evaluations.Count; i++)
+        {
+            if (evaluations[i].TargetId == bestTarget.Id)
+            {
+                evaluations[i] = evaluations[i] with { IsSelected = true };
+                break;
+            }
+        }
+
+        double targetDestLat = bestTarget.Latitude ?? bestTarget.Y;
+        double targetDestLng = bestTarget.Longitude ?? bestTarget.X;
+        double bearingDeg = GeoMath.CalculateBearingDegrees(citizenLat, citizenLng, targetDestLat, targetDestLng);
+        string instructions = FormatInstructions(bestTarget, bestDistance, bestOccupancyRatio);
+
+        return new TargetAssignmentResponse(
+            Target: bestTarget,
+            Distance: Math.Round(bestDistance, 1),
+            OccupancyRatio: Math.Round(bestOccupancyRatio, 3),
+            Instructions: instructions,
+            CalculatedCost: Math.Round(minCost, 4),
+            BearingDegrees: bearingDeg,
+            FlowDirectionX: Math.Cos(bearingDeg * Math.PI / 180.0),
+            FlowDirectionY: Math.Sin(bearingDeg * Math.PI / 180.0),
+            IsSimulationEngineBased: false,
+            TargetEvaluations: evaluations);
+    }
+
+    public static double CalculateDistance(double px, double py, EvacuationTarget target)
+    {
+        double dx = px - target.CenterX;
+        double dy = py - target.CenterY;
+        return Math.Sqrt((dx * dx) + (dy * dy));
+    }
+
+    public static double CalculateBearingDegrees(double x1, double y1, double x2, double y2)
+    {
+        return GeoMath.CalculateEuclideanBearingDegrees(x1, y1, x2, y2);
+    }
+
+    public static string FormatInstructions(EvacuationTarget target, double distance, double occupancyRatio)
+    {
+        string distFormatted = distance < 1000.0
+            ? $"~{Math.Round(distance):F0} m"
+            : $"~{(distance / 1000.0):F1} km";
+
+        string safetyStatus;
+        if (occupancyRatio < 0.50)
+            safetyStatus = $"Bezpiecznie (obłożenie {(occupancyRatio * 100):F0}%)";
+        else if (occupancyRatio < 0.80)
+            safetyStatus = $"Umiarkowane obłożenie ({(occupancyRatio * 100):F0}%)";
+        else if (occupancyRatio < 1.00)
+            safetyStatus = $"Wysokie obłożenie ({(occupancyRatio * 100):F0}%)";
+        else
+            safetyStatus = $"Przepełniony ({(occupancyRatio * 100):F0}%)";
+
+        return $"Kieruj się do: {target.Name} (Odległość: {distFormatted} • {safetyStatus})";
+    }
+
+    /// <summary>
+    /// Evaluates target assignment using the simulation engine initialized from a simulation snapshot.
+    /// </summary>
+    public static TargetAssignmentResponse SelectTarget(
+        double px,
+        double py,
+        SimulationSnapshot snapshot,
+        double? customWeightDistance = null,
+        double? customWeightOccupancy = null,
+        IReadOnlyList<EvacuationTarget>? customTargets = null,
+        double? maxDistance = null)
+    {
+        var engine = CrowdSimulationEngine.FromSnapshot(snapshot);
+        return engine.EvaluateTargetAssignment(px, py, customWeightDistance, customWeightOccupancy, customTargets, maxDistance);
+    }
+
+    /// <summary>
+    /// Evaluates target assignment directly using a running CrowdSimulationEngine instance.
+    /// </summary>
+    public static TargetAssignmentResponse SelectTarget(
+        double px,
+        double py,
+        CrowdSimulationEngine engine,
+        double? customWeightDistance = null,
+        double? customWeightOccupancy = null,
+        IReadOnlyList<EvacuationTarget>? customTargets = null,
+        double? maxDistance = null)
+    {
+        return engine.EvaluateTargetAssignment(px, py, customWeightDistance, customWeightOccupancy, customTargets, maxDistance);
+    }
+}

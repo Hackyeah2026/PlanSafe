@@ -1,0 +1,1091 @@
+@namespace PlanSafe.App.Components
+@using PlanSafe.Contracts.Models.Stats
+@using System.Globalization
+
+@if (IsOpen)
+{
+    <div class="stats-floating-overlay" style="@GetOverlayStyle()">
+        <div class="stats-panel @(_isMinimized ? "minimized" : "") @(_isMaximized ? "maximized" : "")">
+            
+            <!-- Window Drag & Action Header -->
+            <div class="stats-header" @onmousedown="StartDrag">
+                <div class="header-left">
+                    <span class="drag-grip">⋮⋮</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="20" x2="18" y2="10"></line>
+                        <line x1="12" y1="20" x2="12" y2="4"></line>
+                        <line x1="6" y1="20" x2="6" y2="14"></line>
+                    </svg>
+                    <span class="header-title">Analytics & Statistics</span>
+                    
+                    @if (IsLive)
+                    {
+                        <span class="live-pill live">
+                            <span class="pulse-dot"></span>
+                            LIVE SIMULATION
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="live-pill sample">
+                            SAMPLE DATA (MAP)
+                        </span>
+                    }
+                </div>
+
+                <div class="header-actions" @onmousedown:stopPropagation>
+                    <button type="button" class="btn-stat-action" @onclick="ToggleMinimize" title="@(_isMinimized ? "Expand" : "Minimize")">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            @if (_isMinimized)
+                            {
+                                <polyline points="4 14 12 6 20 14"></polyline>
+                            }
+                            else
+                            {
+                                <polyline points="4 10 12 18 20 10"></polyline>
+                            }
+                        </svg>
+                    </button>
+                    <button type="button" class="btn-stat-action" @onclick="ToggleMaximize" title="@(_isMaximized ? "Restore" : "Maximize")">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            @if (_isMaximized)
+                            {
+                                <rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="3 3"></rect>
+                            }
+                            else
+                            {
+                                <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                            }
+                        </svg>
+                    </button>
+                    <button type="button" class="btn-stat-action btn-stat-close" @onclick="Close" title="Close">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Minimized Summary Bar -->
+            @if (_isMinimized)
+            {
+                <div class="minimized-strip" @onclick="ToggleMinimize">
+                    <div class="mini-kpi">
+                        <span class="mini-kpi-lbl">EVACUATED:</span>
+                        <span class="mini-kpi-val text-success">@Stats.EvacuatedAgents / @Stats.TotalAgents (@Stats.EvacuationPercent%)</span>
+                    </div>
+                    <div class="mini-kpi">
+                        <span class="mini-kpi-lbl">TIME:</span>
+                        <span class="mini-kpi-val text-light">@Stats.SimulationTime.ToString("0.0", CultureInfo.InvariantCulture)s</span>
+                    </div>
+                    <div class="mini-kpi">
+                        <span class="mini-kpi-lbl">MEAN SPEED:</span>
+                        <span class="mini-kpi-val text-info">@Stats.CurrentMeanSpeed.ToString("0.00", CultureInfo.InvariantCulture) m/s</span>
+                    </div>
+                    <div class="mini-kpi">
+                        <span class="mini-kpi-lbl">PEAK DENSITY:</span>
+                        <span class="mini-kpi-val text-warning">@Stats.CurrentPeakDensity.ToString("0.0", CultureInfo.InvariantCulture) ped/m²</span>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <!-- KPI Ribbon -->
+                <div class="stats-kpi-bar">
+                    <div class="kpi-block border-success">
+                        <span class="kpi-label">EVACUATED</span>
+                        <span class="kpi-val text-success">@Stats.EvacuatedAgents / @Stats.TotalAgents (@Stats.EvacuationPercent%)</span>
+                    </div>
+                    <div class="kpi-block border-primary">
+                        <span class="kpi-label">SIMULATION TIME</span>
+                        <span class="kpi-val text-light">@Stats.SimulationTime.ToString("0.0", CultureInfo.InvariantCulture)s <small class="text-secondary">(@(Stats.SimulationTime / 60f).ToString("0.0", CultureInfo.InvariantCulture)m)</small></span>
+                    </div>
+                    <div class="kpi-block border-info">
+                        <span class="kpi-label">MEAN SPEED</span>
+                        <span class="kpi-val text-info">@Stats.CurrentMeanSpeed.ToString("0.00", CultureInfo.InvariantCulture) m/s</span>
+                    </div>
+                    <div class="kpi-block border-warning">
+                        <span class="kpi-label">MEAN / PEAK DENSITY</span>
+                        <span class="kpi-val text-warning">@Stats.CurrentMeanDensity.ToString("0.0", CultureInfo.InvariantCulture) / @Stats.CurrentPeakDensity.ToString("0.0", CultureInfo.InvariantCulture) ped/m²</span>
+                    </div>
+                </div>
+
+                <!-- Tab Navigation -->
+                <div class="stats-tabs">
+                    @if (_isMaximized)
+                    {
+                        <button type="button" class="tab-btn @(_activeTab == "all" ? "active" : "")" @onclick='() => _activeTab = "all"'>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="tab-icon">
+                                <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                                <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                                <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+                                <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                            </svg>
+                            <span>All Stats (Grid)</span>
+                        </button>
+                    }
+                    <button type="button" class="tab-btn @(_activeTab == "cohorts" ? "active" : "")" @onclick='() => _activeTab = "cohorts"'>
+                        <span class="tab-num">1</span>
+                        <span>Cohorts (10%)</span>
+                    </button>
+                    <button type="button" class="tab-btn @(_activeTab == "speed" ? "active" : "")" @onclick='() => _activeTab = "speed"'>
+                        <span class="tab-num">2</span>
+                        <span>Speed Profile</span>
+                    </button>
+                    <button type="button" class="tab-btn @(_activeTab == "density" ? "active" : "")" @onclick='() => _activeTab = "density"'>
+                        <span class="tab-num">3</span>
+                        <span>Crowd Density (μ ± σ)</span>
+                    </button>
+                </div>
+
+                <!-- Tab Contents -->
+                <div class="stats-content-area @(_activeTab == "all" ? "fs-mode" : "")">
+                    @if (_activeTab == "all")
+                    {
+                        <div class="fullscreen-dashboard">
+                            <!-- TOP ROW: CHART 1 - COHORTS (10%) -->
+                            <div class="fs-row fs-row-top">
+                                <div class="chart-wrapper fs-chart-card">
+                                    @{
+                                        const float fsCW = 1100f;
+                                        const float fsCH = 270f;
+                                        const float fsCPadL = 65f;
+                                        const float fsCPadR = 25f;
+                                        const float fsCPadT = 38f;
+                                        const float fsCPadB = 48f;
+                                        float fsCChartW = fsCW - fsCPadL - fsCPadR;
+                                        float fsCChartH = fsCH - fsCPadT - fsCPadB;
+                                        var (fsMaxMin, fsCohortTicks) = Stats.GetCohortYScale();
+                                    }
+                                    <div class="chart-container fs-chart-container">
+                                        <svg viewBox="0 0 @F(fsCW) @F(fsCH)" class="stat-svg" preserveAspectRatio="xMidYMid meet">
+                                            <defs>
+                                                <linearGradient id="fsBarGrad0" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#0284c7"/></linearGradient>
+                                                <linearGradient id="fsBarGrad1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#60a5fa"/><stop offset="100%" stop-color="#2563eb"/></linearGradient>
+                                                <linearGradient id="fsBarGrad2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#1d4ed8"/></linearGradient>
+                                                <linearGradient id="fsBarGrad3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2563eb"/><stop offset="100%" stop-color="#1e40af"/></linearGradient>
+                                                <linearGradient id="fsBarGrad4" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1d4ed8"/><stop offset="100%" stop-color="#1e3a8a"/></linearGradient>
+                                                <linearGradient id="fsBarGrad5" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1e40af"/><stop offset="100%" stop-color="#172554"/></linearGradient>
+                                                <linearGradient id="fsBarGrad6" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2563eb"/><stop offset="100%" stop-color="#0369a1"/></linearGradient>
+                                                <linearGradient id="fsBarGrad7" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1d4ed8"/><stop offset="100%" stop-color="#0284c7"/></linearGradient>
+                                                <linearGradient id="fsBarGrad8" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1e3a8a"/><stop offset="100%" stop-color="#0369a1"/></linearGradient>
+                                                <linearGradient id="fsBarGrad9" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0369a1"/><stop offset="100%" stop-color="#0284c7"/></linearGradient>
+                                                <linearGradient id="fsActiveCohortGrad" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.95"/>
+                                                    <stop offset="50%" stop-color="#0ea5e9" stop-opacity="0.85"/>
+                                                    <stop offset="100%" stop-color="#0284c7" stop-opacity="0.95"/>
+                                                </linearGradient>
+                                            </defs>
+
+                                            @SvgText(fsCW / 2f, 22f, "1. Evacuation Time by Cohort (incremental per 10% population)", "svg-title", "middle")
+
+                                            <!-- Summary status badge in top right corner -->
+                                            @{
+                                                int completedCount = Stats.Cohorts.Count(c => c.IsCompleted);
+                                                string statusInfo = $"Completed: {completedCount}/10 cohorts ({Stats.EvacuationPercent}%)";
+                                            }
+                                            @SvgText(fsCW - fsCPadR - 5f, 22f, statusInfo, "svg-threshold-tag text-info", "end")
+
+                                            <!-- Grid & Y-Axis Ticks -->
+                                            @foreach (var val in fsCohortTicks)
+                                            {
+                                                float y = fsCPadT + fsCChartH - (val / fsMaxMin) * fsCChartH;
+                                                <line x1="@F(fsCPadL)" y1="@F(y)" x2="@F(fsCW - fsCPadR)" y2="@F(y)" stroke="rgba(255,255,255,0.08)" stroke-dasharray="3,3" />
+                                                string valStr = val % 1f == 0f ? val.ToString("0", CultureInfo.InvariantCulture) : val.ToString("0.0#", CultureInfo.InvariantCulture);
+                                                @SvgText(fsCPadL - 10f, y + 4f, valStr, "svg-tick", "end")
+                                            }
+
+                                            <!-- Y Axis Title -->
+                                            @SvgText(-fsCPadT - fsCChartH / 2f, 18f, "Cohort Duration (min)", "svg-axis-label", "middle", "rotate(-90)")
+
+                                            <!-- X Axis Baseline -->
+                                            <line x1="@F(fsCPadL)" y1="@F(fsCPadT + fsCChartH)" x2="@F(fsCW - fsCPadR)" y2="@F(fsCPadT + fsCChartH)" stroke="#475569" stroke-width="1.5" />
+
+                                            <!-- 10 Bars -->
+                                            @{
+                                                int fsCohortCount = Math.Max(10, Stats.Cohorts.Count);
+                                                float fsSlotW = fsCChartW / fsCohortCount;
+                                                float fsBarW = Math.Min(58f, fsSlotW * 0.65f);
+                                            }
+                                            @for (int i = 0; i < 10; i++)
+                                            {
+                                                var cohort = i < Stats.Cohorts.Count ? Stats.Cohorts[i] : null;
+                                                float slotCenterX = fsCPadL + fsSlotW * i + fsSlotW / 2f;
+                                                float barLeft = slotCenterX - fsBarW / 2f;
+
+                                                float minutes = cohort?.DisplayMinutes ?? 0f;
+                                                float rawBarHeight = fsMaxMin > 0 ? (minutes / fsMaxMin) * fsCChartH : 0f;
+                                                float barHeight = (minutes > 0.0001f) ? Math.Max(8f, rawBarHeight) : 0f;
+                                                barHeight = Math.Clamp(barHeight, 0f, fsCChartH);
+                                                float barTop = fsCPadT + fsCChartH - barHeight;
+
+                                                bool isDone = cohort?.IsCompleted ?? false;
+                                                bool isActive = !isDone && (cohort != null && cohort.CurrentElapsedSeconds > 0);
+
+                                                if (isDone)
+                                                {
+                                                    <rect x="@F(barLeft)" y="@F(barTop)" width="@F(fsBarW)" height="@F(barHeight)" 
+                                                          rx="4" ry="4" fill="url(#fsBarGrad@(i))" stroke="#38bdf8" stroke-width="1.2" class="cohort-bar completed" />
+                                                    @SvgText(slotCenterX, barTop - 5f, cohort!.FormattedDuration, "svg-bar-value", "middle")
+                                                }
+                                                else if (isActive)
+                                                {
+                                                    float activeBarH = Math.Max(8f, barHeight);
+                                                    float activeBarTop = fsCPadT + fsCChartH - activeBarH;
+                                                    <rect x="@F(barLeft)" y="@F(activeBarTop)" width="@F(fsBarW)" height="@F(activeBarH)" 
+                                                          rx="4" ry="4" fill="url(#fsActiveCohortGrad)" stroke="#38bdf8" stroke-width="2" class="cohort-bar active-pulse" />
+                                                    @SvgText(slotCenterX, activeBarTop - 6f, cohort!.FormattedDuration, "svg-bar-value active-val", "middle")
+                                                }
+                                                else
+                                                {
+                                                    <rect x="@F(barLeft)" y="@F(fsCPadT + fsCChartH - 4)" width="@F(fsBarW)" height="4" 
+                                                          rx="2" ry="2" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.15)" stroke-dasharray="2,2" />
+                                                }
+
+                                                string label = cohort?.CohortLabel ?? $"{i * 10}–{(i + 1) * 10}%";
+                                                @SvgText(slotCenterX, fsCPadT + fsCChartH + 18f, label, "svg-tick-x", "middle")
+                                            }
+
+                                            <!-- X Axis Title -->
+                                            @SvgText(fsCPadL + fsCChartW / 2f, fsCH - 10f, "Population Cohort", "svg-axis-label", "middle")
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- BOTTOM ROW: CHART 2 & CHART 3 SIDE BY SIDE -->
+                            <div class="fs-row fs-row-bottom">
+                                <!-- CHART 2: SPEED PROFILE -->
+                                <div class="chart-wrapper fs-chart-card">
+                                    @{
+                                        const float fsSW = 780f;
+                                        const float fsSH = 360f;
+                                        const float fsSPadL = 65f;
+                                        const float fsSPadR = 25f;
+                                        const float fsSPadT = 40f;
+                                        const float fsSPadB = 58f;
+                                        float fsSChartW = fsSW - fsSPadL - fsSPadR;
+                                        float fsSChartH = fsSH - fsSPadT - fsSPadB;
+                                        float fsMaxT = Math.Max(60f, Stats.GetMaxTimeSeconds());
+                                        var (fsMaxSpeed, fsSpeedYTicks) = Stats.GetSpeedYScale();
+                                        float fsFreeFlowY = fsSPadT + fsSChartH - (1.1f / fsMaxSpeed) * fsSChartH;
+                                        float fsBottleY = fsSPadT + fsSChartH - (0.6f / fsMaxSpeed) * fsSChartH;
+                                        float fsJamY = fsSPadT + fsSChartH - (0.2f / fsMaxSpeed) * fsSChartH;
+                                    }
+                                    <div class="chart-container fs-chart-container">
+                                        <svg viewBox="0 0 @fsSW @fsSH" class="stat-svg" preserveAspectRatio="xMidYMid meet">
+                                            <defs>
+                                                <linearGradient id="fsSpeedBandGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+                                                    <stop offset="0%" stop-color="#30123b" stop-opacity="0.45" />
+                                                    <stop offset="12%" stop-color="#4662d8" stop-opacity="0.50" />
+                                                    <stop offset="25%" stop-color="#28b7e2" stop-opacity="0.55" />
+                                                    <stop offset="38%" stop-color="#1ae4b6" stop-opacity="0.60" />
+                                                    <stop offset="50%" stop-color="#63fe62" stop-opacity="0.65" />
+                                                    <stop offset="63%" stop-color="#bdf838" stop-opacity="0.70" />
+                                                    <stop offset="75%" stop-color="#faba39" stop-opacity="0.75" />
+                                                    <stop offset="88%" stop-color="#f56e29" stop-opacity="0.80" />
+                                                    <stop offset="100%" stop-color="#d73027" stop-opacity="0.85" />
+                                                </linearGradient>
+                                                <linearGradient id="fsTurboSpeedLine" x1="0%" y1="100%" x2="0%" y2="0%">
+                                                    <stop offset="0%" stop-color="#4662d8" />
+                                                    <stop offset="20%" stop-color="#28b7e2" />
+                                                    <stop offset="40%" stop-color="#1ae4b6" />
+                                                    <stop offset="60%" stop-color="#63fe62" />
+                                                    <stop offset="80%" stop-color="#faba39" />
+                                                    <stop offset="100%" stop-color="#f14424" />
+                                                </linearGradient>
+                                            </defs>
+
+                                            @SvgText(fsSW / 2f, 22f, "2. Agent Mean Speed Profile: μ(t) ± σ", "svg-title", "middle")
+
+                                            <!-- Y Ticks -->
+                                            @foreach (var spd in fsSpeedYTicks)
+                                            {
+                                                float y = fsSPadT + fsSChartH - (spd / fsMaxSpeed) * fsSChartH;
+                                                <line x1="@F(fsSPadL)" y1="@F(y)" x2="@F(fsSW - fsSPadR)" y2="@F(y)" stroke="rgba(255,255,255,0.08)" stroke-dasharray="3,3" />
+                                                @SvgText(fsSPadL - 10f, y + 4f, spd.ToString("0.0", CultureInfo.InvariantCulture), "svg-tick", "end")
+                                            }
+
+                                            <!-- Reference Lines -->
+                                            <line x1="@F(fsSPadL)" y1="@F(fsFreeFlowY)" x2="@F(fsSW - fsSPadR)" y2="@F(fsFreeFlowY)" stroke="#22c55e" stroke-dasharray="4,4" opacity="0.8" stroke-width="1.2" />
+                                            <line x1="@F(fsSPadL)" y1="@F(fsBottleY)" x2="@F(fsSW - fsSPadR)" y2="@F(fsBottleY)" stroke="#f97316" stroke-dasharray="2,2" opacity="0.8" stroke-width="1.2" />
+                                            <line x1="@F(fsSPadL)" y1="@F(fsJamY)" x2="@F(fsSW - fsSPadR)" y2="@F(fsJamY)" stroke="#ef4444" stroke-dasharray="2,2" opacity="0.8" stroke-width="1.2" />
+
+                                            <!-- Y Axis Title -->
+                                            @SvgText(-fsSPadT - fsSChartH / 2f, 18f, "Speed [m/s]", "svg-axis-label", "middle", "rotate(-90)")
+
+                                            <!-- X Axis Baseline & Ticks -->
+                                            <line x1="@F(fsSPadL)" y1="@F(fsSPadT + fsSChartH)" x2="@F(fsSW - fsSPadR)" y2="@F(fsSPadT + fsSChartH)" stroke="#475569" stroke-width="1.5" />
+                                            @{
+                                                int fsXTickInterval = fsMaxT <= 120 ? 20 : (fsMaxT <= 300 ? 60 : 120);
+                                            }
+                                            @for (int t = 0; t <= fsMaxT; t += fsXTickInterval)
+                                            {
+                                                float x = fsSPadL + (t / fsMaxT) * fsSChartW;
+                                                <line x1="@F(x)" y1="@F(fsSPadT + fsSChartH)" x2="@F(x)" y2="@F(fsSPadT + fsSChartH + 5)" stroke="#64748b" />
+                                                string tLabel = t >= 60 ? $"{t}s ({(t / 60)}m)" : $"{t}s";
+                                                @SvgText(x, fsSPadT + fsSChartH + 18f, tLabel, "svg-tick-x", "middle")
+                                            }
+
+                                            <!-- Shaded Single Band & Mean Line -->
+                                            @if (Stats.SpeedHistory.Count > 1)
+                                            {
+                                                var (_, sBand1D, sMeanD, lastX, lastY) = BuildSpeedPaths(fsSPadL, fsSPadT, fsSChartW, fsSChartH, fsMaxT, fsMaxSpeed);
+                                                <path d="@sBand1D" fill="url(#fsSpeedBandGrad)" stroke="#38bdf8" stroke-width="0.8" stroke-opacity="0.4" />
+                                                <path d="@sMeanD" fill="none" stroke="url(#fsTurboSpeedLine)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+                                                <circle cx="@F(lastX)" cy="@F(lastY)" r="4" fill="#faba39" stroke="#ffffff" stroke-width="1.5" />
+                                            }
+
+                                            <!-- Legend Box -->
+                                            <g class="svg-legend" transform="translate(@F(fsSW - 250), 38)">
+                                                <rect x="0" y="0" width="235" height="106" rx="5" fill="rgba(15, 23, 42, 0.88)" stroke="rgba(71, 85, 105, 0.5)" />
+                                                
+                                                <rect x="8" y="12" width="14" height="9" rx="2" fill="url(#fsSpeedBandGrad)" stroke="#38bdf8" stroke-width="0.6" />
+                                                @SvgText(28f, 20f, "Std Dev Band (μ ± σ)", "legend-text")
+
+                                                <line x1="8" y1="34" x2="22" y2="34" stroke="url(#fsTurboSpeedLine)" stroke-width="2.5" />
+                                                @SvgText(28f, 38f, "Mean Speed μ(t)", "legend-text font-bold")
+
+                                                <line x1="8" y1="52" x2="22" y2="52" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="4,2" />
+                                                @SvgText(28f, 56f, "Free Flow (&gt; 1.1 m/s)", "legend-text")
+
+                                                <line x1="8" y1="70" x2="22" y2="70" stroke="#f97316" stroke-width="1.5" stroke-dasharray="2,2" />
+                                                @SvgText(28f, 74f, "Bottleneck (0.6 m/s)", "legend-text")
+
+                                                <line x1="8" y1="88" x2="22" y2="88" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="6,2,1,2" />
+                                                @SvgText(28f, 92f, "Jam / Stopped (&lt; 0.2 m/s)", "legend-text")
+                                            </g>
+
+                                            <!-- X Axis Title -->
+                                            @SvgText(fsSPadL + fsSChartW / 2f, fsSH - 10f, "Time Elapsed Since Alarm [s]", "svg-axis-label", "middle")
+                                        </svg>
+                                    </div>
+                                </div>
+
+                                <!-- CHART 3: CROWD DENSITY PROFILE -->
+                                <div class="chart-wrapper fs-chart-card">
+                                    @{
+                                        const float fsDW = 780f;
+                                        const float fsDH = 360f;
+                                        const float fsDPadL = 65f;
+                                        const float fsDPadR = 25f;
+                                        const float fsDPadT = 40f;
+                                        const float fsDPadB = 58f;
+                                        float fsDChartW = fsDW - fsDPadL - fsDPadR;
+                                        float fsDChartH = fsDH - fsDPadT - fsDPadB;
+                                        float fsDMaxT = Math.Max(60f, Stats.GetMaxTimeSeconds());
+                                        var (fsDMaxD, fsDensityYTicks) = Stats.GetDensityYScale();
+                                        float fsCritY = fsDPadT + fsDChartH - (3.5f / fsDMaxD) * fsDChartH;
+                                        float fsQueueY = fsDPadT + fsDChartH - (2.0f / fsDMaxD) * fsDChartH;
+                                        float fsFreeD = fsDPadT + fsDChartH - (0.5f / fsDMaxD) * fsDChartH;
+                                    }
+                                    <div class="chart-container fs-chart-container">
+                                        <svg viewBox="0 0 @F(fsDW) @F(fsDH)" class="stat-svg" preserveAspectRatio="xMidYMid meet">
+                                            <defs>
+                                                <linearGradient id="fsDensityBandGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+                                                    <stop offset="0%" stop-color="#30123b" stop-opacity="0.45" />
+                                                    <stop offset="12%" stop-color="#4662d8" stop-opacity="0.50" />
+                                                    <stop offset="25%" stop-color="#28b7e2" stop-opacity="0.55" />
+                                                    <stop offset="38%" stop-color="#1ae4b6" stop-opacity="0.60" />
+                                                    <stop offset="50%" stop-color="#63fe62" stop-opacity="0.65" />
+                                                    <stop offset="63%" stop-color="#bdf838" stop-opacity="0.70" />
+                                                    <stop offset="75%" stop-color="#faba39" stop-opacity="0.75" />
+                                                    <stop offset="88%" stop-color="#f56e29" stop-opacity="0.80" />
+                                                    <stop offset="100%" stop-color="#d73027" stop-opacity="0.85" />
+                                                </linearGradient>
+                                                <linearGradient id="fsTurboDensityLine" x1="0%" y1="100%" x2="0%" y2="0%">
+                                                    <stop offset="0%" stop-color="#4662d8" />
+                                                    <stop offset="20%" stop-color="#28b7e2" />
+                                                    <stop offset="40%" stop-color="#1ae4b6" />
+                                                    <stop offset="60%" stop-color="#63fe62" />
+                                                    <stop offset="80%" stop-color="#faba39" />
+                                                    <stop offset="100%" stop-color="#f14424" />
+                                                </linearGradient>
+                                            </defs>
+
+                                            @SvgText(fsDW / 2f, 22f, "3. Mean Crowd Density Profile: μ(t) ± σ", "svg-title", "middle")
+
+                                            <!-- Y Ticks -->
+                                            @foreach (var d in fsDensityYTicks)
+                                            {
+                                                float y = fsDPadT + fsDChartH - (d / fsDMaxD) * fsDChartH;
+                                                <line x1="@F(fsDPadL)" y1="@F(y)" x2="@F(fsDW - fsDPadR)" y2="@F(y)" stroke="rgba(255,255,255,0.08)" stroke-dasharray="3,3" />
+                                                @SvgText(fsDPadL - 10f, y + 4f, d.ToString(), "svg-tick", "end")
+                                            }
+
+                                            <!-- Threshold Reference Lines -->
+                                            <line x1="@F(fsDPadL)" y1="@F(fsCritY)" x2="@F(fsDW - fsDPadR)" y2="@F(fsCritY)" stroke="#ef4444" stroke-width="1.4" stroke-dasharray="6,4" />
+                                            <line x1="@F(fsDPadL)" y1="@F(fsQueueY)" x2="@F(fsDW - fsDPadR)" y2="@F(fsQueueY)" stroke="#a8a29e" stroke-width="1.2" stroke-dasharray="3,3" />
+                                            <line x1="@F(fsDPadL)" y1="@F(fsFreeD)" x2="@F(fsDW - fsDPadR)" y2="@F(fsFreeD)" stroke="#64748b" stroke-width="1.2" stroke-dasharray="8,3,2,3" />
+
+                                            <!-- Y Axis Title -->
+                                            @SvgText(-fsDPadT - fsDChartH / 2f, 18f, "Density [ped/m²]", "svg-axis-label", "middle", "rotate(-90)")
+
+                                            <!-- X Axis Baseline & Ticks -->
+                                            <line x1="@F(fsDPadL)" y1="@F(fsDPadT + fsDChartH)" x2="@F(fsDW - fsDPadR)" y2="@F(fsDPadT + fsDChartH)" stroke="#475569" stroke-width="1.5" />
+                                            @{
+                                                int fsDXInterval = fsDMaxT <= 120 ? 30 : (fsDMaxT <= 360 ? 60 : 120);
+                                            }
+                                            @for (int t = 0; t <= fsDMaxT; t += fsDXInterval)
+                                            {
+                                                float x = fsDPadL + (t / fsDMaxT) * fsDChartW;
+                                                <line x1="@F(x)" y1="@F(fsDPadT + fsDChartH)" x2="@F(x)" y2="@F(fsDPadT + fsDChartH + 5)" stroke="#64748b" />
+                                                string tLabel = t >= 60 ? $"{t}s ({(t / 60)}m)" : $"{t}s";
+                                                @SvgText(x, fsDPadT + fsDChartH + 18f, tLabel, "svg-tick-x", "middle")
+                                            }
+
+                                            <!-- Shaded Single Band & Mean Line -->
+                                            @if (Stats.DensityHistory.Count > 1)
+                                            {
+                                                var (_, band1D, meanD, curX, curY) = BuildDensityPaths(fsDPadL, fsDPadT, fsDChartW, fsDChartH, fsDMaxT, fsDMaxD);
+                                                <path d="@band1D" fill="url(#fsDensityBandGrad)" stroke="#63fe62" stroke-width="0.8" stroke-opacity="0.4" />
+                                                <path d="@meanD" fill="none" stroke="url(#fsTurboDensityLine)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+                                                <circle cx="@F(curX)" cy="@F(curY)" r="4" fill="#f56e29" stroke="#ffffff" stroke-width="1.5" />
+                                            }
+
+                                            <!-- Legend Box -->
+                                            <g class="svg-legend" transform="translate(@F(fsDW - 270), 38)">
+                                                <rect x="0" y="0" width="255" height="106" rx="5" fill="rgba(15, 23, 42, 0.88)" stroke="rgba(71, 85, 105, 0.5)" />
+                                                
+                                                <rect x="8" y="12" width="14" height="9" rx="2" fill="url(#fsDensityBandGrad)" stroke="#63fe62" stroke-width="0.6" />
+                                                @SvgText(28f, 20f, "Std Dev Band (μ ± σ)", "legend-text")
+
+                                                <line x1="8" y1="34" x2="22" y2="34" stroke="url(#fsTurboDensityLine)" stroke-width="2.5" />
+                                                @SvgText(28f, 38f, "Mean Density μ(t)", "legend-text font-bold")
+
+                                                <line x1="8" y1="52" x2="22" y2="52" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,2" />
+                                                @SvgText(28f, 56f, "Critical Crush (&gt; 3.5 ped/m²)", "legend-text")
+
+                                                <line x1="8" y1="70" x2="22" y2="70" stroke="#a8a29e" stroke-width="1.5" stroke-dasharray="2,2" />
+                                                @SvgText(28f, 74f, "Queue Formation (&gt; 2.0 ped/m²)", "legend-text")
+
+                                                <line x1="8" y1="88" x2="22" y2="88" stroke="#64748b" stroke-width="1.5" stroke-dasharray="6,2,1,2" />
+                                                @SvgText(28f, 92f, "Free Flow (≤ 0.5 ped/m²)", "legend-text")
+                                            </g>
+
+                                            <!-- X Axis Title -->
+                                            @SvgText(fsDPadL + fsDChartW / 2f, fsDH - 10f, "Time Elapsed Since Alarm [s]", "svg-axis-label", "middle")
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    @if (_activeTab == "cohorts")
+                    {
+                        <div class="chart-wrapper">
+                            <!-- CHART 1: COHORT EVACUATION BAR CHART -->
+                            @{
+                                const float cSvgW = 760f;
+                                const float cSvgH = 390f;
+                                const float cPadL = 70f;
+                                const float cPadR = 25f;
+                                const float cPadT = 45f;
+                                const float cPadB = 65f;
+                                float cChartW = cSvgW - cPadL - cPadR;
+                                float cChartH = cSvgH - cPadT - cPadB;
+                                var (maxMin, cohortTicks) = Stats.GetCohortYScale();
+                            }
+                            <div class="chart-container">
+                                <svg viewBox="0 0 @F(cSvgW) @F(cSvgH)" class="stat-svg" preserveAspectRatio="xMidYMid meet">
+                                    <defs>
+                                        <linearGradient id="barGrad0" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#0284c7"/></linearGradient>
+                                        <linearGradient id="barGrad1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#60a5fa"/><stop offset="100%" stop-color="#2563eb"/></linearGradient>
+                                        <linearGradient id="barGrad2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#1d4ed8"/></linearGradient>
+                                        <linearGradient id="barGrad3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2563eb"/><stop offset="100%" stop-color="#1e40af"/></linearGradient>
+                                        <linearGradient id="barGrad4" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1d4ed8"/><stop offset="100%" stop-color="#1e3a8a"/></linearGradient>
+                                        <linearGradient id="barGrad5" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1e40af"/><stop offset="100%" stop-color="#172554"/></linearGradient>
+                                        <linearGradient id="barGrad6" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2563eb"/><stop offset="100%" stop-color="#0369a1"/></linearGradient>
+                                        <linearGradient id="barGrad7" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1d4ed8"/><stop offset="100%" stop-color="#0284c7"/></linearGradient>
+                                        <linearGradient id="barGrad8" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1e3a8a"/><stop offset="100%" stop-color="#0369a1"/></linearGradient>
+                                        <linearGradient id="barGrad9" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0369a1"/><stop offset="100%" stop-color="#0284c7"/></linearGradient>
+                                        <linearGradient id="activeCohortGrad" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.95"/>
+                                            <stop offset="50%" stop-color="#0ea5e9" stop-opacity="0.85"/>
+                                            <stop offset="100%" stop-color="#0284c7" stop-opacity="0.95"/>
+                                        </linearGradient>
+                                    </defs>
+
+                                    @SvgText(cSvgW / 2f, 24f, "Evacuation Time by Cohort (incremental per 10% population)", "svg-title", "middle")
+
+                                    <!-- Grid & Y-Axis Ticks -->
+                                    @foreach (var val in cohortTicks)
+                                    {
+                                        float y = cPadT + cChartH - (val / maxMin) * cChartH;
+                                        <line x1="@F(cPadL)" y1="@F(y)" x2="@F(cSvgW - cPadR)" y2="@F(y)" stroke="rgba(255,255,255,0.08)" stroke-dasharray="3,3" />
+                                        string valStr = val % 1f == 0f ? val.ToString("0", CultureInfo.InvariantCulture) : val.ToString("0.0#", CultureInfo.InvariantCulture);
+                                        @SvgText(cPadL - 10f, y + 4f, valStr, "svg-tick", "end")
+                                    }
+
+                                    <!-- Y Axis Title -->
+                                    @SvgText(-cPadT - cChartH / 2f, 20f, "Cohort Evacuation Duration (minutes)", "svg-axis-label", "middle", "rotate(-90)")
+
+                                    <!-- X Axis Baseline -->
+                                    <line x1="@F(cPadL)" y1="@F(cPadT + cChartH)" x2="@F(cSvgW - cPadR)" y2="@F(cPadT + cChartH)" stroke="#475569" stroke-width="1.5" />
+
+                                    <!-- 10 Bars -->
+                                    @{
+                                        int cohortCount = Math.Max(10, Stats.Cohorts.Count);
+                                        float slotW = cChartW / cohortCount;
+                                        float barW = Math.Min(44f, slotW * 0.72f);
+                                    }
+                                    @for (int i = 0; i < 10; i++)
+                                    {
+                                        var cohort = i < Stats.Cohorts.Count ? Stats.Cohorts[i] : null;
+                                        float slotCenterX = cPadL + slotW * i + slotW / 2f;
+                                        float barLeft = slotCenterX - barW / 2f;
+
+                                        float minutes = cohort?.DisplayMinutes ?? 0f;
+                                        float rawBarHeight = maxMin > 0 ? (minutes / maxMin) * cChartH : 0f;
+                                        // Guarantee minimum height for non-zero durations so 1s-2s burst segments are clearly visible
+                                        float barHeight = (minutes > 0.0001f) ? Math.Max(10f, rawBarHeight) : 0f;
+                                        barHeight = Math.Clamp(barHeight, 0f, cChartH);
+                                        float barTop = cPadT + cChartH - barHeight;
+
+                                        bool isDone = cohort?.IsCompleted ?? false;
+                                        bool isActive = !isDone && (cohort != null && cohort.CurrentElapsedSeconds > 0);
+
+                                        if (isDone)
+                                        {
+                                            <rect x="@F(barLeft)" y="@F(barTop)" width="@F(barW)" height="@F(barHeight)" 
+                                                  rx="4" ry="4" fill="url(#barGrad@(i))" stroke="#38bdf8" stroke-width="1.2" class="cohort-bar completed" />
+                                            @SvgText(slotCenterX, barTop - 6f, cohort!.FormattedDuration, "svg-bar-value", "middle")
+                                        }
+                                        else if (isActive)
+                                        {
+                                            float activeBarH = Math.Max(10f, barHeight);
+                                            float activeBarTop = cPadT + cChartH - activeBarH;
+                                            <rect x="@F(barLeft)" y="@F(activeBarTop)" width="@F(barW)" height="@F(activeBarH)" 
+                                                  rx="4" ry="4" fill="url(#activeCohortGrad)" stroke="#38bdf8" stroke-width="2" class="cohort-bar active-pulse" />
+                                            @SvgText(slotCenterX, activeBarTop - 7f, cohort!.FormattedDuration, "svg-bar-value active-val", "middle")
+                                        }
+                                        else
+                                        {
+                                            <rect x="@F(barLeft)" y="@F(cPadT + cChartH - 4)" width="@F(barW)" height="4" 
+                                                  rx="2" ry="2" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.15)" stroke-dasharray="2,2" />
+                                        }
+
+                                        string label = cohort?.CohortLabel ?? $"{i * 10}–{(i + 1) * 10}%";
+                                        @SvgText(slotCenterX, cPadT + cChartH + 20f, label, "svg-tick-x", "middle")
+                                    }
+
+                                    <!-- X Axis Title -->
+                                    @SvgText(cPadL + cChartW / 2f, cSvgH - 12f, "Population Cohort", "svg-axis-label", "middle")
+                                </svg>
+                            </div>
+                        </div>
+                    }
+
+                    @if (_activeTab == "speed")
+                    {
+                        <div class="chart-wrapper">
+                            <!-- CHART 2: SPEED PROFILE -->
+                            @{
+                                const float sSvgW = 760f;
+                                const float sSvgH = 390f;
+                                const float sPadL = 70f;
+                                const float sPadR = 25f;
+                                const float sPadT = 45f;
+                                const float sPadB = 65f;
+                                float sChartW = sSvgW - sPadL - sPadR;
+                                float sChartH = sSvgH - sPadT - sPadB;
+                                float maxT = Math.Max(60f, Stats.GetMaxTimeSeconds());
+                                var (maxSpeed, speedYTicks) = Stats.GetSpeedYScale();
+                                float freeFlowY = sPadT + sChartH - (1.1f / maxSpeed) * sChartH;
+                                float bottleY = sPadT + sChartH - (0.6f / maxSpeed) * sChartH;
+                                float jamY = sPadT + sChartH - (0.2f / maxSpeed) * sChartH;
+                            }
+                            <div class="chart-container">
+                                <svg viewBox="0 0 @sSvgW @sSvgH" class="stat-svg" preserveAspectRatio="xMidYMid meet">
+                                    @SvgText(sSvgW / 2f, 24f, "Agent Mean Speed Profile During Evacuation", "svg-title", "middle")
+
+                                    <!-- Y Ticks -->
+                                    @foreach (var spd in speedYTicks)
+                                    {
+                                        float y = sPadT + sChartH - (spd / maxSpeed) * sChartH;
+                                        <line x1="@F(sPadL)" y1="@F(y)" x2="@F(sSvgW - sPadR)" y2="@F(y)" stroke="rgba(255,255,255,0.08)" stroke-dasharray="3,3" />
+                                        @SvgText(sPadL - 10f, y + 4f, spd.ToString("0.0", CultureInfo.InvariantCulture), "svg-tick", "end")
+                                    }
+
+                                    <!-- Reference Lines -->
+                                    <line x1="@F(sPadL)" y1="@F(freeFlowY)" x2="@F(sSvgW - sPadR)" y2="@F(freeFlowY)" stroke="#22c55e" stroke-dasharray="4,4" opacity="0.8" stroke-width="1.2" />
+                                    @SvgText(sPadL + 8f, freeFlowY - 4f, "Free Flow (&gt; 1.1 m/s)", "svg-threshold-tag text-success", "start")
+
+                                    <line x1="@F(sPadL)" y1="@F(bottleY)" x2="@F(sSvgW - sPadR)" y2="@F(bottleY)" stroke="#f97316" stroke-dasharray="2,2" opacity="0.8" stroke-width="1.2" />
+                                    @SvgText(sPadL + 8f, bottleY - 4f, "Bottleneck / Constrained (0.6 m/s)", "svg-threshold-tag text-warning", "start")
+
+                                    <line x1="@F(sPadL)" y1="@F(jamY)" x2="@F(sSvgW - sPadR)" y2="@F(jamY)" stroke="#ef4444" stroke-dasharray="2,2" opacity="0.8" stroke-width="1.2" />
+                                    @SvgText(sPadL + 8f, jamY - 4f, "Jam / Stopped (&lt; 0.2 m/s)", "svg-threshold-tag text-danger", "start")
+
+                                    <!-- Y Axis Title -->
+                                    @SvgText(-sPadT - sChartH / 2f, 20f, "Movement Speed [m/s]", "svg-axis-label", "middle", "rotate(-90)")
+
+                                    <!-- X Axis Baseline & Ticks -->
+                                    <line x1="@F(sPadL)" y1="@F(sPadT + sChartH)" x2="@F(sSvgW - sPadR)" y2="@F(sPadT + sChartH)" stroke="#475569" stroke-width="1.5" />
+                                    @{
+                                        int xTickInterval = maxT <= 120 ? 20 : (maxT <= 300 ? 60 : 120);
+                                    }
+                                    @for (int t = 0; t <= maxT; t += xTickInterval)
+                                    {
+                                        float x = sPadL + (t / maxT) * sChartW;
+                                        <line x1="@F(x)" y1="@F(sPadT + sChartH)" x2="@F(x)" y2="@F(sPadT + sChartH + 5)" stroke="#64748b" />
+                                        string tLabel = t >= 60 ? $"{t}s ({(t / 60)}m)" : $"{t}s";
+                                        @SvgText(x, sPadT + sChartH + 20f, tLabel, "svg-tick-x", "middle")
+                                    }
+
+                                    <!-- Shaded Single Band & Mean Line for Speed Profile -->
+                                    @if (Stats.SpeedHistory.Count > 1)
+                                    {
+                                        var (sBand2D, sBand1D, sMeanD, lastX, lastY) = BuildSpeedPaths(sPadL, sPadT, sChartW, sChartH, maxT, maxSpeed);
+                                        <path d="@sBand1D" fill="url(#speedBandGrad)" stroke="#38bdf8" stroke-width="0.8" stroke-opacity="0.4" />
+                                        <path d="@sMeanD" fill="none" stroke="url(#turboSpeedLine)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                                        <circle cx="@F(lastX)" cy="@F(lastY)" r="4.5" fill="#faba39" stroke="#ffffff" stroke-width="1.5" />
+                                    }
+
+                                    <!-- Speed Profile Legend Box -->
+                                    <g class="svg-legend" transform="translate(@F(sSvgW - 275), 45)">
+                                        <rect x="0" y="0" width="255" height="116" rx="6" fill="rgba(15, 23, 42, 0.88)" stroke="rgba(71, 85, 105, 0.5)" />
+                                        
+                                        <rect x="10" y="14" width="16" height="10" rx="2" fill="url(#speedBandGrad)" stroke="#38bdf8" stroke-width="0.6" />
+                                        @SvgText(34f, 23f, "Standard Deviation Band (μ ± σ)", "legend-text")
+
+                                        <line x1="10" y1="38" x2="26" y2="38" stroke="url(#turboSpeedLine)" stroke-width="2.5" />
+                                        @SvgText(34f, 42f, "Mean Speed μ(t)", "legend-text font-bold")
+
+                                        <line x1="10" y1="58" x2="26" y2="58" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="4,2" />
+                                        @SvgText(34f, 62f, "Free Flow (&gt; 1.1 m/s)", "legend-text")
+
+                                        <line x1="10" y1="78" x2="26" y2="78" stroke="#f97316" stroke-width="1.5" stroke-dasharray="2,2" />
+                                        @SvgText(34f, 82f, "Bottleneck / Constrained (0.6 m/s)", "legend-text")
+
+                                        <line x1="10" y1="98" x2="26" y2="98" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="6,2,1,2" />
+                                        @SvgText(34f, 102f, "Jam / Stopped (&lt; 0.2 m/s)", "legend-text")
+                                    </g>
+
+                                    <defs>
+                                        <!-- Turbo Colormap for Speed Single Band & Mean Line -->
+                                        <linearGradient id="speedBandGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+                                            <stop offset="0%" stop-color="#30123b" stop-opacity="0.45" />
+                                            <stop offset="12%" stop-color="#4662d8" stop-opacity="0.50" />
+                                            <stop offset="25%" stop-color="#28b7e2" stop-opacity="0.55" />
+                                            <stop offset="38%" stop-color="#1ae4b6" stop-opacity="0.60" />
+                                            <stop offset="50%" stop-color="#63fe62" stop-opacity="0.65" />
+                                            <stop offset="63%" stop-color="#bdf838" stop-opacity="0.70" />
+                                            <stop offset="75%" stop-color="#faba39" stop-opacity="0.75" />
+                                            <stop offset="88%" stop-color="#f56e29" stop-opacity="0.80" />
+                                            <stop offset="100%" stop-color="#d73027" stop-opacity="0.85" />
+                                        </linearGradient>
+                                        <linearGradient id="turboSpeedLine" x1="0%" y1="100%" x2="0%" y2="0%">
+                                            <stop offset="0%" stop-color="#4662d8" />
+                                            <stop offset="20%" stop-color="#28b7e2" />
+                                            <stop offset="40%" stop-color="#1ae4b6" />
+                                            <stop offset="60%" stop-color="#63fe62" />
+                                            <stop offset="80%" stop-color="#faba39" />
+                                            <stop offset="100%" stop-color="#f14424" />
+                                        </linearGradient>
+                                    </defs>
+
+                                    <!-- X Axis Title -->
+                                    @SvgText(sPadL + sChartW / 2f, sSvgH - 12f, "Time Elapsed Since Alarm [s]", "svg-axis-label", "middle")
+                                </svg>
+                            </div>
+                        </div>
+                    }
+
+                    @if (_activeTab == "density")
+                    {
+                        <div class="chart-wrapper">
+                            <!-- CHART 3: CROWD DENSITY PROFILE -->
+                            @{
+                                const float dSvgW = 820f;
+                                const float dSvgH = 430f;
+                                const float dPadL = 70f;
+                                const float dPadR = 30f;
+                                const float dPadT = 45f;
+                                const float dPadB = 65f;
+                                float dChartW = dSvgW - dPadL - dPadR;
+                                float dChartH = dSvgH - dPadT - dPadB;
+                                float dMaxT = Math.Max(60f, Stats.GetMaxTimeSeconds());
+                                var (dMaxD, densityYTicks) = Stats.GetDensityYScale();
+                                float critY = dPadT + dChartH - (3.5f / dMaxD) * dChartH;
+                                float queueY = dPadT + dChartH - (2.0f / dMaxD) * dChartH;
+                                float freeD = dPadT + dChartH - (0.5f / dMaxD) * dChartH;
+                            }
+                            <div class="chart-container">
+                                <svg viewBox="0 0 @F(dSvgW) @F(dSvgH)" class="stat-svg" preserveAspectRatio="xMidYMid meet">
+                                    @SvgText(dSvgW / 2f, 24f, "Mean Crowd Density Profile on Evacuation Routes: μ(t) ± σ", "svg-title", "middle")
+
+                                    <!-- Y Ticks -->
+                                    @foreach (var d in densityYTicks)
+                                    {
+                                        float y = dPadT + dChartH - (d / dMaxD) * dChartH;
+                                        <line x1="@F(dPadL)" y1="@F(y)" x2="@F(dSvgW - dPadR)" y2="@F(y)" stroke="rgba(255,255,255,0.08)" stroke-dasharray="3,3" />
+                                        @SvgText(dPadL - 10f, y + 4f, d.ToString(), "svg-tick", "end")
+                                    }
+
+                                    <!-- Threshold Reference Lines -->
+                                    <line x1="@F(dPadL)" y1="@F(critY)" x2="@F(dSvgW - dPadR)" y2="@F(critY)" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="6,4" />
+                                    @SvgText(dPadL + 8f, critY - 4f, "Critical Jam (&gt; 3.5 ped/m²)", "svg-threshold-tag text-danger", "start")
+
+                                    <line x1="@F(dPadL)" y1="@F(queueY)" x2="@F(dSvgW - dPadR)" y2="@F(queueY)" stroke="#a8a29e" stroke-width="1.3" stroke-dasharray="3,3" />
+                                    @SvgText(dPadL + 8f, queueY - 4f, "Dense Queue (2.0 ped/m²)", "svg-threshold-tag text-warning", "start")
+
+                                    <line x1="@F(dPadL)" y1="@F(freeD)" x2="@F(dSvgW - dPadR)" y2="@F(freeD)" stroke="#64748b" stroke-width="1.3" stroke-dasharray="8,3,2,3" />
+
+                                    <!-- Y Axis Title -->
+                                    @SvgText(-dPadT - dChartH / 2f, 20f, "Crowd Density [ped/m²]", "svg-axis-label", "middle", "rotate(-90)")
+
+                                    <!-- X Axis Baseline & Ticks -->
+                                    <line x1="@F(dPadL)" y1="@F(dPadT + dChartH)" x2="@F(dSvgW - dPadR)" y2="@F(dPadT + dChartH)" stroke="#475569" stroke-width="1.5" />
+                                    @{
+                                        int dXInterval = dMaxT <= 120 ? 30 : (dMaxT <= 360 ? 60 : 120);
+                                    }
+                                    @for (int t = 0; t <= dMaxT; t += dXInterval)
+                                    {
+                                        float x = dPadL + (t / dMaxT) * dChartW;
+                                        <line x1="@F(x)" y1="@F(dPadT + dChartH)" x2="@F(x)" y2="@F(dPadT + dChartH + 5)" stroke="#64748b" />
+                                        string tLabel = t >= 60 ? $"{t}s ({(t / 60)}m)" : $"{t}s";
+                                        @SvgText(x, dPadT + dChartH + 20f, tLabel, "svg-tick-x", "middle")
+                                    }
+
+                                    <!-- Shaded Single Band & Mean Line -->
+                                    @if (Stats.DensityHistory.Count > 1)
+                                    {
+                                        var (band2D, band1D, meanD, curX, curY) = BuildDensityPaths(dPadL, dPadT, dChartW, dChartH, dMaxT, dMaxD);
+                                        <path d="@band1D" fill="url(#densityBandGrad)" stroke="#63fe62" stroke-width="0.8" stroke-opacity="0.4" />
+                                        <path d="@meanD" fill="none" stroke="url(#turboDensityLine)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                                        <circle cx="@F(curX)" cy="@F(curY)" r="4.5" fill="#f56e29" stroke="#ffffff" stroke-width="1.5" />
+                                    }
+
+                                    <!-- Legend Box -->
+                                    <g class="svg-legend" transform="translate(@F(dSvgW - 295), 45)">
+                                        <rect x="0" y="0" width="275" height="116" rx="6" fill="rgba(15, 23, 42, 0.88)" stroke="rgba(71, 85, 105, 0.5)" />
+                                        
+                                        <rect x="10" y="14" width="16" height="10" rx="2" fill="url(#densityBandGrad)" stroke="#63fe62" stroke-width="0.6" />
+                                        @SvgText(34f, 23f, "Standard Deviation Band (μ ± σ)", "legend-text")
+
+                                        <line x1="10" y1="38" x2="26" y2="38" stroke="url(#turboDensityLine)" stroke-width="2.5" />
+                                        @SvgText(34f, 42f, "Mean Density μ(t)", "legend-text font-bold")
+
+                                        <line x1="10" y1="58" x2="26" y2="58" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,2" />
+                                        @SvgText(34f, 62f, "Critical Crush Threshold (&gt; 3.5 ped/m²)", "legend-text")
+
+                                        <line x1="10" y1="78" x2="26" y2="78" stroke="#a8a29e" stroke-width="1.5" stroke-dasharray="2,2" />
+                                        @SvgText(34f, 82f, "Queue Formation Threshold (&gt; 2.0 ped/m²)", "legend-text")
+
+                                        <line x1="10" y1="98" x2="26" y2="98" stroke="#64748b" stroke-width="1.5" stroke-dasharray="6,2,1,2" />
+                                        @SvgText(34f, 102f, "Free Flow (≤ 0.5 ped/m²)", "legend-text")
+                                    </g>
+
+                                    <defs>
+                                        <!-- Turbo Colormap for Density Single Band & Mean Line -->
+                                        <linearGradient id="densityBandGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+                                            <stop offset="0%" stop-color="#30123b" stop-opacity="0.45" />
+                                            <stop offset="12%" stop-color="#4662d8" stop-opacity="0.50" />
+                                            <stop offset="25%" stop-color="#28b7e2" stop-opacity="0.55" />
+                                            <stop offset="38%" stop-color="#1ae4b6" stop-opacity="0.60" />
+                                            <stop offset="50%" stop-color="#63fe62" stop-opacity="0.65" />
+                                            <stop offset="63%" stop-color="#bdf838" stop-opacity="0.70" />
+                                            <stop offset="75%" stop-color="#faba39" stop-opacity="0.75" />
+                                            <stop offset="88%" stop-color="#f56e29" stop-opacity="0.80" />
+                                            <stop offset="100%" stop-color="#d73027" stop-opacity="0.85" />
+                                        </linearGradient>
+                                        <linearGradient id="turboDensityLine" x1="0%" y1="100%" x2="0%" y2="0%">
+                                            <stop offset="0%" stop-color="#4662d8" />
+                                            <stop offset="20%" stop-color="#28b7e2" />
+                                            <stop offset="40%" stop-color="#1ae4b6" />
+                                            <stop offset="60%" stop-color="#63fe62" />
+                                            <stop offset="80%" stop-color="#faba39" />
+                                            <stop offset="100%" stop-color="#f14424" />
+                                        </linearGradient>
+                                    </defs>
+
+                                    <!-- X Axis Title -->
+                                    @SvgText(dPadL + dChartW / 2f, dSvgH - 12f, "Time Elapsed Since Alarm [s]", "svg-axis-label", "middle")
+                                </svg>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; } = false;
+    [Parameter] public bool IsLive { get; set; } = true;
+    [Parameter] public SimulationLiveStats Stats { get; set; } = new();
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private string _activeTab = "cohorts";
+    private string _previousTab = "cohorts";
+    private bool _isMinimized = false;
+    private bool _isMaximized = false;
+
+    // Draggable position
+    private double _posX = 24;
+    private double _posY = 70;
+
+    private static string F(float val) => val.ToString("0.##", CultureInfo.InvariantCulture);
+    private static string F(double val) => val.ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static MarkupString SvgText(
+        float x, float y, string content, 
+        string cssClass = "", string anchor = "start", string transform = "", string? fill = null)
+    {
+        var transAttr = string.IsNullOrEmpty(transform) ? "" : $" transform=\"{transform}\"";
+        string resolvedFill = fill ?? ResolveDefaultFill(cssClass);
+        string fontSize = ResolveFontSize(cssClass);
+        string fontWeight = ResolveFontWeight(cssClass);
+
+        return new MarkupString(
+            $"<text x=\"{F(x)}\" y=\"{F(y)}\" text-anchor=\"{anchor}\" fill=\"{resolvedFill}\" font-size=\"{fontSize}\" font-weight=\"{fontWeight}\" font-family=\"system-ui, -apple-system, sans-serif\" class=\"{cssClass}\"{transAttr}>{content}</text>"
+        );
+    }
+
+    private static string ResolveDefaultFill(string cssClass)
+    {
+        if (cssClass.Contains("active-val")) return "#38bdf8";
+        if (cssClass.Contains("text-success")) return "#4ade80";
+        if (cssClass.Contains("text-warning")) return "#fb923c";
+        if (cssClass.Contains("text-danger")) return "#f87171";
+        if (cssClass.Contains("svg-title")) return "#f8fafc";
+        if (cssClass.Contains("svg-axis-label")) return "#cbd5e1";
+        if (cssClass.Contains("svg-tick-x")) return "#e2e8f0";
+        if (cssClass.Contains("svg-tick")) return "#cbd5e1";
+        if (cssClass.Contains("svg-bar-value")) return "#ffffff";
+        if (cssClass.Contains("font-bold")) return "#ffffff";
+        if (cssClass.Contains("legend-text")) return "#e2e8f0";
+        if (cssClass.Contains("svg-threshold-tag")) return "#f1f5f9";
+        return "#e2e8f0";
+    }
+
+    private static string ResolveFontSize(string cssClass)
+    {
+        if (cssClass.Contains("svg-title")) return "13.5px";
+        if (cssClass.Contains("svg-axis-label")) return "11.5px";
+        if (cssClass.Contains("svg-bar-value")) return "11px";
+        if (cssClass.Contains("legend-text")) return "9.5px";
+        if (cssClass.Contains("svg-threshold-tag")) return "9.5px";
+        return "10.5px";
+    }
+
+    private static string ResolveFontWeight(string cssClass)
+    {
+        if (cssClass.Contains("active-val")) return "800";
+        if (cssClass.Contains("svg-title")) return "700";
+        if (cssClass.Contains("svg-bar-value")) return "700";
+        if (cssClass.Contains("font-bold")) return "700";
+        if (cssClass.Contains("svg-axis-label")) return "600";
+        if (cssClass.Contains("svg-threshold-tag")) return "600";
+        return "500";
+    }
+
+    private string GetOverlayStyle()
+    {
+        if (_isMaximized)
+        {
+            return "position: fixed; top: 8px; left: 8px; right: 8px; bottom: 8px; z-index: 1200; width: calc(100vw - 16px); height: calc(100vh - 16px);";
+        }
+        return $"position: fixed; top: {_posY}px; right: {_posX}px; z-index: 1200; max-height: calc(100vh - 90px);";
+    }
+
+    private void StartDrag(MouseEventArgs e)
+    {
+        // Simple drag anchor
+    }
+
+    private void ToggleMinimize()
+    {
+        _isMinimized = !_isMinimized;
+    }
+
+    private void ToggleMaximize()
+    {
+        _isMaximized = !_isMaximized;
+        if (_isMaximized)
+        {
+            _isMinimized = false;
+            if (_activeTab != "all")
+            {
+                _previousTab = _activeTab;
+            }
+            _activeTab = "all";
+        }
+        else
+        {
+            _activeTab = _previousTab == "all" ? "cohorts" : _previousTab;
+        }
+    }
+
+    private async Task Close()
+    {
+        if (OnClose.HasDelegate)
+        {
+            await OnClose.InvokeAsync();
+        }
+    }
+
+    private static string GetCohortBarStyle(int i)
+    {
+        string[] styles = {
+            "fill: #7dd3fc; stroke: #38bdf8;",
+            "fill: #60a5fa; stroke: #38bdf8;",
+            "fill: #3b82f6; stroke: #60a5fa;",
+            "fill: #2563eb; stroke: #3b82f6;",
+            "fill: #1d4ed8; stroke: #2563eb;",
+            "fill: #1e40af; stroke: #1d4ed8;",
+            "fill: #1d4ed8; stroke: #38bdf8;",
+            "fill: #1e40af; stroke: #38bdf8;",
+            "fill: #1e3a8a; stroke: #60a5fa;",
+            "fill: #0369a1; stroke: #38bdf8;"
+        };
+        return styles[i % styles.Length];
+    }
+
+    private (string band2D, string band1D, string meanD, float lastX, float lastY) BuildSpeedPaths(
+        float padL, float padT, float chartW, float chartH, float maxT, float maxSpeed)
+    {
+        var points = Stats.SpeedHistory;
+        var band2 = new System.Text.StringBuilder();
+        var band1 = new System.Text.StringBuilder();
+        var meanLine = new System.Text.StringBuilder();
+        float lastX = padL;
+        float lastY = padT + chartH;
+
+        if (points.Count == 0) return ("", "", "", lastX, lastY);
+
+        // Band 2 (+-2 sigma)
+        for (int i = 0; i < points.Count; i++)
+        {
+            float px = padL + (points[i].TimeSeconds / maxT) * chartW;
+            float val = Math.Clamp(points[i].Plus2Sigma, 0f, maxSpeed);
+            float py = padT + chartH - (val / maxSpeed) * chartH;
+            px = Math.Clamp(px, padL, padL + chartW);
+
+            if (i == 0) band2.Append($"M {px.ToString("0.0", CultureInfo.InvariantCulture)} {py.ToString("0.0", CultureInfo.InvariantCulture)}");
+            else band2.Append($" L {px.ToString("0.0", CultureInfo.InvariantCulture)} {py.ToString("0.0", CultureInfo.InvariantCulture)}");
+        }
+        for (int i = points.Count - 1; i >= 0; i--)
+        {
+            float px = padL + (points[i].TimeSeconds / maxT) * chartW;
+            float val = Math.Clamp(points[i].Minus2Sigma, 0f, maxSpeed);
+            float py = padT + chartH - (val / maxSpeed) * chartH;
+            px = Math.Clamp(px, padL, padL + chartW);
+            band2.Append($" L {px.ToString("0.0", CultureInfo.InvariantCulture)} {py.ToString("0.0", CultureInfo.InvariantCulture)}");
+        }
+        band2.Append(" Z");
+
+        // Band 1 (+-1 sigma)
+        for (int i = 0; i < points.Count; i++)
+        {
+            float px = padL + (points[i].TimeSeconds / maxT) * chartW;
+            float val = Math.Clamp(points[i].Plus1Sigma, 0f, maxSpeed);
+            float py = padT + chartH - (val / maxSpeed) * chartH;
+            px = Math.Clamp(px, padL, padL + chartW);
+
+            if (i == 0) band1.Append($"M {px.ToString("0.0", CultureInfo.InvariantCulture)} {py.ToString("0.0", CultureInfo.InvariantCulture)}");
+            else band1.Append($" L {px.ToString("0.0", CultureInfo.InvariantCulture)} {py.ToString("0.0", CultureInfo.InvariantCulture)}");
+        }
+        for (int i = points.Count - 1; i >= 0; i--)
+        {
+            float px = padL + (points[i].TimeSeconds / maxT) * chartW;
+            float val = Math.Clamp(points[i].Minus1Sigma, 0f, maxSpeed);
+            float py = padT + chartH - (val / maxSpeed) * chartH;
+            px = Math.Clamp(px, padL, padL + chartW);
+            band1.Append($" L {px.ToString("0.0", CultureInfo.InvariantCulture)} {py.ToString("0.0", CultureInfo.InvariantCulture)}");
+        }
+        band1.Append(" Z");
+
+        // Mean line
+        for (int i = 0; i < points.Count; i++)
+        {
+            float px = padL + (points[i].TimeSeconds / maxT) * chartW;
+            float val = Math.Clamp(points[i].MeanSpeed, 0f, maxSpeed);
+            float py = padT + chartH - (val / maxSpeed) * chartH;
+            px = Math.Clamp(px, padL, padL + chartW);
+            lastX = px;
+            lastY = py;
+
+            if (i == 0) meanLine.Append($"M {px.ToString("0.0", CultureInfo.InvariantCulture)} {py.ToString("0.0", CultureInfo.InvariantCulture)}");
+            else meanLine.Append($" L {px.ToString("0.0", CultureInfo.InvariantCulture)} {py.ToString("0.0", CultureInfo.InvariantCulture)}");
+        }
+
+        return (band2.ToString(), band1.ToString(), meanLine.ToString(), lastX, lastY);
+    }
+
+    private (string band2D, string band1D, string meanD, float lastX, float lastY) BuildDensityPaths(
+        float padL, float padT, float chartW, float chartH, float maxT, float maxD)
+    {
+        var data = Stats.DensityHistory;
+        var band2 = new System.Text.StringBuilder();
+        var band1 = new System.Text.StringBuilder();
+        var meanLine = new System.Text.StringBuilder();
+        float lastX = padL;
+        float lastY = padT + chartH;
+
+        if (data.Count == 0) return ("", "", "", lastX, lastY);
+
+        // Band 2 (+-2 sigma)
+        for (int i = 0; i < data.Count; i++)
+        {
+            float px = padL + (data[i].TimeSeconds / maxT) * chartW;
+            float val = Math.Clamp(data[i].Plus2Sigma, 0f, maxD);
+            float py = padT + chartH - (val / maxD) * chartH;
+            px = Math.Clamp(px, padL, padL + chartW);
+
+            if (i == 0) band2.Append($"M {px.ToString("0.0", CultureInfo.InvariantCulture)} {py.ToString("0.0", CultureInfo.InvariantCulture)}");
+            else band2.Append($" L {px.ToString("0.0", CultureInfo.InvariantCulture)} {py.ToString("0.0", CultureInfo.InvariantCulture)}");
+        }
+        for (int i = data.Count - 1; i >= 0; i--)
+        {
+            float px = padL + (data[i].TimeSeconds / maxT) * chartW;
+            float val = Math.Clamp(data[i].Minus2Sigma, 0f, maxD);
+            float py = padT + chartH - (val / maxD) * chartH;
+            px = Math.Clamp(px, padL, padL + chartW);
+            band2.Append($" L {px.ToString("0.0", CultureInfo.InvariantCulture)} {py.ToString("0.0", CultureInfo.InvariantCulture)}");
+        }
+        band2.Append(" Z");
+
+        // Band 1 (+-1 sigma)
+        for (int i = 0; i < data.Count; i++)
+        {
+            float px = padL + (data[i].TimeSeconds / maxT) * chartW;
+            float val = Math.Clamp(data[i].Plus1Sigma, 0f, maxD);
+            float py = padT + chartH - (val / maxD) * chartH;
+            px = Math.Clamp(px, padL, padL + chartW);
+
+            if (i == 0) band1.Append($"M {px.ToString("0.0", CultureInfo.InvariantCulture)} {py.ToString("0.0", CultureInfo.InvariantCulture)}");
+            else band1.Append($" L {px.ToString("0.0", CultureInfo.InvariantCulture)} {py.ToString("0.0", CultureInfo.InvariantCulture)}");
+        }
+        for (int i = data.Count - 1; i >= 0; i--)
+        {
+            float px = padL + (data[i].TimeSeconds / maxT) * chartW;
+            float val = Math.Clamp(data[i].Minus1Sigma, 0f, maxD);
+            float py = padT + chartH - (val / maxD) * chartH;
+            px = Math.Clamp(px, padL, padL + chartW);
+            band1.Append($" L {px.ToString("0.0", CultureInfo.InvariantCulture)} {py.ToString("0.0", CultureInfo.InvariantCulture)}");
+        }
+        band1.Append(" Z");
+
+        // Mean line
+        for (int i = 0; i < data.Count; i++)
+        {
+            float px = padL + (data[i].TimeSeconds / maxT) * chartW;
+            float val = Math.Clamp(data[i].MeanDensity, 0f, maxD);
+            float py = padT + chartH - (val / maxD) * chartH;
+            px = Math.Clamp(px, padL, padL + chartW);
+            lastX = px;
+            lastY = py;
+
+            if (i == 0) meanLine.Append($"M {px.ToString("0.0", CultureInfo.InvariantCulture)} {py.ToString("0.0", CultureInfo.InvariantCulture)}");
+            else meanLine.Append($" L {px.ToString("0.0", CultureInfo.InvariantCulture)} {py.ToString("0.0", CultureInfo.InvariantCulture)}");
+        }
+
+        return (band2.ToString(), band1.ToString(), meanLine.ToString(), lastX, lastY);
+    }
+}

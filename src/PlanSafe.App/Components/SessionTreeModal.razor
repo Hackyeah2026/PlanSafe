@@ -1,0 +1,453 @@
+@namespace PlanSafe.App.Components
+@using PlanSafe.Contracts.Models.Session
+@using PlanSafe.App.Services
+@inject IMapSessionService SessionService
+@inject IJSRuntime JS
+
+@if (IsOpen)
+{
+    <div class="modal-backdrop-fade" @onclick="HandleBackdropClick">
+        <div class="tree-modal-card" @onclick:stopPropagation>
+            <!-- Minimalist Header -->
+            <div class="tree-modal-header">
+                <div class="tree-header-left">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="6" y1="3" x2="6" y2="15"></line>
+                        <circle cx="18" cy="6" r="3"></circle>
+                        <circle cx="6" cy="18" r="3"></circle>
+                        <path d="M18 9a9 9 0 0 1-9 9"></path>
+                    </svg>
+                    <span class="tree-modal-title">Scenario Tree</span>
+                    <span class="tree-count-badge">@_allSessions.Count</span>
+                </div>
+
+                <!-- Minimal search bar inside header -->
+                <div class="tree-search-wrapper">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="search-icon">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text"
+                           class="tree-search-input"
+                           placeholder="Filter branches..."
+                           @bind="_searchQuery"
+                           @bind:event="oninput" />
+                    @if (!string.IsNullOrEmpty(_searchQuery))
+                    {
+                        <button type="button" class="btn-clear-search" @onclick='() => _searchQuery = ""'>×</button>
+                    }
+                </div>
+
+                <div class="tree-header-actions">
+                    <button type="button" class="btn-tree-primary" @onclick="HandleNewBranchFromActive" title="Create child branch off active scenario">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        <span>New Branch</span>
+                    </button>
+
+                    <button type="button" class="btn-tree-icon" @onclick="ExportJson" title="Copy sessions JSON to clipboard">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                    </button>
+
+                    <button type="button" class="btn-tree-icon btn-tree-close" @onclick="Close" aria-label="Close">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Graph Canvas Body -->
+            <div class="tree-modal-body">
+                @if (_isLoading)
+                {
+                    <div class="tree-status-box">
+                        <span class="spinner-border spinner-border-sm text-info me-2"></span>
+                        <span>Loading scenario graph...</span>
+                    </div>
+                }
+                else if (_layoutNodes.Count == 0)
+                {
+                    <div class="tree-status-box">
+                        <small class="text-secondary">No matching branches found.</small>
+                    </div>
+                }
+                else
+                {
+                    <div class="graph-scroll-area">
+                        <div class="graph-canvas" style="min-width: 100%; height: @($"{_svgHeight}px"); position: relative;">
+                            <!-- SVG Branch Graph Layer -->
+                            <svg class="graph-svg-layer" 
+                                 width="@_svgWidth" 
+                                 height="@_svgHeight" 
+                                 style="position: absolute; left: 0; top: 0; pointer-events: none; z-index: 2;">
+                                
+                                <!-- Connecting branch curves -->
+                                @foreach (var edge in _edges)
+                                {
+                                    <path d="@GetBranchPath(edge.X1, edge.Y1, edge.X2, edge.Y2)"
+                                          stroke="@edge.Color"
+                                          stroke-width="@(edge.IsActiveLineage ? "2.8" : "2")"
+                                          stroke-opacity="@(edge.IsActiveLineage ? "1" : "0.65")"
+                                          fill="none"
+                                          stroke-linecap="round" />
+                                }
+
+                                <!-- Node commit circles -->
+                                @foreach (var item in _layoutNodes)
+                                {
+                                    if (item.IsActive)
+                                    {
+                                        <circle cx="@item.X" cy="@item.Y" r="10" fill="none" stroke="@item.Color" stroke-width="1.8" opacity="0.6" class="pulse-ring" />
+                                        <circle cx="@item.X" cy="@item.Y" r="5.5" fill="#ffffff" stroke="@item.Color" stroke-width="2.5" />
+                                    }
+                                    else
+                                    {
+                                        <circle cx="@item.X" cy="@item.Y" r="5" fill="@item.Color" stroke="#0b1120" stroke-width="2" />
+                                    }
+                                }
+                            </svg>
+
+                            <!-- Interactive Rows Layer -->
+                            <div class="graph-rows-layer" style="position: relative; z-index: 3;">
+                                @foreach (var item in _layoutNodes)
+                                {
+                                    var session = item.Session;
+                                    bool isActive = item.IsActive;
+
+                                    <div class="graph-row @(isActive ? "is-active" : "")"
+                                         style="height: 44px; padding-left: @($"{_svgWidth + 10}px");"
+                                         @onclick="() => HandleCheckout(session)">
+                                        
+                                        <!-- Branch Pill & Lineage -->
+                                        <div class="row-branch-box">
+                                            <span class="branch-pill" style="--branch-color: @item.Color;">
+                                                <span class="branch-pill-dot" style="background: @item.Color;"></span>
+                                                <span class="branch-pill-name">@session.BranchName</span>
+                                            </span>
+
+                                            @if (isActive)
+                                            {
+                                                <span class="badge-head">HEAD</span>
+                                            }
+
+                                            @if (!string.IsNullOrWhiteSpace(session.Description))
+                                            {
+                                                <span class="branch-desc-text" title="@session.Description">@session.Description</span>
+                                            }
+                                        </div>
+
+                                        <!-- Feature Counter Badges & Actions -->
+                                        <div class="row-meta-and-actions" @onclick:stopPropagation>
+                                            <div class="row-stat-chips">
+                                                @if (session.EvacZoneCount > 0)
+                                                {
+                                                    <span class="mini-stat stat-evac" title="@session.EvacZoneCount Evacuation Zones">
+                                                        ⚠️ @session.EvacZoneCount
+                                                    </span>
+                                                }
+                                                @if (session.SafeZoneCount > 0)
+                                                {
+                                                    <span class="mini-stat stat-safe" title="@session.SafeZoneCount Safe Havens">
+                                                        🛡️ @session.SafeZoneCount
+                                                    </span>
+                                                }
+                                                @if (session.BlockadeCount > 0)
+                                                {
+                                                    <span class="mini-stat stat-block" title="@session.BlockadeCount Road Blockades">
+                                                        ⛔ @session.BlockadeCount
+                                                    </span>
+                                                }
+                                                <span class="mini-stat stat-sim" title="@session.SimulationConfig.AgentCount Agents">
+                                                    👥 @session.SimulationConfig.AgentCount
+                                                </span>
+                                                <span class="time-subtle">@GetRelativeTime(session.UpdatedAt)</span>
+                                            </div>
+
+                                            <div class="row-buttons">
+                                                @if (!isActive)
+                                                {
+                                                    <button type="button" class="btn-row-action btn-checkout" title="Switch to this scenario" @onclick="() => HandleCheckout(session)">
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                                        <span>Checkout</span>
+                                                    </button>
+                                                }
+
+                                                <button type="button" class="btn-row-action btn-branch" title="Fork branch off this scenario" @onclick="() => HandleBranchFrom(session)">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="3" x2="6" y2="15"></line><circle cx="18" cy="6" r="3"></circle><circle cx="6" cy="18" r="3"></circle><path d="M18 9a9 9 0 0 1-9 9"></path></svg>
+                                                    <span>Branch</span>
+                                                </button>
+
+                                                @if (!item.Node.IsRoot && !isActive && _allSessions.Count > 1)
+                                                {
+                                                    <button type="button" class="btn-row-action btn-delete" title="Delete branch" @onclick="() => HandleDelete(session)">
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                                    </button>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Minimalist Footer -->
+            <div class="tree-modal-footer">
+                <div class="graph-legend">
+                    <span class="legend-item"><span class="legend-dot dot-head"></span> Active</span>
+                    <span class="legend-item"><span class="legend-dot dot-root"></span> Root</span>
+                    <span class="legend-item"><span class="legend-dot dot-branch"></span> Branch</span>
+                </div>
+                <button type="button" class="btn-modal-secondary btn-sm" @onclick="Close">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<MapSession> OnCheckoutSession { get; set; }
+    [Parameter] public EventCallback<MapSession> OnRequestBranch { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private class GraphNodeLayout
+    {
+        public MapSessionTreeNode Node { get; set; } = null!;
+        public int RowIndex { get; set; }
+        public int Depth => Node.Depth;
+        public double X { get; set; }
+        public double Y { get; set; }
+        public string Color { get; set; } = "#38bdf8";
+        public bool IsActive => Node.IsActive;
+        public MapSession Session => Node.Session;
+        public string? ParentId => Session.ParentSessionId;
+    }
+
+    private class GraphEdge
+    {
+        public double X1 { get; set; }
+        public double Y1 { get; set; }
+        public double X2 { get; set; }
+        public double Y2 { get; set; }
+        public string Color { get; set; } = "#38bdf8";
+        public bool IsActiveLineage { get; set; }
+    }
+
+    private static readonly string[] BranchColors = new[]
+    {
+        "#38bdf8", // Sky blue (root / main)
+        "#34d399", // Emerald
+        "#c084fc", // Purple
+        "#fbbf24", // Amber
+        "#f472b6", // Pink
+        "#22d3ee", // Cyan
+        "#818cf8", // Indigo
+        "#fb923c"  // Orange
+    };
+
+    private const double RowHeight = 44.0;
+    private const double LaneWidth = 28.0;
+    private const double OffsetX = 24.0;
+    private const double OffsetY = 22.0;
+
+    private List<MapSession> _allSessions = new();
+    private List<MapSessionTreeNode> _treeRoots = new();
+    private List<GraphNodeLayout> _layoutNodes = new();
+    private List<GraphEdge> _edges = new();
+    private double _svgWidth = 80;
+    private double _svgHeight = 100;
+
+    private string? _activeSessionId;
+    private string _searchQuery = string.Empty;
+    private bool _isLoading = false;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsOpen)
+        {
+            await RefreshDataAsync();
+        }
+    }
+
+    public async Task RefreshDataAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            _allSessions = await SessionService.GetAllSessionsAsync();
+            var active = await SessionService.GetActiveSessionAsync();
+            _activeSessionId = active.Id;
+
+            FilterTree();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void FilterTree()
+    {
+        var filteredSessions = string.IsNullOrWhiteSpace(_searchQuery)
+            ? _allSessions
+            : _allSessions.Where(s =>
+                s.BranchName.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                (s.Description != null && s.Description.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase))).ToList();
+
+        _treeRoots = MapSessionTree.BuildTree(filteredSessions, _activeSessionId);
+        var flatNodes = MapSessionTree.Flatten(_treeRoots);
+
+        BuildGraphLayout(flatNodes);
+    }
+
+    private void BuildGraphLayout(List<MapSessionTreeNode> flatNodes)
+    {
+        _layoutNodes.Clear();
+        _edges.Clear();
+
+        if (flatNodes.Count == 0)
+        {
+            _svgWidth = 80;
+            _svgHeight = 100;
+            return;
+        }
+
+        int maxDepth = flatNodes.Max(n => n.Depth);
+        _svgWidth = Math.Max(70.0, OffsetX + (maxDepth + 1) * LaneWidth + 12.0);
+        _svgHeight = Math.Max(80.0, flatNodes.Count * RowHeight);
+
+        // Active lineage set for highlighting the active branch path
+        var activeLineage = _activeSessionId != null
+            ? MapSessionTree.GetLineage(_allSessions, _activeSessionId).Select(s => s.Id).ToHashSet()
+            : new HashSet<string>();
+
+        var layoutDict = new Dictionary<string, GraphNodeLayout>();
+
+        for (int i = 0; i < flatNodes.Count; i++)
+        {
+            var node = flatNodes[i];
+            string color = node.IsRoot
+                ? BranchColors[0]
+                : BranchColors[1 + (Math.Abs(node.BranchName.GetHashCode()) % (BranchColors.Length - 1))];
+
+            var layout = new GraphNodeLayout
+            {
+                Node = node,
+                RowIndex = i,
+                X = OffsetX + node.Depth * LaneWidth,
+                Y = i * RowHeight + OffsetY,
+                Color = color
+            };
+
+            _layoutNodes.Add(layout);
+            layoutDict[node.Id] = layout;
+        }
+
+        // Build edges connecting children to parents
+        foreach (var layout in _layoutNodes)
+        {
+            if (!string.IsNullOrWhiteSpace(layout.ParentId) && layoutDict.TryGetValue(layout.ParentId, out var parentLayout))
+            {
+                _edges.Add(new GraphEdge
+                {
+                    X1 = parentLayout.X,
+                    Y1 = parentLayout.Y,
+                    X2 = layout.X,
+                    Y2 = layout.Y,
+                    Color = layout.Color,
+                    IsActiveLineage = activeLineage.Contains(layout.Session.Id)
+                });
+            }
+        }
+    }
+
+    private static string GetBranchPath(double x1, double y1, double x2, double y2)
+    {
+        if (Math.Abs(x1 - x2) < 1.0)
+        {
+            return $"M {x1:F1} {y1:F1} L {x2:F1} {y2:F1}";
+        }
+
+        double forkStartY = Math.Max(y1, y2 - 22.0);
+        double midY = (forkStartY + y2) / 2.0;
+
+        return $"M {x1:F1} {y1:F1} L {x1:F1} {forkStartY:F1} C {x1:F1} {midY:F1}, {x2:F1} {midY:F1}, {x2:F1} {y2:F1}";
+    }
+
+    private async Task HandleCheckout(MapSession session)
+    {
+        await SessionService.SetActiveSessionAsync(session.Id);
+        _activeSessionId = session.Id;
+        FilterTree();
+
+        if (OnCheckoutSession.HasDelegate)
+        {
+            await OnCheckoutSession.InvokeAsync(session);
+        }
+    }
+
+    private async Task HandleBranchFrom(MapSession session)
+    {
+        if (OnRequestBranch.HasDelegate)
+        {
+            await OnRequestBranch.InvokeAsync(session);
+        }
+    }
+
+    private async Task HandleNewBranchFromActive()
+    {
+        var active = await SessionService.GetActiveSessionAsync();
+        await HandleBranchFrom(active);
+    }
+
+    private async Task HandleDelete(MapSession session)
+    {
+        bool confirmed = await JS.InvokeAsync<bool>("confirm", $"Are you sure you want to delete branch '{session.BranchName}'?");
+        if (confirmed)
+        {
+            await SessionService.DeleteSessionAsync(session.Id);
+            await RefreshDataAsync();
+        }
+    }
+
+    private async Task ExportJson()
+    {
+        var json = await SessionService.ExportSessionsJsonAsync();
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", json);
+        await JS.InvokeVoidAsync("alert", "Session tree JSON copied to clipboard!");
+    }
+
+    private static string GetRelativeTime(DateTime dt)
+    {
+        var diff = DateTime.UtcNow - dt;
+        if (diff.TotalMinutes < 1) return "just now";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        return dt.ToString("MMM d");
+    }
+
+    private void HandleBackdropClick()
+    {
+        Close();
+    }
+
+    private void Close()
+    {
+        if (OnClose.HasDelegate)
+        {
+            OnClose.InvokeAsync();
+        }
+    }
+}
