@@ -10,7 +10,8 @@ public enum CellType : byte
 
 /// <summary>
 /// 2D simulation grid supporting static Dijkstra distance field generation,
-/// dynamic crowd density accumulation, and combined potential gradient evaluation.
+/// dynamic crowd density accumulation, and monotonically decreasing potential gradient evaluation.
+/// Guarantees that desired flow directions always lead towards exits and never point backwards.
 /// </summary>
 public class SimulationGrid
 {
@@ -28,10 +29,14 @@ public class SimulationGrid
     public float[] TotalPotential { get; private set; } = null!;
     public float[] GradientX { get; private set; } = null!;
     public float[] GradientY { get; private set; } = null!;
+    public float[] BaseGradientX { get; private set; } = null!;
+    public float[] BaseGradientY { get; private set; } = null!;
+
+    private readonly PriorityQueue<int, float> _pq = new();
 
     public const float ImpassablePotential = 1e6f;
     public const float JamDensityThreshold = 4.5f; // Density above which a crowd cell acts as impenetrable
-    public const float DensityPenaltyWeight = 8.0f; // Scale factor for dynamic potential diversion
+    public const float DensityPenaltyWeight = 4.0f; // Scale factor for dynamic potential diversion
 
     public SimulationGrid(float width = 30f, float height = 16f, float cellSize = 0.5f)
     {
@@ -52,6 +57,8 @@ public class SimulationGrid
         TotalPotential = new float[TotalCells];
         GradientX = new float[TotalCells];
         GradientY = new float[TotalCells];
+        BaseGradientX = new float[TotalCells];
+        BaseGradientY = new float[TotalCells];
 
         Array.Fill(BasePotential, ImpassablePotential);
         Array.Fill(TotalPotential, ImpassablePotential);
@@ -93,8 +100,7 @@ public class SimulationGrid
     public void ComputeDijkstraField()
     {
         Array.Fill(BasePotential, ImpassablePotential);
-
-        var pq = new PriorityQueue<int, float>();
+        _pq.Clear();
 
         // Enqueue all exit cells as seeds with potential 0
         for (int r = 0; r < Rows; r++)
@@ -105,7 +111,7 @@ public class SimulationGrid
                 if (Cells[idx] == (byte)CellType.Exit)
                 {
                     BasePotential[idx] = 0f;
-                    pq.Enqueue(idx, 0f);
+                    _pq.Enqueue(idx, 0f);
                 }
             }
         }
@@ -118,7 +124,7 @@ public class SimulationGrid
         int[] dRow = { -1, -1, -1, 0, 0, 1, 1, 1 };
         float[] costs = { diagCost, orthoCost, diagCost, orthoCost, orthoCost, diagCost, orthoCost, diagCost };
 
-        while (pq.TryDequeue(out int currIdx, out float currDist))
+        while (_pq.TryDequeue(out int currIdx, out float currDist))
         {
             if (currDist > BasePotential[currIdx])
             {
@@ -144,7 +150,7 @@ public class SimulationGrid
                     if (Cells[GetIndex(currCol + dCol[i], currRow)] == (byte)CellType.Obstacle &&
                         Cells[GetIndex(currCol, currRow + dRow[i])] == (byte)CellType.Obstacle)
                     {
-                        continue; // Cannot squeeze between two diagonal wall blocks
+                        continue;
                     }
                 }
 
@@ -152,61 +158,112 @@ public class SimulationGrid
                 if (newDist < BasePotential[nIdx])
                 {
                     BasePotential[nIdx] = newDist;
-                    pq.Enqueue(nIdx, newDist);
+                    _pq.Enqueue(nIdx, newDist);
                 }
             }
         }
 
+        // Compute static base gradient
+        RecomputeGradients(BasePotential, BaseGradientX, BaseGradientY, enforceBase: false);
+
         // Initialize TotalPotential from BasePotential
         Array.Copy(BasePotential, TotalPotential, TotalCells);
-        RecomputeGradients();
+        Array.Copy(BaseGradientX, GradientX, TotalCells);
+        Array.Copy(BaseGradientY, GradientY, TotalCells);
     }
 
     /// <summary>
-    /// Applies dynamic crowd density penalty to base potential field and updates vector gradients.
-    /// Dense crowd acts as a high-resistance region; density >= JamDensityThreshold acts as impenetrable.
+    /// Computes dynamic potential field by propagating from exits with crowd density costs.
+    /// Guarantees that TotalPotential decreases monotonically towards exits without local maxima or backward gradients.
+    /// Jammed areas (rho >= JamDensityThreshold) act as impassable obstacles, diverting flow around them.
     /// </summary>
     public void UpdateDynamicPotential()
     {
-        for (int i = 0; i < TotalCells; i++)
+        Array.Fill(TotalPotential, ImpassablePotential);
+        _pq.Clear();
+
+        // Enqueue all exit cells with potential 0
+        for (int r = 0; r < Rows; r++)
         {
-            if (Cells[i] == (byte)CellType.Obstacle || BasePotential[i] >= ImpassablePotential)
+            for (int c = 0; c < Cols; c++)
             {
-                TotalPotential[i] = ImpassablePotential;
-                continue;
+                int idx = GetIndex(c, r);
+                if (Cells[idx] == (byte)CellType.Exit)
+                {
+                    TotalPotential[idx] = 0f;
+                    _pq.Enqueue(idx, 0f);
+                }
             }
-
-            if (Cells[i] == (byte)CellType.Exit)
-            {
-                TotalPotential[i] = 0f;
-                continue;
-            }
-
-            float rho = DensityGrid[i];
-            float penalty = 0f;
-
-            if (rho >= JamDensityThreshold)
-            {
-                // Extremely congested: acts as an impenetrable barrier, forcing diversion
-                penalty = ImpassablePotential * 0.5f;
-            }
-            else if (rho > 1.0f)
-            {
-                // Quadratic crowd density penalty adds resistance, diverting traffic to lower density paths
-                float ratio = (rho - 1.0f) / (JamDensityThreshold - 1.0f);
-                penalty = DensityPenaltyWeight * (ratio * ratio) * Width;
-            }
-
-            TotalPotential[i] = BasePotential[i] + penalty;
         }
 
-        RecomputeGradients();
+        float diagUnit = (float)Math.Sqrt(2.0);
+        int[] dCol = { -1, 0, 1, -1, 1, -1, 0, 1 };
+        int[] dRow = { -1, -1, -1, 0, 0, 1, 1, 1 };
+
+        while (_pq.TryDequeue(out int currIdx, out float currDist))
+        {
+            if (currDist > TotalPotential[currIdx]) continue;
+
+            int currCol = currIdx % Cols;
+            int currRow = currIdx / Cols;
+
+            for (int i = 0; i < 8; i++)
+            {
+                int nc = currCol + dCol[i];
+                int nr = currRow + dRow[i];
+
+                if (!IsInBounds(nc, nr)) continue;
+
+                int nIdx = GetIndex(nc, nr);
+                if (Cells[nIdx] == (byte)CellType.Obstacle) continue;
+
+                // Diagonal corner cutting check
+                if (dCol[i] != 0 && dRow[i] != 0)
+                {
+                    if (Cells[GetIndex(currCol + dCol[i], currRow)] == (byte)CellType.Obstacle &&
+                        Cells[GetIndex(currCol, currRow + dRow[i])] == (byte)CellType.Obstacle)
+                    {
+                        continue;
+                    }
+                }
+
+                // Dynamic resistance based on crowd density
+                float rho = DensityGrid[nIdx];
+                float distStep = (dCol[i] != 0 && dRow[i] != 0) ? (diagUnit * CellSize) : CellSize;
+                float densityMultiplier = 1.0f;
+                if (rho > 0.5f)
+                {
+                    float ratio = (rho - 0.5f) / Math.Max(0.1f, JamDensityThreshold - 0.5f);
+                    densityMultiplier = 1.0f + DensityPenaltyWeight * Math.Min(25.0f, ratio * ratio);
+                }
+
+                float newDist = currDist + distStep * densityMultiplier;
+                if (newDist < TotalPotential[nIdx])
+                {
+                    TotalPotential[nIdx] = newDist;
+                    _pq.Enqueue(nIdx, newDist);
+                }
+            }
+        }
+
+        // For any cells unreachable through dynamic field (e.g. completely encircled by jam),
+        // fallback to BasePotential so agents never get trapped without a path
+        for (int i = 0; i < TotalCells; i++)
+        {
+            if (Cells[i] != (byte)CellType.Obstacle && TotalPotential[i] >= ImpassablePotential)
+            {
+                TotalPotential[i] = BasePotential[i];
+            }
+        }
+
+        RecomputeGradients(TotalPotential, GradientX, GradientY, enforceBase: true);
     }
 
     /// <summary>
-    /// Recomputes normalized gradient vectors across the grid based on TotalPotential.
+    /// Recomputes normalized gradient vectors across the grid based on the specified potential field.
+    /// When enforceBase is true, verifies that all vectors maintain positive progress towards the exits.
     /// </summary>
-    private void RecomputeGradients()
+    private void RecomputeGradients(float[] potentialField, float[] outGradX, float[] outGradY, bool enforceBase)
     {
         for (int r = 0; r < Rows; r++)
         {
@@ -214,74 +271,158 @@ public class SimulationGrid
             {
                 int idx = GetIndex(c, r);
 
-                if (Cells[idx] == (byte)CellType.Obstacle || TotalPotential[idx] >= ImpassablePotential)
+                if (Cells[idx] == (byte)CellType.Obstacle || potentialField[idx] >= ImpassablePotential)
                 {
-                    GradientX[idx] = 0f;
-                    GradientY[idx] = 0f;
+                    outGradX[idx] = 0f;
+                    outGradY[idx] = 0f;
                     continue;
                 }
 
                 if (Cells[idx] == (byte)CellType.Exit)
                 {
-                    GradientX[idx] = 0f;
-                    GradientY[idx] = 0f;
+                    outGradX[idx] = 0f;
+                    outGradY[idx] = 0f;
                     continue;
                 }
 
-                // Central difference with obstacle fallback
-                float potL = (c > 0 && IsPassable(c - 1, r)) ? TotalPotential[GetIndex(c - 1, r)] : TotalPotential[idx];
-                float potR = (c < Cols - 1 && IsPassable(c + 1, r)) ? TotalPotential[GetIndex(c + 1, r)] : TotalPotential[idx];
-                float potU = (r > 0 && IsPassable(c, r - 1)) ? TotalPotential[GetIndex(c, r - 1)] : TotalPotential[idx];
-                float potD = (r < Rows - 1 && IsPassable(c, r + 1)) ? TotalPotential[GetIndex(c, r + 1)] : TotalPotential[idx];
+                float currPot = potentialField[idx];
 
-                float dx = (potR - potL) / (2f * CellSize);
-                float dy = (potD - potU) / (2f * CellSize);
+                // Central or one-sided differences
+                float dx = 0f;
+                bool hasL = c > 0 && IsPassable(c - 1, r) && potentialField[GetIndex(c - 1, r)] < ImpassablePotential;
+                bool hasR = c < Cols - 1 && IsPassable(c + 1, r) && potentialField[GetIndex(c + 1, r)] < ImpassablePotential;
 
-                // Desired direction is along negative gradient (path of steepest descent)
+                if (hasL && hasR)
+                {
+                    dx = (potentialField[GetIndex(c + 1, r)] - potentialField[GetIndex(c - 1, r)]) / (2f * CellSize);
+                }
+                else if (hasR)
+                {
+                    dx = (potentialField[GetIndex(c + 1, r)] - currPot) / CellSize;
+                }
+                else if (hasL)
+                {
+                    dx = (currPot - potentialField[GetIndex(c - 1, r)]) / CellSize;
+                }
+
+                float dy = 0f;
+                bool hasU = r > 0 && IsPassable(c, r - 1) && potentialField[GetIndex(c, r - 1)] < ImpassablePotential;
+                bool hasD = r < Rows - 1 && IsPassable(c, r + 1) && potentialField[GetIndex(c, r + 1)] < ImpassablePotential;
+
+                if (hasU && hasD)
+                {
+                    dy = (potentialField[GetIndex(c, r + 1)] - potentialField[GetIndex(c, r - 1)]) / (2f * CellSize);
+                }
+                else if (hasD)
+                {
+                    dy = (potentialField[GetIndex(c, r + 1)] - currPot) / CellSize;
+                }
+                else if (hasU)
+                {
+                    dy = (currPot - potentialField[GetIndex(c, r - 1)]) / CellSize;
+                }
+
                 float dirX = -dx;
                 float dirY = -dy;
-
                 float len = (float)Math.Sqrt(dirX * dirX + dirY * dirY);
-                if (len > 1e-5f)
+
+                if (len > 1e-4f)
                 {
-                    GradientX[idx] = dirX / len;
-                    GradientY[idx] = dirY / len;
+                    dirX /= len;
+                    dirY /= len;
                 }
                 else
                 {
-                    // Fallback to steepest passable 8-neighbor if gradient is flat
-                    FindSteepestNeighborDirection(c, r, out float fbX, out float fbY);
-                    GradientX[idx] = fbX;
-                    GradientY[idx] = fbY;
+                    // Fallback to steepest 8-neighbor descent
+                    FindSteepestNeighborDirection(c, r, potentialField, out dirX, out dirY);
                 }
+
+                if (enforceBase && BaseGradientX != null)
+                {
+                    float bgx = BaseGradientX[idx];
+                    float bgy = BaseGradientY[idx];
+                    float baseLenSq = bgx * bgx + bgy * bgy;
+
+                    if (baseLenSq > 0.5f)
+                    {
+                        // Lateral unit vector perpendicular to base direction
+                        float perpX = -bgy;
+                        float perpY = bgx;
+
+                        float fParallel = dirX * bgx + dirY * bgy;
+                        float fPerp = dirX * perpX + dirY * perpY;
+
+                        // Ensure forward progress is always dominant: maximum deflection angle is 45 degrees
+                        const float minForward = 0.7071f; // cos(45 deg)
+                        if (fParallel < minForward)
+                        {
+                            fParallel = minForward;
+                            float maxPerp = 0.7071f;
+                            fPerp = Math.Clamp(fPerp, -maxPerp, maxPerp);
+
+                            dirX = fParallel * bgx + fPerp * perpX;
+                            dirY = fParallel * bgy + fPerp * perpY;
+                            float renorm = (float)Math.Sqrt(dirX * dirX + dirY * dirY);
+                            if (renorm > 1e-4f)
+                            {
+                                dirX /= renorm;
+                                dirY /= renorm;
+                            }
+                            else
+                            {
+                                dirX = bgx;
+                                dirY = bgy;
+                            }
+                        }
+                    }
+                }
+
+                outGradX[idx] = dirX;
+                outGradY[idx] = dirY;
             }
         }
     }
 
-    private void FindSteepestNeighborDirection(int c, int r, out float dirX, out float dirY)
+    private void FindSteepestNeighborDirection(int c, int r, float[] potentialField, out float dirX, out float dirY)
     {
         int currIdx = GetIndex(c, r);
-        float minPot = TotalPotential[currIdx];
+        float currPot = potentialField[currIdx];
+        float minPot = currPot;
         int bestC = c;
         int bestR = r;
 
-        for (int dr = -1; dr <= 1; dr++)
-        {
-            for (int dc = -1; dc <= 1; dc++)
-            {
-                if (dc == 0 && dr == 0) continue;
-                int nc = c + dc;
-                int nr = r + dr;
-                if (!IsInBounds(nc, nr) || !IsPassable(nc, nr)) continue;
+        int[] dCol = { -1, 0, 1, -1, 1, -1, 0, 1 };
+        int[] dRow = { -1, -1, -1, 0, 0, 1, 1, 1 };
 
-                int nIdx = GetIndex(nc, nr);
-                if (TotalPotential[nIdx] < minPot)
+        for (int i = 0; i < 8; i++)
+        {
+            int nc = c + dCol[i];
+            int nr = r + dRow[i];
+            if (!IsInBounds(nc, nr) || !IsPassable(nc, nr)) continue;
+
+            if (dCol[i] != 0 && dRow[i] != 0)
+            {
+                if (Cells[GetIndex(c + dCol[i], r)] == (byte)CellType.Obstacle &&
+                    Cells[GetIndex(c, r + dRow[i])] == (byte)CellType.Obstacle)
                 {
-                    minPot = TotalPotential[nIdx];
-                    bestC = nc;
-                    bestR = nr;
+                    continue;
                 }
             }
+
+            int nIdx = GetIndex(nc, nr);
+            if (potentialField[nIdx] < minPot)
+            {
+                minPot = potentialField[nIdx];
+                bestC = nc;
+                bestR = nr;
+            }
+        }
+
+        if (bestC == c && bestR == r)
+        {
+            dirX = 0f;
+            dirY = 0f;
+            return;
         }
 
         dirX = (bestC - c) * CellSize;
@@ -330,7 +471,7 @@ public class SimulationGrid
         dirY = gy0 * (1f - ty) + gy1 * ty;
 
         float len = (float)Math.Sqrt(dirX * dirX + dirY * dirY);
-        if (len > 1e-5f)
+        if (len > 1e-4f)
         {
             dirX /= len;
             dirY /= len;
@@ -340,6 +481,11 @@ public class SimulationGrid
             int centerIdx = GetIndex(Math.Clamp((int)(x / CellSize), 0, Cols - 1), Math.Clamp((int)(y / CellSize), 0, Rows - 1));
             dirX = GradientX[centerIdx];
             dirY = GradientY[centerIdx];
+            if (dirX == 0f && dirY == 0f && BaseGradientX != null)
+            {
+                dirX = BaseGradientX[centerIdx];
+                dirY = BaseGradientY[centerIdx];
+            }
         }
     }
 

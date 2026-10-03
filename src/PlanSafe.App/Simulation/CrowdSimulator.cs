@@ -61,8 +61,10 @@ public class CrowdSimulator
 
     public void SpawnAgent(float x, float y)
     {
-        CurrentBuffer.AddAgent(x, y);
-        NextBuffer.AddAgent(x, y);
+        Grid.SampleDesiredDirection(x, y, out float dirX, out float dirY);
+        if (dirX == 0f && dirY == 0f) dirX = 1f;
+        CurrentBuffer.AddAgent(x, y, 0f, 0f, dirX, dirY);
+        NextBuffer.AddAgent(x, y, 0f, 0f, dirX, dirY);
     }
 
     /// <summary>
@@ -177,19 +179,24 @@ public class CrowdSimulator
 
             // 1. Sample desired flow direction from Dijkstra potential field (O(1))
             Grid.SampleDesiredDirection(px, py, out float dirX, out float dirY);
+            if (dirX == 0f && dirY == 0f)
+            {
+                dirX = CurrentBuffer.HeadX[i];
+                dirY = CurrentBuffer.HeadY[i];
+                if (dirX == 0f && dirY == 0f) dirX = 1f;
+            }
 
-            // Agent heading
-            float currSpeed = (float)Math.Sqrt(vx * vx + vy * vy);
-            float headX = (currSpeed > 0.05f) ? (vx / currSpeed) : dirX;
-            float headY = (currSpeed > 0.05f) ? (vy / currSpeed) : dirY;
+            // Heading is strictly the path of least resistance to the goal! (Never spins)
+            float headX = dirX;
+            float headY = dirY;
 
-            // 2. Count neighbors for local crowd density (excluding self)
+            // 2. Count neighbors for local crowd density & front/behind interactions
             int nearbyNeighbors = 0;
-            float pushForceX = 0f;
-            float pushForceY = 0f;
-            float repulseForceX = 0f;
-            float repulseForceY = 0f;
             float aheadSpeedCap = float.MaxValue;
+            float maxForwardStep = float.MaxValue;
+            float pushBoost = 0f;
+            float lateralShiftX = 0f;
+            float lateralShiftY = 0f;
 
             int sc = Math.Clamp((int)(px / _spatialCellSize), 0, _spatialCols - 1);
             int sr = Math.Clamp((int)(py / _spatialCellSize), 0, _spatialRows - 1);
@@ -216,60 +223,86 @@ public class CrowdSimulator
                             if (distSq < LookaheadDistance * LookaheadDistance && distSq > 1e-6f)
                             {
                                 float dist = (float)Math.Sqrt(distSq);
-                                float nx = rx / dist;
-                                float ny = ry / dist;
 
-                                // Relative angle with current heading
-                                float cosTheta = headX * nx + headY * ny;
+                                // Longitudinal distance along the goal direction (positive = in front, negative = behind)
+                                float dParallel = rx * dirX + ry * dirY;
+                                float dPerpSq = Math.Max(0f, distSq - dParallel * dParallel);
+                                float dPerp = (float)Math.Sqrt(dPerpSq);
 
-                                // Count neighbors within 1m radius for Weidmann local density
-                                if (dist < 1.0f)
+                                // Count neighbors in forward travel hemisphere (dParallel > -AgentRadius within 1m radius)
+                                // Trailing neighbors behind do not impede forward desired speed
+                                if (dist < 1.0f && dParallel > -AgentRadius)
                                 {
                                     nearbyNeighbors++;
                                 }
 
-                                if (cosTheta < 0f)
+                                if (dParallel < 0f)
                                 {
                                     // -------------------------------------------------------------
                                     // AGENT BEHIND:
                                     // No influence UNLESS in immediate physical contact distance (< 2r).
-                                    // Pushes agent ahead in immediate distance!
+                                    // Pushes agent ahead in immediate distance strictly forward along goal direction!
                                     // -------------------------------------------------------------
                                     if (dist < contactDist)
                                     {
                                         float overlap = contactDist - dist;
-                                        // Pushes agent i forward (in direction from j to i)
-                                        pushForceX += -nx * overlap * PushStiffness;
-                                        pushForceY += -ny * overlap * PushStiffness;
+                                        pushBoost += (-dParallel / dist) * overlap * PushStiffness;
                                     }
                                 }
                                 else
                                 {
                                     // -------------------------------------------------------------
                                     // AGENT IN FRONT:
-                                    // Dynamically and gradually slow down before agent in front!
+                                    // Blocks forward motion if within lane width (dPerp < contactDist)
                                     // -------------------------------------------------------------
-                                    if (cosTheta > 0.3f && dist < LookaheadDistance) // Ahead inside visual cone
+                                    if (dPerp < contactDist)
                                     {
-                                        float brakeRange = LookaheadDistance - contactDist;
-                                        float brakeRatio = Math.Clamp((dist - contactDist) / Math.Max(0.01f, brakeRange), 0f, 1f);
+                                        float contactParallel = (float)Math.Sqrt(Math.Max(0f, contactDist * contactDist - dPerpSq));
+                                        float availableGap = dParallel - contactParallel;
+                                        float frontSpeed = Math.Max(0f, CurrentBuffer.Speed[j]);
 
-                                        // Speed of front agent
-                                        float frontSpeed = CurrentBuffer.Speed[j];
-                                        float allowedSpeed = frontSpeed + brakeRatio * (WeidmannModel.DefaultFreeSpeed - frontSpeed);
-
-                                        if (allowedSpeed < aheadSpeedCap)
+                                        if (availableGap <= 0f)
                                         {
-                                            aheadSpeedCap = Math.Max(0f, allowedSpeed);
-                                        }
-                                    }
+                                            // Direct physical contact/overlap:
+                                            // CANNOT move faster than front agent, and forward advance is bounded by front agent!
+                                            aheadSpeedCap = Math.Min(aheadSpeedCap, frontSpeed);
+                                            maxForwardStep = Math.Min(maxForwardStep, Math.Max(0f, frontSpeed * dt));
 
-                                    // Direct physical overlap in front -> soft repulsive separation
-                                    if (dist < contactDist)
-                                    {
-                                        float overlap = contactDist - dist;
-                                        repulseForceX -= nx * overlap * RepulsionStiffness;
-                                        repulseForceY -= ny * overlap * RepulsionStiffness;
+                                            // Lateral separation to slide into open lanes
+                                            float overlap = -availableGap;
+                                            float nPerpX = rx - dParallel * dirX;
+                                            float nPerpY = ry - dParallel * dirY;
+                                            float perpLen = (float)Math.Sqrt(nPerpX * nPerpX + nPerpY * nPerpY);
+
+                                            if (perpLen > 1e-4f)
+                                            {
+                                                lateralShiftX -= (nPerpX / perpLen) * overlap * 0.5f;
+                                                lateralShiftY -= (nPerpY / perpLen) * overlap * 0.5f;
+                                            }
+                                            else
+                                            {
+                                                float sign = (i % 2 == 0) ? 1.0f : -1.0f;
+                                                lateralShiftX += sign * (-dirY) * overlap * 0.5f;
+                                                lateralShiftY += sign * (dirX) * overlap * 0.5f;
+                                            }
+                                        }
+                                        else if (dParallel < LookaheadDistance)
+                                        {
+                                            // Approaching from behind inside forward lane:
+                                            // 1. Kinematic non-penetration limit in time step dt
+                                            float kinematicLimit = (availableGap / dt) * 0.85f + frontSpeed;
+
+                                            // 2. Smooth anticipatory braking when closing in within ComfortGap (25cm)
+                                            const float comfortGap = 0.25f; // 25cm comfortable queue gap
+                                            float brakeRatio = Math.Clamp(availableGap / comfortGap, 0f, 1f);
+                                            float smoothSpeed = frontSpeed + brakeRatio * Math.Max(0f, WeidmannModel.DefaultFreeSpeed - frontSpeed);
+
+                                            float allowedSpeed = Math.Min(smoothSpeed, kinematicLimit);
+                                            aheadSpeedCap = Math.Min(aheadSpeedCap, Math.Max(0f, allowedSpeed));
+
+                                            float allowedStep = availableGap * 0.85f + frontSpeed * dt;
+                                            maxForwardStep = Math.Min(maxForwardStep, Math.Max(0f, allowedStep));
+                                        }
                                     }
                                 }
                             }
@@ -279,45 +312,74 @@ public class CrowdSimulator
                 }
             }
 
-            // 3. Evaluate Weidmann desired speed based on local crowd density
-            float localRho = nearbyNeighbors / (MathF.PI * 1.0f * 1.0f);
+            // 3. Evaluate Weidmann desired speed based on forward crowd density
+            // Effective area of 1m forward semicircle + shoulder margin is ~2.0 m²
+            float localRho = nearbyNeighbors / 2.0f;
+
             float desiredSpeed = WeidmannModel.CalculateSpeed(localRho);
 
-            // 4. Compute target velocity and acceleration
-            float targetSpeed = Math.Min(desiredSpeed, aheadSpeedCap);
-            float targetVx = dirX * targetSpeed;
-            float targetVy = dirY * targetSpeed;
+            // 4. Compute target forward speed (strictly bounded by front agents and density)
+            float speedLimit = Math.Min(desiredSpeed, aheadSpeedCap);
+            float currentSpeed = CurrentBuffer.Speed[i];
 
-            // Relaxation towards target velocity + external contact/repulsive forces
-            float ax = (targetVx - vx) / RelaxationTime + pushForceX + repulseForceX;
-            float ay = (targetVy - vy) / RelaxationTime + pushForceY + repulseForceY;
-
-            // 5. Integrate velocity & position
-            float newVx = vx + ax * dt;
-            float newVy = vy + ay * dt;
-
-            // Velocity clamp
-            float newSpeed = (float)Math.Sqrt(newVx * newVx + newVy * newVy);
-            float maxAllowedSpeed = WeidmannModel.DefaultFreeSpeed * 1.2f;
-            if (newSpeed > maxAllowedSpeed)
+            // Forward acceleration towards target speed
+            float accel = (speedLimit - currentSpeed) / RelaxationTime;
+            if (pushBoost > 0f && currentSpeed < speedLimit)
             {
-                newVx = (newVx / newSpeed) * maxAllowedSpeed;
-                newVy = (newVy / newSpeed) * maxAllowedSpeed;
-                newSpeed = maxAllowedSpeed;
+                // Behind push helps accelerate up to speedLimit, never past it
+                accel += Math.Min(pushBoost, (speedLimit - currentSpeed) / dt);
             }
 
-            float newPx = px + newVx * dt;
-            float newPy = py + newVy * dt;
+            // 5. Integrate forward speed: HARD CLAMP to speedLimit to prevent penetrating leaders or violating Weidmann density!
+            float newSpeed = currentSpeed + accel * dt;
+            newSpeed = Math.Clamp(newSpeed, 0f, speedLimit);
+
+            // 6. Forward displacement strictly bounded by physical gap to front agents
+            float forwardStep = Math.Min(newSpeed * dt, maxForwardStep);
+            forwardStep = Math.Max(0f, forwardStep);
+            newSpeed = (dt > 1e-6f) ? (forwardStep / dt) : 0f;
+
+            // Strictly enforce lateralShift is perpendicular to (dirX, dirY) and clamped
+            float dotLat = lateralShiftX * dirX + lateralShiftY * dirY;
+            lateralShiftX -= dotLat * dirX;
+            lateralShiftY -= dotLat * dirY;
+            float latLen = (float)Math.Sqrt(lateralShiftX * lateralShiftX + lateralShiftY * lateralShiftY);
+            float maxLat = AgentRadius * 0.25f; // at most 5cm per step
+            if (latLen > maxLat)
+            {
+                lateralShiftX = (lateralShiftX / latLen) * maxLat;
+                lateralShiftY = (lateralShiftY / latLen) * maxLat;
+            }
+
+            // Forward step along path of least resistance + lateral overlap adjustment
+            float newPx = px + dirX * forwardStep + lateralShiftX;
+            float newPy = py + dirY * forwardStep + lateralShiftY;
 
             // 6. Obstacle & Arena Boundary Collision Resolution
-            ResolveObstacleCollisions(px, py, ref newPx, ref newPy, ref newVx, ref newVy);
+            float dummyVx = dirX * newSpeed;
+            float dummyVy = dirY * newSpeed;
+            ResolveObstacleCollisions(px, py, dirX, dirY, ref newPx, ref newPy, ref dummyVx, ref dummyVy);
+            if (dummyVx == 0f && dummyVy == 0f)
+            {
+                newSpeed = 0f;
+            }
 
-            // Write to NextBuffer
+            // 7. Sample desired direction along path of least resistance at new position
+            Grid.SampleDesiredDirection(newPx, newPy, out float newDirX, out float newDirY);
+            if (newDirX == 0f && newDirY == 0f)
+            {
+                newDirX = dirX;
+                newDirY = dirY;
+            }
+
+            // Write to NextBuffer (velocity and heading strictly track path of least resistance)
             NextBuffer.PosX[i] = newPx;
             NextBuffer.PosY[i] = newPy;
-            NextBuffer.VelX[i] = newVx;
-            NextBuffer.VelY[i] = newVy;
+            NextBuffer.VelX[i] = newDirX * newSpeed;
+            NextBuffer.VelY[i] = newDirY * newSpeed;
             NextBuffer.Speed[i] = newSpeed;
+            NextBuffer.HeadX[i] = newDirX;
+            NextBuffer.HeadY[i] = newDirY;
             NextBuffer.Active[i] = 1;
 
             totalSpeed += newSpeed;
@@ -333,6 +395,7 @@ public class CrowdSimulator
 
     private void ResolveObstacleCollisions(
         float oldX, float oldY,
+        float dirX, float dirY,
         ref float newX, ref float newY,
         ref float vx, ref float vy)
     {
@@ -368,6 +431,16 @@ public class CrowdSimulator
             else
             {
                 // Full stop at obstacle boundary
+                newX = oldX;
+                newY = oldY;
+                vx = 0f;
+                vy = 0f;
+            }
+
+            // Verify the sliding step does not move backwards along goal direction
+            float slideProgress = (newX - oldX) * dirX + (newY - oldY) * dirY;
+            if (slideProgress < 0f)
+            {
                 newX = oldX;
                 newY = oldY;
                 vx = 0f;

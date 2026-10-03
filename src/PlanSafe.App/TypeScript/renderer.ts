@@ -31,7 +31,7 @@ export class CrowdCanvasRenderer {
     cellSize: number,
     cols: number,
     rows: number,
-    cells: Uint8Array
+    cells: Uint8Array,
   ) {
     this.worldWidth = width;
     this.worldHeight = height;
@@ -41,7 +41,11 @@ export class CrowdCanvasRenderer {
     this.cells = cells;
   }
 
-  public setFieldBuffers(density: Float32Array, gradX: Float32Array, gradY: Float32Array) {
+  public setFieldBuffers(
+    density: Float32Array,
+    gradX: Float32Array,
+    gradY: Float32Array,
+  ) {
     this.densityBuffer = density;
     this.gradientXBuffer = gradX;
     this.gradientYBuffer = gradY;
@@ -54,8 +58,10 @@ export class CrowdCanvasRenderer {
     velX: Float32Array,
     velY: Float32Array,
     speed: Float32Array,
+    headX: Float32Array,
+    headY: Float32Array,
     active: Uint8Array,
-    options: RenderOptions
+    options: RenderOptions,
   ) {
     const ctx = this.ctx;
     const cw = this.canvas.width;
@@ -98,7 +104,20 @@ export class CrowdCanvasRenderer {
     this.drawGridFeatures(scaleX, scaleY, options.showSpawnZones);
 
     // 6. Draw Agents
-    this.drawAgents(agentCount, posX, posY, velX, velY, speed, active, scaleX, scaleY, options.agentRadius);
+    this.drawAgents(
+      agentCount,
+      posX,
+      posY,
+      velX,
+      velY,
+      speed,
+      headX,
+      headY,
+      active,
+      scaleX,
+      scaleY,
+      options.agentRadius,
+    );
   }
 
   private drawGridFeatures(scaleX: number, scaleY: number, showSpawn: boolean) {
@@ -200,10 +219,12 @@ export class CrowdCanvasRenderer {
     velX: Float32Array,
     velY: Float32Array,
     speed: Float32Array,
+    headX: Float32Array,
+    headY: Float32Array,
     active: Uint8Array,
     scaleX: number,
     scaleY: number,
-    radiusMeters: number
+    radiusMeters: number,
   ) {
     const ctx = this.ctx;
     const rPixels = Math.max(2.5, radiusMeters * ((scaleX + scaleY) * 0.5));
@@ -230,19 +251,15 @@ export class CrowdCanvasRenderer {
       ctx.arc(px, py, rPixels, 0, Math.PI * 2);
       ctx.fill();
 
-      // Heading directional pointer
-      const vx = velX[i];
-      const vy = velY[i];
-      if (spd > 0.1) {
-        const nx = vx / spd;
-        const ny = vy / spd;
-        ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(px, py);
-        ctx.lineTo(px + nx * (rPixels * 1.5), py + ny * (rPixels * 1.5));
-        ctx.stroke();
-      }
+      // Heading directional pointer: strictly points along the path of least resistance to goal!
+      const hx = headX[i];
+      const hy = headY[i];
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(px + hx * (rPixels * 1.5), py + hy * (rPixels * 1.5));
+      ctx.stroke();
     }
   }
 }

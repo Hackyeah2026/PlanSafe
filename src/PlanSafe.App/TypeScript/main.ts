@@ -11,7 +11,7 @@ declare global {
         cellSize: number,
         cols: number,
         rows: number,
-        cells: number[] | Uint8Array
+        cells: number[] | Uint8Array,
       ) => boolean;
       updateGrid: (
         width: number,
@@ -19,12 +19,12 @@ declare global {
         cellSize: number,
         cols: number,
         rows: number,
-        cells: number[] | Uint8Array
+        cells: number[] | Uint8Array,
       ) => void;
       setFieldBuffers: (
         density: Float32Array,
         gradX: Float32Array,
-        gradY: Float32Array
+        gradY: Float32Array,
       ) => void;
       render: (
         agentCount: number,
@@ -33,8 +33,10 @@ declare global {
         velX: Float32Array,
         velY: Float32Array,
         speed: Float32Array,
+        headX: Float32Array,
+        headY: Float32Array,
         active: Uint8Array,
-        options: RenderOptions
+        options: RenderOptions,
       ) => void;
     };
   }
@@ -51,7 +53,8 @@ window.PlanSafeRenderer = {
       return false;
     }
 
-    const uintCells = cells instanceof Uint8Array ? cells : new Uint8Array(cells);
+    const uintCells =
+      cells instanceof Uint8Array ? cells : new Uint8Array(cells);
     rendererInstance = new CrowdCanvasRenderer(canvas);
     rendererInstance.setGrid(width, height, cellSize, cols, rows, uintCells);
     window.PlanSafeRenderer.rendererInstance = rendererInstance;
@@ -60,7 +63,8 @@ window.PlanSafeRenderer = {
 
   updateGrid: (width, height, cellSize, cols, rows, cells) => {
     if (!rendererInstance) return;
-    const uintCells = cells instanceof Uint8Array ? cells : new Uint8Array(cells);
+    const uintCells =
+      cells instanceof Uint8Array ? cells : new Uint8Array(cells);
     rendererInstance.setGrid(width, height, cellSize, cols, rows, uintCells);
   },
 
@@ -69,7 +73,18 @@ window.PlanSafeRenderer = {
     rendererInstance.setFieldBuffers(density, gradX, gradY);
   },
 
-  render: (agentCount, posX, posY, velX, velY, speed, active, options) => {
+  render: (
+    agentCount,
+    posX,
+    posY,
+    velX,
+    velY,
+    speed,
+    headX,
+    headY,
+    active,
+    options,
+  ) => {
     if (!rendererInstance) return;
     rendererInstance.render(
       agentCount,
@@ -78,8 +93,10 @@ window.PlanSafeRenderer = {
       velX,
       velY,
       speed,
+      headX,
+      headY,
       active,
-      options
+      options,
     );
   },
 };

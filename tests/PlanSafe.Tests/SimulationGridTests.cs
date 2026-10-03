@@ -67,4 +67,40 @@ public class SimulationGridTests
         // Must point predominantly to the right (+X direction towards exit)
         Assert.True(dirX > 0.8f, $"Expected dirX > 0.8 pointing east towards exit, got {dirX}");
     }
+
+    [Fact]
+    public void SimulationGrid_DesiredDirection_NeverPointsAwayFromExit_EvenWithDenseCrowd()
+    {
+        var grid = new SimulationGrid(width: 10f, height: 6f, cellSize: 0.5f);
+        for (int r = 0; r < grid.Rows; r++)
+        {
+            grid.SetCell(grid.Cols - 1, r, CellType.Exit);
+        }
+        grid.ComputeDijkstraField();
+
+        // Place a heavy crowd in the middle (col 10 to 12, row 4 to 8)
+        for (int r = 4; r <= 8; r++)
+        {
+            for (int c = 10; c <= 12; c++)
+            {
+                grid.DensityGrid[grid.GetIndex(c, r)] = 5.0f; // Jam density
+            }
+        }
+        grid.UpdateDynamicPotential();
+
+        // Check cells to the left of the crowd (e.g. col 2 to 9)
+        for (int r = 4; r <= 8; r++)
+        {
+            for (int c = 2; c <= 9; c++)
+            {
+                float x = (c + 0.5f) * grid.CellSize;
+                float y = (r + 0.5f) * grid.CellSize;
+                grid.SampleDesiredDirection(x, y, out float dirX, out float dirY);
+
+                // Exit is at x = 10 (to the right). dirX must NOT be negative (pointing away from exit)!
+                Assert.True(dirX >= 0f,
+                    $"Desired direction at ({x}, {y}) points backwards away from exit! dirX={dirX}, dirY={dirY}");
+            }
+        }
+    }
 }
