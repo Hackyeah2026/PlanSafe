@@ -1,7 +1,334 @@
 @page "/evacuate"
+@using PlanSafe.App.Simulation
+@inject IJSRuntime JS
+@implements IDisposable
 
-<PageTitle>Evacuate</PageTitle>
+<PageTitle>Evacuate - Plan Safe</PageTitle>
 
-<h1>Evacuate</h1>
+<div class="container-fluid px-3 py-2">
+    <!-- Header & HUD Metrics -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 p-3 bg-dark text-white rounded shadow-sm">
+        <div>
+            <h4 class="m-0 fw-bold text-success"><i class="bi bi-shield-check me-2"></i>Crowd Evacuation Simulation</h4>
+            <small class="text-secondary">Dijkstra Potential Flow Field • Dynamic Density Penalty • Weidmann Empirical Speed Model</small>
+        </div>
 
-<p>Evacuation simulation and controls.</p>
+        <div class="d-flex flex-wrap gap-3 mt-2 mt-md-0 text-center">
+            <div class="px-3 py-1 bg-black bg-opacity-50 rounded border border-secondary">
+                <small class="text-secondary d-block">ACTIVE CROWD</small>
+                <span class="fs-5 fw-bold text-light">@_sim?.ActiveAgents / @_agentCount</span>
+            </div>
+            <div class="px-3 py-1 bg-black bg-opacity-50 rounded border border-success">
+                <small class="text-success d-block">EVACUATED</small>
+                <span class="fs-5 fw-bold text-success">@_sim?.EvacuatedCount (@GetEvacuationPercent()%)</span>
+            </div>
+            <div class="px-3 py-1 bg-black bg-opacity-50 rounded border border-info">
+                <small class="text-info d-block">MEAN SPEED</small>
+                <span class="fs-5 fw-bold text-info">@(_sim?.MeanSpeed.ToString("0.00") ?? "0.00") m/s</span>
+            </div>
+            <div class="px-3 py-1 bg-black bg-opacity-50 rounded border border-warning">
+                <small class="text-warning d-block">PEAK DENSITY</small>
+                <span class="fs-5 fw-bold text-warning">@(_sim?.PeakDensity.ToString("0.0") ?? "0.0") ped/m²</span>
+            </div>
+            <div class="px-3 py-1 bg-black bg-opacity-50 rounded border border-secondary">
+                <small class="text-secondary d-block">TIME</small>
+                <span class="fs-5 fw-bold text-light">@(_sim?.SimulationTime.ToString("0.0") ?? "0.0") s</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls Toolbar -->
+    <div class="card mb-3 border-0 bg-dark text-white shadow-sm">
+        <div class="card-body py-2 d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <!-- Playback Controls -->
+            <div class="btn-group" role="group">
+                <button class="btn @(_isRunning ? "btn-warning" : "btn-success") px-4 fw-bold" @onclick="TogglePlay">
+                    @if (_isRunning)
+                    {
+                        <span><i class="bi bi-pause-fill me-1"></i>Pause</span>
+                    }
+                    else
+                    {
+                        <span><i class="bi bi-play-fill me-1"></i>Start</span>
+                    }
+                </button>
+                <button class="btn btn-outline-light" @onclick="StepSimulation" disabled="@_isRunning">
+                    <i class="bi bi-skip-forward-fill me-1"></i>Step
+                </button>
+                <button class="btn btn-outline-danger" @onclick="ResetSimulation">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+                </button>
+            </div>
+
+            <!-- Speed Multiplier -->
+            <div class="d-flex align-items-center gap-2">
+                <label class="small text-secondary mb-0">Speed:</label>
+                <div class="btn-group btn-group-sm" role="group">
+                    @foreach (var spd in new[] { 0.5f, 1.0f, 2.0f, 4.0f })
+                    {
+                        <button class="btn @(_timeScale == spd ? "btn-primary" : "btn-outline-secondary text-white")"
+                                @onclick="() => SetTimeScale(spd)">
+                            @(spd)x
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <!-- Preset Scenario -->
+            <div class="d-flex align-items-center gap-2">
+                <label class="small text-secondary mb-0">Scenario:</label>
+                <select class="form-select form-select-sm bg-black text-white border-secondary" style="width: 250px;" @onchange="OnScenarioChanged">
+                    <option value="bottleneck" selected>Two Obstacles & Narrow Corridor</option>
+                    <option value="open">Open Arena Evacuation</option>
+                </select>
+            </div>
+
+            <!-- Agent Count Slider -->
+            <div class="d-flex align-items-center gap-2" style="min-width: 200px;">
+                <label class="small text-secondary mb-0 text-nowrap">Agents (@_agentCount):</label>
+                <input type="range" class="form-range" min="50" max="2000" step="50" value="@_agentCount" @onchange="OnAgentCountChanged" />
+            </div>
+
+            <!-- Overlay Toggles -->
+            <div class="d-flex align-items-center gap-3">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="checkDensity" checked="@_showDensity" @onchange="e => { _showDensity = (bool)e.Value!; RequestRender(); }" />
+                    <label class="form-check-label small" for="checkDensity">Density Heatmap</label>
+                </div>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="checkVectors" checked="@_showFlowVectors" @onchange="e => { _showFlowVectors = (bool)e.Value!; RequestRender(); }" />
+                    <label class="form-check-label small" for="checkVectors">Flow Vectors</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Canvas Simulation Stage -->
+    <div class="position-relative bg-black rounded shadow overflow-hidden text-center" style="min-height: 540px;">
+        <canvas id="simCanvas" width="1200" height="640" style="width: 100%; height: auto; max-height: 70vh; display: block; object-fit: contain;"></canvas>
+
+        <!-- Speed Legend Overlay -->
+        <div class="position-absolute bottom-0 start-0 m-3 px-3 py-2 bg-dark bg-opacity-75 rounded border border-secondary text-white text-start small">
+            <span class="fw-bold d-block mb-1 text-secondary">WEIDMANN SPEED LEGEND:</span>
+            <span class="d-inline-block me-3"><span class="badge" style="background-color: #22c55e;">●</span> Free Flow (&gt; 1.1 m/s)</span>
+            <span class="d-inline-block me-3"><span class="badge" style="background-color: #eab308;">●</span> Constrained (0.6 - 1.1 m/s)</span>
+            <span class="d-inline-block me-3"><span class="badge" style="background-color: #f97316;">●</span> Bottleneck (0.2 - 0.6 m/s)</span>
+            <span class="d-inline-block"><span class="badge" style="background-color: #ef4444;">●</span> Jam / Stopped (&lt; 0.2 m/s)</span>
+        </div>
+    </div>
+
+    <!-- Technical Architecture Info Card -->
+    <div class="card mt-3 bg-dark text-white border-0 shadow-sm">
+        <div class="card-body">
+            <h6 class="fw-bold text-success mb-2"><i class="bi bi-info-circle me-1"></i>Algorithm & Performance Highlights</h6>
+            <div class="row g-3 small text-secondary">
+                <div class="col-md-3">
+                    <strong class="text-light d-block">O(1) Dijkstra Potential Field:</strong>
+                    Path vectors towards the exit are pre-computed on a 2D discrete grid, allowing instant direction lookups independent of agent count.
+                </div>
+                <div class="col-md-3">
+                    <strong class="text-light d-block">Dynamic Density Penalty:</strong>
+                    Crowd density is accumulated each step. High congestion ($\ge 4.5\text{ ped/m}^2$) acts as an impenetrable barrier, redirecting flow.
+                </div>
+                <div class="col-md-3">
+                    <strong class="text-light d-block">Anisotropic Interaction:</strong>
+                    Agents look ahead inside a forward cone to brake smoothly. Followers push leaders only upon immediate physical contact.
+                </div>
+                <div class="col-md-3">
+                    <strong class="text-light d-block">Cached SoA Buffer Design:</strong>
+                    Memory is organized into flat, contiguous arrays with ping-pong buffering, eliminating allocations and ready for WebGPU compute shaders.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private CrowdSimulator? _sim;
+    private SimulationGrid? _grid;
+    private bool _isRunning = false;
+    private float _timeScale = 1.0f;
+    private int _agentCount = 400;
+    private string _currentPresetKey = "bottleneck";
+    private bool _showDensity = false;
+    private bool _showFlowVectors = false;
+    private CancellationTokenSource? _simLoopCts;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Task.Delay(50); // Small yield to ensure DOM canvas is ready
+            InitSimulation();
+            await InitializeJsRenderer();
+            RequestRender();
+        }
+    }
+
+    private void InitSimulation()
+    {
+        var preset = (_currentPresetKey == "open")
+            ? MapPresets.CreateOpenArena()
+            : MapPresets.CreateTwoObstaclesNarrowCorridor();
+
+        _grid = new SimulationGrid(preset.Width, preset.Height, preset.CellSize);
+        preset.SetupGrid(_grid);
+
+        _sim = new CrowdSimulator(_grid, maxAgents: 3000);
+        preset.PopulateAgents(_sim, _agentCount);
+    }
+
+    private async Task InitializeJsRenderer()
+    {
+        if (_grid == null) return;
+        await JS.InvokeVoidAsync(
+            "PlanSafeRenderer.init",
+            "simCanvas",
+            _grid.Width,
+            _grid.Height,
+            _grid.CellSize,
+            _grid.Cols,
+            _grid.Rows,
+            _grid.Cells
+        );
+
+        UpdateFieldBuffersJs();
+    }
+
+    private void UpdateFieldBuffersJs()
+    {
+        if (_grid == null) return;
+        JS.InvokeVoidAsync("PlanSafeRenderer.setFieldBuffers", _grid.DensityGrid, _grid.GradientX, _grid.GradientY);
+    }
+
+    private void RequestRender()
+    {
+        if (_sim == null || _grid == null) return;
+
+        var options = new
+        {
+            showDensityHeatmap = _showDensity,
+            showFlowField = _showFlowVectors,
+            showSpawnZones = true,
+            agentRadius = _sim.AgentRadius
+        };
+
+        if (_showDensity || _showFlowVectors)
+        {
+            UpdateFieldBuffersJs();
+        }
+
+        JS.InvokeVoidAsync(
+            "PlanSafeRenderer.render",
+            _sim.CurrentBuffer.Count,
+            _sim.CurrentBuffer.PosX,
+            _sim.CurrentBuffer.PosY,
+            _sim.CurrentBuffer.VelX,
+            _sim.CurrentBuffer.VelY,
+            _sim.CurrentBuffer.Speed,
+            _sim.CurrentBuffer.Active,
+            options
+        );
+    }
+
+    private void TogglePlay()
+    {
+        if (_isRunning)
+        {
+            StopLoop();
+        }
+        else
+        {
+            StartLoop();
+        }
+    }
+
+    private void StartLoop()
+    {
+        _isRunning = true;
+        _simLoopCts = new CancellationTokenSource();
+        _ = RunSimulationLoop(_simLoopCts.Token);
+    }
+
+    private void StopLoop()
+    {
+        _isRunning = false;
+        _simLoopCts?.Cancel();
+    }
+
+    private async Task RunSimulationLoop(CancellationToken token)
+    {
+        const float baseDt = 0.02f; // 50 Hz simulation physics
+        int renderSkip = 0;
+
+        while (!token.IsCancellationRequested && _isRunning)
+        {
+            if (_sim != null)
+            {
+                float dt = baseDt * _timeScale;
+                _sim.Step(dt);
+
+                // Render at ~30-50 FPS
+                renderSkip++;
+                if (renderSkip >= 1)
+                {
+                    renderSkip = 0;
+                    RequestRender();
+                    await InvokeAsync(StateHasChanged);
+                }
+            }
+
+            await Task.Delay(20, token).ConfigureAwait(false);
+        }
+    }
+
+    private void StepSimulation()
+    {
+        if (_sim != null)
+        {
+            _sim.Step(0.03f * _timeScale);
+            RequestRender();
+            StateHasChanged();
+        }
+    }
+
+    private async Task ResetSimulation()
+    {
+        StopLoop();
+        InitSimulation();
+        await InitializeJsRenderer();
+        RequestRender();
+        StateHasChanged();
+    }
+
+    private void SetTimeScale(float scale)
+    {
+        _timeScale = scale;
+    }
+
+    private async Task OnScenarioChanged(ChangeEventArgs e)
+    {
+        _currentPresetKey = e.Value?.ToString() ?? "bottleneck";
+        await ResetSimulation();
+    }
+
+    private async Task OnAgentCountChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int val))
+        {
+            _agentCount = val;
+            await ResetSimulation();
+        }
+    }
+
+    private int GetEvacuationPercent()
+    {
+        if (_agentCount == 0 || _sim == null) return 0;
+        return (int)Math.Round((float)_sim.EvacuatedCount / _agentCount * 100f);
+    }
+
+    public void Dispose()
+    {
+        StopLoop();
+    }
+}
