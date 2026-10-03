@@ -63,6 +63,10 @@ struct SimParams {
     mapRows: u32,
     mapCellSize: f32,
     numExits: u32,
+    potCols: u32,
+    potRows: u32,
+    potCellSize: f32,
+    pad0: u32,
     pad1: u32,
     pad2: u32,
 };
@@ -134,6 +138,10 @@ struct SimParams {
     mapRows: u32,
     mapCellSize: f32,
     numExits: u32,
+    potCols: u32,
+    potRows: u32,
+    potCellSize: f32,
+    pad0: u32,
     pad1: u32,
     pad2: u32,
 };
@@ -149,16 +157,49 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let agent = agents[i];
     if (agent.flags == 0u) { return; }
 
-    let cellW = params.worldWidth / 100.0;
-    let cellH = params.worldHeight / 100.0;
-    let invCellArea = 1.0 / (cellW * cellH);
+    let pCols = params.potCols;
+    let pRows = params.potRows;
+    let invCell = 1.0 / params.potCellSize;
+    let invCellArea = invCell * invCell;
 
-    let col = clamp(u32(max(agent.pos.x, 0.0) / cellW), 0u, 99u);
-    let row = clamp(u32(max(agent.pos.y, 0.0) / cellH), 0u, 99u);
-    let idx = row * 100u + col;
+    if (params.granulation >= 16u) {
+        let m = invCellArea * f32(params.granulation) * 1000.0;
+        let u = agent.pos.x * invCell - 0.5;
+        let v = agent.pos.y * invCell - 0.5;
+        let c0 = i32(floor(u));
+        let r0 = i32(floor(v));
+        let s = clamp(u - f32(c0), 0.0, 1.0);
+        let t = clamp(v - f32(r0), 0.0, 1.0);
 
-    let mass = u32(round(invCellArea * f32(params.granulation) * 1000.0));
-    atomicAdd(&rawDensity[idx], mass);
+        let w00 = u32(round(m * (1.0 - s) * (1.0 - t)));
+        let w10 = u32(round(m * s * (1.0 - t)));
+        let w01 = u32(round(m * (1.0 - s) * t));
+        let w11 = u32(round(m * s * t));
+
+        let maxC = i32(pCols) - 1;
+        let maxR = i32(pRows) - 1;
+
+        if (c0 >= 0 && c0 <= maxC && r0 >= 0 && r0 <= maxR && w00 > 0u) {
+            atomicAdd(&rawDensity[u32(r0) * pCols + u32(c0)], w00);
+        }
+        if (c0 + 1 >= 0 && c0 + 1 <= maxC && r0 >= 0 && r0 <= maxR && w10 > 0u) {
+            atomicAdd(&rawDensity[u32(r0) * pCols + u32(c0 + 1)], w10);
+        }
+        if (c0 >= 0 && c0 <= maxC && r0 + 1 >= 0 && r0 + 1 <= maxR && w01 > 0u) {
+            atomicAdd(&rawDensity[u32(r0 + 1) * pCols + u32(c0)], w01);
+        }
+        if (c0 + 1 >= 0 && c0 + 1 <= maxC && r0 + 1 >= 0 && r0 + 1 <= maxR && w11 > 0u) {
+            atomicAdd(&rawDensity[u32(r0 + 1) * pCols + u32(c0 + 1)], w11);
+        }
+    } else {
+        let col = i32(floor(agent.pos.x * invCell));
+        let row = i32(floor(agent.pos.y * invCell));
+        if (col >= 0 && col < i32(pCols) && row >= 0 && row < i32(pRows)) {
+            let idx = u32(row) * pCols + u32(col);
+            let mass = u32(round(invCellArea * f32(params.granulation) * 1000.0));
+            atomicAdd(&rawDensity[idx], mass);
+        }
+    }
 }
 `;
 
@@ -181,6 +222,10 @@ struct SimParams {
     mapRows: u32,
     mapCellSize: f32,
     numExits: u32,
+    potCols: u32,
+    potRows: u32,
+    potCellSize: f32,
+    pad0: u32,
     pad1: u32,
     pad2: u32,
 };
@@ -195,31 +240,33 @@ struct SimParams {
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let col = id.x;
     let row = id.y;
-    if (col >= 100u || row >= 100u) { return; }
-    let idx = row * 100u + col;
+    let pCols = params.potCols;
+    let pRows = params.potRows;
+    if (col >= pCols || row >= pRows) { return; }
+    let idx = row * pCols + col;
 
     let cPrev = max(1u, col) - 1u;
-    let cNext = min(99u, col + 1u);
+    let cNext = min(pCols - 1u, col + 1u);
     let rPrev = max(1u, row) - 1u;
-    let rNext = min(99u, row + 1u);
+    let rNext = min(pRows - 1u, row + 1u);
 
     let center = f32(atomicLoad(&rawDensity[idx])) * 0.001;
-    let left = f32(atomicLoad(&rawDensity[row * 100u + cPrev])) * 0.001;
-    let right = f32(atomicLoad(&rawDensity[row * 100u + cNext])) * 0.001;
-    let top = f32(atomicLoad(&rawDensity[rPrev * 100u + col])) * 0.001;
-    let bottom = f32(atomicLoad(&rawDensity[rNext * 100u + col])) * 0.001;
+    let left = f32(atomicLoad(&rawDensity[row * pCols + cPrev])) * 0.001;
+    let right = f32(atomicLoad(&rawDensity[row * pCols + cNext])) * 0.001;
+    let top = f32(atomicLoad(&rawDensity[rPrev * pCols + col])) * 0.001;
+    let bottom = f32(atomicLoad(&rawDensity[rNext * pCols + col])) * 0.001;
 
     let rho = 0.50 * center + 0.125 * (left + right + top + bottom);
     smoothedDensity[idx] = rho;
 
     // Sink protection for exit zone
-    let cellW = params.worldWidth / 100.0;
-    let cellH = params.worldHeight / 100.0;
+    let cellSize = params.potCellSize;
+    let invCell = 1.0 / cellSize;
     let ez = params.exitZone;
-    let exitMinCol = clamp(u32(max(0.0, ez.x - 2.5 * cellW) / cellW), 0u, 99u);
-    let exitMaxCol = clamp(u32((ez.x + ez.z + 2.5 * cellW) / cellW), 0u, 99u);
-    let exitMinRow = clamp(u32(max(0.0, ez.y - 2.5 * cellH) / cellH), 0u, 99u);
-    let exitMaxRow = clamp(u32((ez.y + ez.w + 2.5 * cellH) / cellH), 0u, 99u);
+    let exitMinCol = clamp(u32(max(0.0, (ez.x - 2.5 * cellSize) * invCell)), 0u, pCols - 1u);
+    let exitMaxCol = clamp(u32(max(0.0, (ez.x + ez.z + 2.5 * cellSize) * invCell)), 0u, pCols - 1u);
+    let exitMinRow = clamp(u32(max(0.0, (ez.y - 2.5 * cellSize) * invCell)), 0u, pRows - 1u);
+    let exitMaxRow = clamp(u32(max(0.0, (ez.y + ez.w + 2.5 * cellSize) * invCell)), 0u, pRows - 1u);
 
     if (blocked[idx] != 0u || (row >= exitMinRow && row <= exitMaxRow && col >= exitMinCol && col <= exitMaxCol)) {
         penalty[idx] = 0.0;
@@ -236,26 +283,55 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 `;
 
 const smoothDensityOnlyShader = `
+struct SimParams {
+    worldWidth: f32,
+    worldHeight: f32,
+    dt: f32,
+    socialWeight: f32,
+    agentCount: u32,
+    gridCols: u32,
+    gridRows: u32,
+    maxPerCell: u32,
+    obs1: vec4<f32>,
+    obs2: vec4<f32>,
+    exitZone: vec4<f32>,
+    granulation: u32,
+    isMap: u32,
+    mapCols: u32,
+    mapRows: u32,
+    mapCellSize: f32,
+    numExits: u32,
+    potCols: u32,
+    potRows: u32,
+    potCellSize: f32,
+    pad0: u32,
+    pad1: u32,
+    pad2: u32,
+};
+
 @group(0) @binding(0) var<storage, read_write> rawDensity: array<atomic<u32>>;
 @group(0) @binding(1) var<storage, read_write> smoothedDensity: array<f32>;
+@group(0) @binding(2) var<uniform> params: SimParams;
 
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let col = id.x;
     let row = id.y;
-    if (col >= 100u || row >= 100u) { return; }
-    let idx = row * 100u + col;
+    let pCols = params.potCols;
+    let pRows = params.potRows;
+    if (col >= pCols || row >= pRows) { return; }
+    let idx = row * pCols + col;
 
     let cPrev = max(1u, col) - 1u;
-    let cNext = min(99u, col + 1u);
+    let cNext = min(pCols - 1u, col + 1u);
     let rPrev = max(1u, row) - 1u;
-    let rNext = min(99u, row + 1u);
+    let rNext = min(pRows - 1u, row + 1u);
 
     let center = f32(atomicLoad(&rawDensity[idx])) * 0.001;
-    let left = f32(atomicLoad(&rawDensity[row * 100u + cPrev])) * 0.001;
-    let right = f32(atomicLoad(&rawDensity[row * 100u + cNext])) * 0.001;
-    let top = f32(atomicLoad(&rawDensity[rPrev * 100u + col])) * 0.001;
-    let bottom = f32(atomicLoad(&rawDensity[rNext * 100u + col])) * 0.001;
+    let left = f32(atomicLoad(&rawDensity[row * pCols + cPrev])) * 0.001;
+    let right = f32(atomicLoad(&rawDensity[row * pCols + cNext])) * 0.001;
+    let top = f32(atomicLoad(&rawDensity[rPrev * pCols + col])) * 0.001;
+    let bottom = f32(atomicLoad(&rawDensity[rNext * pCols + col])) * 0.001;
 
     smoothedDensity[idx] = 0.50 * center + 0.125 * (left + right + top + bottom);
 }
@@ -439,6 +515,10 @@ struct SimParams {
     mapRows: u32,
     mapCellSize: f32,
     numExits: u32,
+    potCols: u32,
+    potRows: u32,
+    potCellSize: f32,
+    pad0: u32,
     pad1: u32,
     pad2: u32,
 };
@@ -451,18 +531,19 @@ struct SimParams {
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let col = id.x;
     let row = id.y;
-    if (col >= 100u || row >= 100u) { return; }
-    let idx = row * 100u + col;
+    let pCols = params.potCols;
+    let pRows = params.potRows;
+    if (col >= pCols || row >= pRows) { return; }
+    let idx = row * pCols + col;
 
     if (blocked[idx] != 0u) {
         pot[idx] = 1e6;
         return;
     }
 
-    let cellW = params.worldWidth / 100.0;
-    let cellH = params.worldHeight / 100.0;
-    let wx = (f32(col) + 0.5) * cellW;
-    let wy = (f32(row) + 0.5) * cellH;
+    let cellSize = params.potCellSize;
+    let wx = (f32(col) + 0.5) * cellSize;
+    let wy = (f32(row) + 0.5) * cellSize;
     let ez = params.exitZone;
 
     if (wx >= ez.x && wx <= ez.x + ez.z && wy >= ez.y && wy <= ez.y + ez.w) {
@@ -492,6 +573,10 @@ struct SimParams {
     mapRows: u32,
     mapCellSize: f32,
     numExits: u32,
+    potCols: u32,
+    potRows: u32,
+    potCellSize: f32,
+    pad0: u32,
     pad1: u32,
     pad2: u32,
 };
@@ -502,25 +587,34 @@ struct SimParams {
 @group(0) @binding(3) var<storage, read> blocked: array<u32>;
 @group(0) @binding(4) var<uniform> params: SimParams;
 
-const dCol = array<i32, 8>(1, -1, 0, 0, 1, 1, -1, -1);
-const dRow = array<i32, 8>(0, 0, 1, -1, 1, -1, 1, -1);
+const dCol = array<i32, 16>(
+    1, -1, 0, 0,
+    1, 1, -1, -1,
+    1, 1, -1, -1, 2, 2, -2, -2
+);
+const dRow = array<i32, 16>(
+    0, 0, 1, -1,
+    1, -1, 1, -1,
+    2, -2, 2, -2, 1, -1, 1, -1
+);
 
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let col = id.x;
     let row = id.y;
-    if (col >= 100u || row >= 100u) { return; }
-    let idx = row * 100u + col;
+    let pCols = params.potCols;
+    let pRows = params.potRows;
+    if (col >= pCols || row >= pRows) { return; }
+    let idx = row * pCols + col;
 
     if (blocked[idx] != 0u) {
         outPot[idx] = 1e6;
         return;
     }
 
-    let cellW = params.worldWidth / 100.0;
-    let cellH = params.worldHeight / 100.0;
-    let wx = (f32(col) + 0.5) * cellW;
-    let wy = (f32(row) + 0.5) * cellH;
+    let cellSize = params.potCellSize;
+    let wx = (f32(col) + 0.5) * cellSize;
+    let wy = (f32(row) + 0.5) * cellSize;
     let ez = params.exitZone;
 
     if (wx >= ez.x && wx <= ez.x + ez.z && wy >= ez.y && wy <= ez.y + ez.w) {
@@ -528,25 +622,41 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         return;
     }
 
-    let step = cellW;
-    let diagStep = cellW * 1.41421356;
+    let step = cellSize;
+    let diagStep = cellSize * 1.41421356;
+    let knightStep = cellSize * 2.23606798;
 
     let currPen = penalty[idx];
     var best = inPot[idx];
 
-    for (var i = 0u; i < 8u; i++) {
+    for (var i = 0u; i < 16u; i++) {
         let nCol = i32(col) + dCol[i];
         let nRow = i32(row) + dRow[i];
-        if (nCol >= 0 && nCol < 100 && nRow >= 0 && nRow < 100) {
-            let nIdx = u32(nRow * 100 + nCol);
+        if (nCol >= 0 && nCol < i32(pCols) && nRow >= 0 && nRow < i32(pRows)) {
+            let nIdx = u32(nRow * i32(pCols) + nCol);
             if (blocked[nIdx] == 0u) {
-                if (i >= 4u) {
-                    if (blocked[row * 100u + u32(nCol)] != 0u && blocked[u32(nRow) * 100u + col] != 0u) {
+                if (i >= 4u && i < 8u) {
+                    if (blocked[row * pCols + u32(nCol)] != 0u && blocked[u32(nRow) * pCols + col] != 0u) {
+                        continue;
+                    }
+                } else if (i >= 8u) {
+                    let sCol = select(-1, 1, dCol[i] > 0);
+                    let sRow = select(-1, 1, dRow[i] > 0);
+                    let midCol = u32(i32(col) + sCol);
+                    let midRow = u32(i32(row) + sRow);
+                    if (blocked[midRow * pCols + midCol] != 0u ||
+                        blocked[row * pCols + midCol] != 0u ||
+                        blocked[midRow * pCols + col] != 0u) {
                         continue;
                     }
                 }
                 let avgPen = 0.5 * (currPen + penalty[nIdx]);
-                let edgeStep = select(diagStep, step, i < 4u);
+                var edgeStep = knightStep;
+                if (i < 4u) {
+                    edgeStep = step;
+                } else if (i < 8u) {
+                    edgeStep = diagStep;
+                }
                 let edgeCost = edgeStep * (1.0 + avgPen);
                 let cand = inPot[nIdx] + edgeCost;
                 if (cand < best) {
@@ -587,6 +697,10 @@ struct SimParams {
     mapRows: u32,
     mapCellSize: f32,
     numExits: u32,
+    potCols: u32,
+    potRows: u32,
+    potCellSize: f32,
+    pad0: u32,
     pad1: u32,
     pad2: u32,
 };
@@ -605,10 +719,10 @@ const rOffsets = array<i32, 8>(-1, 1, 0, 0, -1, -1, 1, 1);
 
 // Bilinear gradient interpolation matching C# GetFlowDirection exactly
 fn getFlowDirection(pos: vec2<f32>) -> vec2<f32> {
-    let pCols = select(100u, params.mapCols, params.isMap == 1u);
-    let pRows = select(100u, params.mapRows, params.isMap == 1u);
-    let invCellW = f32(pCols) / params.worldWidth;
-    let invCellH = f32(pRows) / params.worldHeight;
+    let pCols = params.potCols;
+    let pRows = params.potRows;
+    let invCellW = 1.0 / params.potCellSize;
+    let invCellH = 1.0 / params.potCellSize;
 
     let u = pos.x * invCellW - 0.5;
     let v = pos.y * invCellH - 0.5;
@@ -669,8 +783,8 @@ fn getFlowDirection(pos: vec2<f32>) -> vec2<f32> {
     var flowY = 0.0;
 
     if (v00 && v10 && v01 && v11) {
-        flowX = (1.0 - t) * (p00 - p10) + t * (p01 - p11);
-        flowY = (1.0 - s) * (p00 - p01) + s * (p10 - p11);
+        flowX = ((1.0 - t) * (p00 - p10) + t * (p01 - p11)) * invCellW;
+        flowY = ((1.0 - s) * (p00 - p01) + s * (p10 - p11)) * invCellH;
     } else {
         var gradX0 = 0.0;
         var hasGX0 = false;
@@ -685,11 +799,11 @@ fn getFlowDirection(pos: vec2<f32>) -> vec2<f32> {
         else if (!v01 && v11) { gradX1 = 1.0; hasGX1 = true; }
 
         if (hasGX0 && hasGX1) {
-            flowX = (1.0 - t) * gradX0 + t * gradX1;
+            flowX = ((1.0 - t) * gradX0 + t * gradX1) * invCellW;
         } else if (hasGX0) {
-            flowX = gradX0;
+            flowX = gradX0 * invCellW;
         } else if (hasGX1) {
-            flowX = gradX1;
+            flowX = gradX1 * invCellW;
         }
 
         var gradY0 = 0.0;
@@ -705,11 +819,11 @@ fn getFlowDirection(pos: vec2<f32>) -> vec2<f32> {
         else if (!v10 && v11) { gradY1 = 1.0; hasGY1 = true; }
 
         if (hasGY0 && hasGY1) {
-            flowY = (1.0 - s) * gradY0 + s * gradY1;
+            flowY = ((1.0 - s) * gradY0 + s * gradY1) * invCellH;
         } else if (hasGY0) {
-            flowY = gradY0;
+            flowY = gradY0 * invCellH;
         } else if (hasGY1) {
-            flowY = gradY1;
+            flowY = gradY1 * invCellH;
         }
     }
 
@@ -721,12 +835,11 @@ fn getFlowDirection(pos: vec2<f32>) -> vec2<f32> {
 }
 
 fn sampleSmoothedDensity(pos: vec2<f32>) -> f32 {
-    let pCols = select(100u, params.mapCols, params.isMap == 1u);
-    let pRows = select(100u, params.mapRows, params.isMap == 1u);
-    let invCellW = f32(pCols) / params.worldWidth;
-    let invCellH = f32(pRows) / params.worldHeight;
-    let u = pos.x * invCellW - 0.5;
-    let v = pos.y * invCellH - 0.5;
+    let pCols = params.potCols;
+    let pRows = params.potRows;
+    let invCell = 1.0 / params.potCellSize;
+    let u = pos.x * invCell - 0.5;
+    let v = pos.y * invCell - 0.5;
     let c0 = i32(floor(u));
     let r0 = i32(floor(v));
     let s = clamp(u - f32(c0), 0.0, 1.0);
@@ -1399,9 +1512,9 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 }
 `;
 
-// --- Potential Field Generator (8-Direction BFS Flood Fill matching C# PotentialFieldGrid.cs) ---
+// --- Potential Field Generator (16-Direction Dijkstra Flood Fill matching C# PotentialFieldGrid.cs) ---
 
-function buildPotentialField(
+export function buildPotentialField(
   worldWidth: number,
   worldHeight: number,
   obs1: [number, number, number, number],
@@ -1409,9 +1522,10 @@ function buildPotentialField(
   exitZone: [number, number, number, number],
   cols = 100,
   rows = 100,
+  cellSize?: number,
 ): Float32Array {
-  const cellW = worldWidth / cols;
-  const cellH = worldHeight / rows;
+  const cellW = cellSize ?? worldWidth / cols;
+  const cellH = cellSize ?? worldHeight / rows;
   const totalCells = cols * rows;
 
   const blocked = new Uint8Array(totalCells);
@@ -1435,11 +1549,56 @@ function buildPotentialField(
     }
   }
 
-  // 1. Static potential field flood fill (matching C# PotentialFieldGrid.BuildStaticField)
+  // 1. Static potential field flood fill using 16-direction Dijkstra with min-heap
   const grid = new Float32Array(totalCells).fill(1e6);
-  const queue = new Int32Array(totalCells * 4);
-  let head = 0;
-  let tail = 0;
+  const heapIdx = new Int32Array(totalCells * 4);
+  const heapCost = new Float32Array(totalCells * 4);
+  let heapSize = 0;
+
+  function pushHeap(idx: number, cost: number) {
+    let i = heapSize++;
+    heapIdx[i] = idx;
+    heapCost[i] = cost;
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (heapCost[p] <= heapCost[i]) break;
+      const ti = heapIdx[i];
+      heapIdx[i] = heapIdx[p];
+      heapIdx[p] = ti;
+      const tc = heapCost[i];
+      heapCost[i] = heapCost[p];
+      heapCost[p] = tc;
+      i = p;
+    }
+  }
+
+  function popHeap(): { idx: number; cost: number } | null {
+    if (heapSize === 0) return null;
+    const retIdx = heapIdx[0];
+    const retCost = heapCost[0];
+    heapSize--;
+    if (heapSize > 0) {
+      heapIdx[0] = heapIdx[heapSize];
+      heapCost[0] = heapCost[heapSize];
+      let i = 0;
+      while (true) {
+        let best = i;
+        const left = 2 * i + 1;
+        const right = 2 * i + 2;
+        if (left < heapSize && heapCost[left] < heapCost[best]) best = left;
+        if (right < heapSize && heapCost[right] < heapCost[best]) best = right;
+        if (best === i) break;
+        const ti = heapIdx[i];
+        heapIdx[i] = heapIdx[best];
+        heapIdx[best] = ti;
+        const tc = heapCost[i];
+        heapCost[i] = heapCost[best];
+        heapCost[best] = tc;
+        i = best;
+      }
+    }
+    return { idx: retIdx, cost: retCost };
+  }
 
   const minCol = Math.max(
     0,
@@ -1463,46 +1622,73 @@ function buildPotentialField(
       const idx = r * cols + c;
       if (!blocked[idx]) {
         grid[idx] = 0;
-        queue[tail++] = idx;
+        pushHeap(idx, 0);
       }
     }
   }
 
-  const dCol8 = [1, -1, 0, 0, 1, 1, -1, -1];
-  const dRow8 = [0, 0, 1, -1, 1, -1, 1, -1];
-  const stepCosts = [
-    cellW,
-    cellW,
-    cellW,
-    cellW,
-    cellW * 1.41421356,
-    cellW * 1.41421356,
-    cellW * 1.41421356,
-    cellW * 1.41421356,
+  const step = cellW;
+  const diagStep = cellW * 1.41421356;
+  const knightStep = cellW * 2.23606798;
+
+  const dCol = [1, -1, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 2, 2, -2, -2];
+  const dRow = [0, 0, 1, -1, 1, -1, 1, -1, 2, -2, 2, -2, 1, -1, 1, -1];
+  const costs = [
+    step,
+    step,
+    step,
+    step,
+    diagStep,
+    diagStep,
+    diagStep,
+    diagStep,
+    knightStep,
+    knightStep,
+    knightStep,
+    knightStep,
+    knightStep,
+    knightStep,
+    knightStep,
+    knightStep,
   ];
 
-  while (head < tail) {
-    const curr = queue[head++];
-    const c = curr % cols;
-    const r = (curr / cols) | 0;
-    const pot = grid[curr];
-    for (let i = 0; i < 8; i++) {
-      const nc = c + dCol8[i];
-      const nr = r + dRow8[i];
-      if (nc >= 0 && nc < cols && nr >= 0 && nr < rows) {
-        const ni = nr * cols + nc;
-        if (blocked[ni]) continue;
+  while (heapSize > 0) {
+    const top = popHeap();
+    if (!top) break;
+    const { idx: currIdx, cost: currCost } = top;
+    if (currCost > grid[currIdx]) continue;
 
-        // Diagonal corner-cutting prevention matching C#
-        if (i >= 4) {
-          if (blocked[r * cols + nc] && blocked[nr * cols + c]) continue;
-        }
+    const currCol = currIdx % cols;
+    const currRow = Math.floor(currIdx / cols);
 
-        const cand = pot + stepCosts[i];
-        if (cand < grid[ni]) {
-          grid[ni] = cand;
-          queue[tail++] = ni;
+    for (let i = 0; i < 16; i++) {
+      const nCol = currCol + dCol[i];
+      const nRow = currRow + dRow[i];
+      if (nCol < 0 || nCol >= cols || nRow < 0 || nRow >= rows) continue;
+
+      const nIdx = nRow * cols + nCol;
+      if (blocked[nIdx]) continue;
+
+      if (i >= 4 && i < 8) {
+        if (blocked[currRow * cols + nCol] && blocked[nRow * cols + currCol]) {
+          continue;
         }
+      } else if (i >= 8) {
+        const midCol = currCol + Math.sign(dCol[i]);
+        const midRow = currRow + Math.sign(dRow[i]);
+        if (
+          blocked[midRow * cols + midCol] ||
+          blocked[currRow * cols + midCol] ||
+          blocked[midRow * cols + currCol]
+        ) {
+          continue;
+        }
+      }
+
+      const cand = currCost + costs[i];
+      if (cand < grid[nIdx]) {
+        grid[nIdx] = cand;
+        pushHeap(nIdx, cand);
       }
     }
   }
@@ -2044,6 +2230,9 @@ export class GpuSimulationEngine implements ISimulationEngine {
   private mapCols = 100;
   private mapRows = 100;
   private mapCellSize = 2.0;
+  private potCols = 100;
+  private potRows = 100;
+  private potCellSize = 2.0;
   private numExits = 1;
   private totalPeople = 0;
   private activeMapAgents = 0;
@@ -2276,9 +2465,9 @@ export class GpuSimulationEngine implements ISimulationEngine {
     // 2b. Adaptive KDE Grid Buffers
     this.ensureKdeGrid();
 
-    // 3. SimParams Uniform Buffer (112 bytes: aligned to 16 bytes)
+    // 3. SimParams Uniform Buffer (128 bytes: aligned to 16 bytes)
     this.paramsBuffer = this.device.createBuffer({
-      size: 112,
+      size: 128,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -2345,6 +2534,14 @@ export class GpuSimulationEngine implements ISimulationEngine {
       return;
     }
 
+    this.potCellSize = Math.max(
+      2.0,
+      Math.max(this.worldWidth, this.worldHeight) / 100.0,
+    );
+    this.potCols = Math.max(5, Math.ceil(this.worldWidth / this.potCellSize));
+    this.potRows = Math.max(5, Math.ceil(this.worldHeight / this.potCellSize));
+    const totalCells = this.potCols * this.potRows;
+
     const obs1 = this.obs1;
     const obs2 = this.obs2;
     const exitZone = this.exitZone;
@@ -2355,19 +2552,20 @@ export class GpuSimulationEngine implements ISimulationEngine {
       obs1,
       obs2,
       exitZone,
-      100,
-      100,
+      this.potCols,
+      this.potRows,
+      this.potCellSize,
     );
     this.device.queue.writeBuffer(this.staticPotentialBuffer, 0, grid.buffer);
     this.device.queue.writeBuffer(this.potentialBufferA, 0, grid.buffer);
 
     // Obstacle blocked mask
-    const cellW = this.worldWidth / 100;
-    const cellH = this.worldHeight / 100;
-    const blockedData = new Uint32Array(100 * 100);
-    for (let r = 0; r < 100; r++) {
+    const cellW = this.potCellSize;
+    const cellH = this.potCellSize;
+    const blockedData = new Uint32Array(totalCells);
+    for (let r = 0; r < this.potRows; r++) {
       const wy = (r + 0.5) * cellH;
-      for (let c = 0; c < 100; c++) {
+      for (let c = 0; c < this.potCols; c++) {
         const wx = (c + 0.5) * cellW;
         const inObs1 =
           wx > obs1[0] + 0.001 &&
@@ -2380,14 +2578,14 @@ export class GpuSimulationEngine implements ISimulationEngine {
           wy > obs2[1] + 0.001 &&
           wy < obs2[1] + obs2[3] - 0.001;
         if (inObs1 || inObs2) {
-          blockedData[r * 100 + c] = 1;
+          blockedData[r * this.potCols + c] = 1;
         }
       }
     }
     this.device.queue.writeBuffer(this.blockedBuffer, 0, blockedData.buffer);
 
     // Reset penalties to 0
-    const zeroPenalties = new Float32Array(100 * 100);
+    const zeroPenalties = new Float32Array(totalCells);
     this.device.queue.writeBuffer(this.penaltyBuffer, 0, zeroPenalties.buffer);
     this.dynamicFieldTimer = 0.2;
 
@@ -2413,6 +2611,7 @@ export class GpuSimulationEngine implements ISimulationEngine {
       entries: [
         { binding: 0, resource: { buffer: this.rawDensityBuffer! } },
         { binding: 1, resource: { buffer: this.smoothedDensityBuffer! } },
+        { binding: 2, resource: { buffer: this.paramsBuffer! } },
       ],
     });
 
@@ -2450,7 +2649,7 @@ export class GpuSimulationEngine implements ISimulationEngine {
 
   private updateSimParams(): void {
     if (!this.device || !this.paramsBuffer) return;
-    const buf = new ArrayBuffer(112);
+    const buf = new ArrayBuffer(128);
     const f32 = new Float32Array(buf);
     const u32 = new Uint32Array(buf);
 
@@ -2487,8 +2686,12 @@ export class GpuSimulationEngine implements ISimulationEngine {
     u32[23] = this.mapRows;
     f32[24] = this.mapCellSize;
     u32[25] = this.numExits;
-    u32[26] = 0;
-    u32[27] = 0;
+    u32[26] = this.potCols;
+    u32[27] = this.potRows;
+    f32[28] = this.potCellSize;
+    u32[29] = 0;
+    u32[30] = 0;
+    u32[31] = 0;
 
     this.device.queue.writeBuffer(this.paramsBuffer, 0, buf);
   }
@@ -2949,19 +3152,22 @@ export class GpuSimulationEngine implements ISimulationEngine {
     const commandEncoder = this.device.createCommandEncoder();
     const workgroups = Math.ceil(this.activeCount / 64);
     const gridWorkgroups = Math.ceil((this.gridCols * this.gridRows) / 64);
+    const potWorkgroups = Math.ceil((this.potCols * this.potRows) / 64);
+    const pot2D_X = Math.ceil(this.potCols / 16);
+    const pot2D_Y = Math.ceil(this.potRows / 16);
     const nowWallTime = performance.now();
 
     for (let step = 0; step < ticks; step++) {
       this.simulationTime += 0.016;
       this.dynamicFieldTimer += 0.016;
 
-      // Update dynamic density and refine potential field every 0.20s (or at tick 0) matching C#
+      // Update dynamic density and refine potential field every 0.20s matching C#
       // Throttled to at most ~12.5 Hz in real time (every >= 80ms) to prevent GPU overload at extreme time scales
       const wallElapsed = nowWallTime - this.lastDynamicFieldWallTime;
-      const isInitial = this.activeTick === 0 && step === 0;
       if (
         !this.isMapScenario &&
-        (isInitial || (this.dynamicFieldTimer >= 0.2 && wallElapsed >= 80))
+        this.dynamicFieldTimer >= 0.2 &&
+        wallElapsed >= 80
       ) {
         this.dynamicFieldTimer = 0.0;
         this.lastDynamicFieldWallTime = nowWallTime;
@@ -2970,7 +3176,7 @@ export class GpuSimulationEngine implements ISimulationEngine {
         const passClearDensity = commandEncoder.beginComputePass();
         passClearDensity.setPipeline(this.clearDensityPipeline!);
         passClearDensity.setBindGroup(0, this.densityBindGroup!);
-        passClearDensity.dispatchWorkgroups(Math.ceil(10000 / 64));
+        passClearDensity.dispatchWorkgroups(potWorkgroups);
         passClearDensity.end();
 
         // 2. Accumulate density from agent positions
@@ -2984,14 +3190,14 @@ export class GpuSimulationEngine implements ISimulationEngine {
         const passUpdatePenalty = commandEncoder.beginComputePass();
         passUpdatePenalty.setPipeline(this.updatePenaltyPipeline!);
         passUpdatePenalty.setBindGroup(0, this.penaltyBindGroup!);
-        passUpdatePenalty.dispatchWorkgroups(7, 7);
+        passUpdatePenalty.dispatchWorkgroups(pot2D_X, pot2D_Y);
         passUpdatePenalty.end();
 
         // 4. Initialize relaxation: exit zone = 0.0, obstacles = 1e6, rest = 1e6
         const passInitRelax = commandEncoder.beginComputePass();
         passInitRelax.setPipeline(this.initRelaxPipeline!);
         passInitRelax.setBindGroup(0, this.initRelaxBindGroup!);
-        passInitRelax.dispatchWorkgroups(7, 7);
+        passInitRelax.dispatchWorkgroups(pot2D_X, pot2D_Y);
         passInitRelax.end();
 
         // 5. Ping-pong 140 relaxation passes (starts A->B, ends in A)
@@ -3002,7 +3208,7 @@ export class GpuSimulationEngine implements ISimulationEngine {
             0,
             iter % 2 === 0 ? this.relaxBindGroupA! : this.relaxBindGroupB!,
           );
-          passRelax.dispatchWorkgroups(7, 7);
+          passRelax.dispatchWorkgroups(pot2D_X, pot2D_Y);
           passRelax.end();
         }
       } else if (this.granulation > 1) {
@@ -3010,7 +3216,7 @@ export class GpuSimulationEngine implements ISimulationEngine {
         const passClearDensity = commandEncoder.beginComputePass();
         passClearDensity.setPipeline(this.clearDensityPipeline!);
         passClearDensity.setBindGroup(0, this.densityBindGroup!);
-        passClearDensity.dispatchWorkgroups(Math.ceil(10000 / 64));
+        passClearDensity.dispatchWorkgroups(potWorkgroups);
         passClearDensity.end();
 
         const passAccDensity = commandEncoder.beginComputePass();
@@ -3022,7 +3228,7 @@ export class GpuSimulationEngine implements ISimulationEngine {
         const passSmooth = commandEncoder.beginComputePass();
         passSmooth.setPipeline(this.smoothDensityOnlyPipeline!);
         passSmooth.setBindGroup(0, this.smoothDensityOnlyBindGroup!);
-        passSmooth.dispatchWorkgroups(7, 7);
+        passSmooth.dispatchWorkgroups(pot2D_X, pot2D_Y);
         passSmooth.end();
       }
 
@@ -3265,6 +3471,9 @@ export class GpuSimulationEngine implements ISimulationEngine {
     this.mapCols = scenario.columns;
     this.mapRows = scenario.rows;
     this.mapCellSize = scenario.cellSize;
+    this.potCols = scenario.columns;
+    this.potRows = scenario.rows;
+    this.potCellSize = scenario.cellSize;
     this.numExits = scenario.exits.length;
     this.totalPeople = scenario.totalPeople;
 
