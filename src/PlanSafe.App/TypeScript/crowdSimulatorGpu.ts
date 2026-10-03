@@ -31,6 +31,19 @@ export function isWebGpuSupported(): boolean {
   );
 }
 
+export interface MapGpuSnapshot {
+  count: number;
+  granulation: number;
+  socialRepulsionWeight: number;
+  columns: number;
+  rows: number;
+  cellSize: number;
+  scenario: Uint8Array;
+  agents: Uint8Array;
+  fields: Uint8Array;
+  blocked: Uint8Array;
+}
+
 // --- WGSL Compute Shaders ---
 
 const clearGridShader = `
@@ -662,7 +675,7 @@ fn getFlowDirection(pos: vec2<f32>) -> vec2<f32> {
     let p01 = potentialGrid[idx01];
     let p11 = potentialGrid[idx11];
 
-    let maxValidPot = select(1.7014117e38, 900000.0, params.isMap == 1u);
+    let maxValidPot = 1.7014117e38;
     let v00 = p00 < maxValidPot;
     let v10 = p10 < maxValidPot;
     let v01 = p01 < maxValidPot;
@@ -1368,7 +1381,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
 
         // Evacuation check: agent reached an exit
-        let catchMargin = params.mapCellSize;
+        let catchMargin = params.potCellSize;
         for (var e = 0u; e < params.numExits; e++) {
             let exit = exits[e];
             let reach = exit.z + catchMargin;
@@ -1619,7 +1632,7 @@ export function buildMapPotentialField(
 ): Float32Array {
   const { columns, rows, cellSize, exits, blocked } = scenario;
   const totalCells = columns * rows;
-  const field = new Float32Array(totalCells).fill(1e6);
+  const field = new Float32Array(totalCells).fill(impassablePotential);
 
   const heapIdx = new Int32Array(totalCells * 4);
   const heapCost = new Float32Array(totalCells * 4);
@@ -2235,6 +2248,7 @@ export class GpuSimulationEngine implements ISimulationEngine {
   }
 
   private applyEnvironment(values?: CoreCommandValues): void {
+    if (this.isMapScenario) return;
     const rawObs = (values as any)?.obstacles;
     if (Array.isArray(rawObs) && rawObs.length > 0) {
       const o0 = this.parseObstacle(rawObs[0]);
@@ -2638,7 +2652,12 @@ export class GpuSimulationEngine implements ISimulationEngine {
     this.device.queue.writeBuffer(this.penaltyBuffer, 0, zeroPenalties.buffer);
     this.dynamicFieldTimer = 0.2;
 
-    // Create bind groups for dynamic potential passes
+    this.recreatePotentialBindGroups();
+  }
+
+  private recreatePotentialBindGroups(): void {
+    if (!this.device) return;
+    // Create bind groups for dynamic potential passes.
     this.densityBindGroup = this.device.createBindGroup({
       layout: this.clearDensityPipeline!.getBindGroupLayout(0),
       entries: [{ binding: 0, resource: { buffer: this.rawDensityBuffer! } }],
@@ -2775,7 +2794,7 @@ export class GpuSimulationEngine implements ISimulationEngine {
     this.device.queue.writeBuffer(this.paramsBuffer, 0, buf);
   }
 
-  private reallocateAgents(count: number): void {
+  private reallocateAgents(count: number, preparedAgents?: Float32Array): void {
     if (!this.device) return;
     this.activeCount = count;
     const agentByteSize = 32; // 8 floats per agent
@@ -2811,14 +2830,15 @@ export class GpuSimulationEngine implements ISimulationEngine {
       this.lastEvacuationTime = 0;
       this.simulationTime = 0;
       this.agentEvacuated = new Uint8Array(count);
-      const staticField = buildMapPotentialField(this.mapScenario);
-      initData = spawnMapAgents(
-        this.mapScenario,
-        count,
-        this.granulation,
-        staticField,
-        radius,
-      );
+      initData =
+        preparedAgents ??
+        spawnMapAgents(
+          this.mapScenario,
+          count,
+          this.granulation,
+          buildMapPotentialField(this.mapScenario),
+          radius,
+        );
     } else {
       initData = new Float32Array(count * 8);
       const u32View = new Uint32Array(initData.buffer);
@@ -3246,11 +3266,10 @@ export class GpuSimulationEngine implements ISimulationEngine {
       this.dynamicFieldTimer += 0.016;
 
       const refine =
-        !this.isMapScenario &&
-        (this.initialDensityPending ||
-          this.dynamicFieldTimer >= 0.2 ||
-          this.activeTick + step === 0);
-      if (refine || (!this.isMapScenario && this.granulation > 1)) {
+        this.initialDensityPending ||
+        this.dynamicFieldTimer >= (this.isMapScenario ? 1.0 : 0.2) ||
+        (!this.isMapScenario && this.activeTick + step === 0);
+      if (refine || this.granulation > 1) {
         const run = (
           pipeline: GPUComputePipeline,
           bindGroup: GPUBindGroup,
@@ -3607,7 +3626,36 @@ export class GpuSimulationEngine implements ISimulationEngine {
     }
   }
 
-  loadMapScenario(data: Uint8Array): void {
+  initializeMap(snapshot: MapGpuSnapshot): void {
+    if (!this.device) throw new Error("GPU engine is not initialized.");
+    const dots = Math.ceil(snapshot.count / snapshot.granulation);
+    if (
+      snapshot.agents.byteLength !== dots * 32 ||
+      snapshot.fields.byteLength !== snapshot.columns * snapshot.rows * 16 ||
+      snapshot.blocked.byteLength !== snapshot.columns * snapshot.rows
+    ) {
+      throw new Error("Invalid map GPU snapshot.");
+    }
+    this.rawCount = snapshot.count;
+    this.granulation = snapshot.granulation;
+    this.socialWeight = snapshot.socialRepulsionWeight;
+    this.loadMapScenario(snapshot.scenario, snapshot);
+    this.totalPeople = snapshot.count;
+    this.activeSession = "plansafe-map";
+    this.activeRunGeneration++;
+    this.activeTick = 0;
+    this.dynamicFieldTimer = 0;
+    this.ensureSpatialGrid();
+    this.ensureKdeGrid();
+    this.reallocateAgents(
+      dots,
+      new Float32Array(snapshot.agents.slice().buffer),
+    );
+    this.initialDensityPending = false;
+    this.updateSimParams();
+  }
+
+  loadMapScenario(data: Uint8Array, snapshot?: MapGpuSnapshot): void {
     const scenario = parseMapScenario(data);
     this.mapScenario = scenario;
     this.isMapScenario = true;
@@ -3616,9 +3664,9 @@ export class GpuSimulationEngine implements ISimulationEngine {
     this.mapCols = scenario.columns;
     this.mapRows = scenario.rows;
     this.mapCellSize = scenario.cellSize;
-    this.potCols = scenario.columns;
-    this.potRows = scenario.rows;
-    this.potCellSize = scenario.cellSize;
+    this.potCols = snapshot?.columns ?? scenario.columns;
+    this.potRows = snapshot?.rows ?? scenario.rows;
+    this.potCellSize = snapshot?.cellSize ?? scenario.cellSize;
     this.numExits = scenario.exits.length;
     this.totalPeople = scenario.totalPeople;
 
@@ -3660,58 +3708,84 @@ export class GpuSimulationEngine implements ISimulationEngine {
         blockedU32.buffer,
       );
 
-      // 3. Static potential field Dijkstra
-      const staticField = buildMapPotentialField(scenario);
-      const potCells = scenario.columns * scenario.rows;
+      // A map's fine wall raster and potential grid can have different resolutions.
+      const potCells = this.potCols * this.potRows;
+      const allocate = (previous?: GPUBuffer): GPUBuffer => {
+        if (previous?.size === potCells * 4) return previous;
+        previous?.destroy();
+        return this.device!.createBuffer({
+          size: potCells * 4,
+          usage:
+            GPUBufferUsage.STORAGE |
+            GPUBufferUsage.COPY_SRC |
+            GPUBufferUsage.COPY_DST,
+        });
+      };
+      this.staticPotentialBuffer = allocate(this.staticPotentialBuffer);
+      this.potentialBufferA = allocate(this.potentialBufferA);
+      this.potentialBufferB = allocate(this.potentialBufferB);
+      this.penaltyBuffer = allocate(this.penaltyBuffer);
+      this.rawDensityBuffer = allocate(this.rawDensityBuffer);
+      this.smoothedDensityBuffer = allocate(this.smoothedDensityBuffer);
+      this.densityScratchBuffer = allocate(this.densityScratchBuffer);
+      this.seedBuffer = allocate(this.seedBuffer);
+      this.protectedBuffer = allocate(this.protectedBuffer);
+      this.blockedBuffer = allocate(this.blockedBuffer);
 
-      this.staticPotentialBuffer?.destroy();
-      this.potentialBufferA?.destroy();
-      this.potentialBufferB?.destroy();
-      this.penaltyBuffer?.destroy();
-      this.rawDensityBuffer?.destroy();
-      this.smoothedDensityBuffer?.destroy();
-
-      this.staticPotentialBuffer = this.device.createBuffer({
-        size: potCells * 4,
-        usage:
-          GPUBufferUsage.STORAGE |
-          GPUBufferUsage.COPY_SRC |
-          GPUBufferUsage.COPY_DST,
-      });
-      this.potentialBufferA = this.device.createBuffer({
-        size: potCells * 4,
-        usage:
-          GPUBufferUsage.STORAGE |
-          GPUBufferUsage.COPY_DST |
-          GPUBufferUsage.COPY_SRC,
-      });
-      this.potentialBufferB = this.device.createBuffer({
-        size: potCells * 4,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-      });
-      this.penaltyBuffer = this.device.createBuffer({
-        size: potCells * 4,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-      });
-      this.rawDensityBuffer = this.device.createBuffer({
-        size: potCells * 4,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-      });
-      this.smoothedDensityBuffer = this.device.createBuffer({
-        size: potCells * 4,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-      });
-
-      this.device.queue.writeBuffer(
-        this.staticPotentialBuffer,
-        0,
-        staticField.buffer,
+      const fields = snapshot
+        ? new Float32Array(snapshot.fields.slice().buffer)
+        : undefined;
+      const staticField =
+        fields?.subarray(0, potCells) ?? buildMapPotentialField(scenario);
+      const mask = Uint32Array.from(snapshot?.blocked ?? scenario.blocked);
+      const sinks: PotentialSink[] = scenario.exits.map((exit) => ({
+        zone: [
+          exit.x - exit.radius,
+          exit.y - exit.radius,
+          exit.radius * 2,
+          exit.radius * 2,
+        ],
+        potential: 0,
+      }));
+      const seeds = seedPotentialField(
+        this.potCols,
+        this.potRows,
+        this.potCellSize,
+        mask,
+        sinks,
       );
+      const protectedSeeds = seedPotentialField(
+        this.potCols,
+        this.potRows,
+        this.potCellSize,
+        mask,
+        sinks,
+        2.5,
+      );
+      const protectedMask = Uint32Array.from(protectedSeeds, (value) =>
+        value < impassablePotential ? 1 : 0,
+      );
+      const zero = new Float32Array(potCells);
+      this.device.queue.writeBuffer(this.staticPotentialBuffer, 0, staticField);
       this.device.queue.writeBuffer(
         this.potentialBufferA,
         0,
-        staticField.buffer,
+        fields?.subarray(potCells, potCells * 2) ?? staticField,
       );
+      this.device.queue.writeBuffer(
+        this.penaltyBuffer,
+        0,
+        fields?.subarray(potCells * 2, potCells * 3) ?? zero,
+      );
+      this.device.queue.writeBuffer(
+        this.smoothedDensityBuffer,
+        0,
+        fields?.subarray(potCells * 3, potCells * 4) ?? zero,
+      );
+      this.device.queue.writeBuffer(this.blockedBuffer, 0, mask);
+      this.device.queue.writeBuffer(this.seedBuffer, 0, seeds);
+      this.device.queue.writeBuffer(this.protectedBuffer, 0, protectedMask);
+      this.recreatePotentialBindGroups();
     }
   }
 

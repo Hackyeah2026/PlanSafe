@@ -8,6 +8,9 @@
             <div class="sim-status-info">
                 <div class="sim-status-title">
                     <span class="sim-mode-tag">@(IsRunning ? "Ewakuacja" : "Wstrzymana")</span>
+                    <span class="sim-engine-tag @(Engine == "webgpu" ? "engine-gpu" : "engine-wasm")"
+                          data-testid="map-simulation-engine" data-engine="@Engine"
+                          title="Silnik obliczeniowy symulacji">@(IsBusy ? "Przygotowanie…" : (Engine == "webgpu" ? "WebGPU (GPU)" : "WASM (CPU)"))</span>
                     <span class="sim-time-text">@SimulationTime.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)s</span>
                 </div>
                 <div class="sim-evac-counter">
@@ -22,7 +25,9 @@
         <div class="sim-btn-group">
             <button type="button"
                     class="btn-capsule-action @(IsRunning ? "btn-capsule-pause" : "btn-capsule-play")"
+                    disabled="@IsBusy"
                     @onclick="OnToggle"
+                    aria-label="@(IsRunning ? "Pauza" : "Start")"
                     title="@(IsRunning ? "Wstrzymaj symulację (Spacja)" : "Wznów symulację (Spacja)")">
                 @if (IsRunning)
                 {
@@ -43,8 +48,9 @@
 
             <button type="button"
                     class="btn-capsule-action btn-capsule-step"
-                    disabled="@IsRunning"
+                    disabled="@(IsBusy || IsRunning)"
                     @onclick="OnStep"
+                    aria-label="Krok"
                     title="Jeden krok w przód (16 ms)">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="9 18 15 12 9 6"></polyline>
@@ -54,7 +60,9 @@
 
             <button type="button"
                     class="btn-capsule-action btn-capsule-reset"
+                    disabled="@IsBusy"
                     @onclick="OnReset"
+                    aria-label="Reset"
                     title="Resetuj agendów do pozycji wyjściowych">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
@@ -70,7 +78,9 @@
         <div class="sim-mode-toggle-group">
             <button type="button"
                     class="sim-mode-btn @(RenderMode == "agents" ? "active" : "")"
+                    disabled="@IsBusy"
                     @onclick='() => SetRenderMode("agents")'
+                    aria-label="Agenci"
                     title="Jednostki (Agenci na mapie)">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                     <circle cx="12" cy="12" r="6"></circle>
@@ -79,7 +89,9 @@
             </button>
             <button type="button"
                     class="sim-mode-btn @(RenderMode == "heatmap" ? "active" : "")"
+                    disabled="@IsBusy"
                     @onclick='() => SetRenderMode("heatmap")'
+                    aria-label="Prędkość"
                     title="Mapa Ciepła (Prędkość przepływu)">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                     <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
@@ -88,7 +100,9 @@
             </button>
             <button type="button"
                     class="sim-mode-btn @(RenderMode == "density" ? "active" : "")"
+                    disabled="@IsBusy"
                     @onclick='() => SetRenderMode("density")'
+                    aria-label="Gęstość"
                     title="Mapa Ciepła (Gęstość tłumu)">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                     <rect x="2" y="2" width="20" height="20" rx="4"></rect>
@@ -103,6 +117,7 @@
         <!-- Whiskers Toggle -->
         <button type="button"
                 class="btn-capsule-toggle @(ShowWhiskers ? "active" : "")"
+                disabled="@IsBusy"
                 @onclick="OnToggleWhiskers"
                 title="Wąsy sensoryczne kierunku">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -135,6 +150,7 @@
         <!-- Close / Exit Simulation Mode -->
         <button type="button"
                 class="btn-capsule-close"
+                disabled="@IsBusy"
                 @onclick="OnExit"
                 title="Zakończ symulację i wróć do edycji mapy"
                 aria-label="Zamknij symulację">
@@ -148,6 +164,8 @@
 
 @code {
     [Parameter] public bool IsRunning { get; set; }
+    [Parameter] public bool IsBusy { get; set; }
+    [Parameter] public string Engine { get; set; } = "wasm";
     [Parameter] public double SimulationTime { get; set; }
     [Parameter] public int EvacuatedCount { get; set; }
     [Parameter] public int TotalAgents { get; set; }

@@ -59,14 +59,25 @@ Playwright module URL and `PLANSAFE_BROWSER_PATH` to the Chrome executable befor
 running the same command. GPU comparisons allow float32 rounding differences;
 the static TypeScript field comparison is exact.
 
-GPU runtime tests verify compact telemetry, direct agent rendering, reset, and
-camera transforms with the same Chrome/Playwright environment variables:
+GPU runtime tests verify compact telemetry, direct agent rendering, reset,
+camera transforms, and map state/field parity with the same Chrome/Playwright
+environment variables:
 
 ```sh
 npm run test:gpu
 ```
 
-The demo runs only the selected physics engine. Both engines integrate in 16 ms
+Set `PLANSAFE_APP_URL` to a running app (for example `http://127.0.0.1:5000`) to
+also check the map's engine indicator, playback, reset, mobile layout, and WASM
+fallback through real Blazor interop.
+
+The demo and map prefer WebGPU when available and respect a saved manual WASM
+selection. The map displays its active engine in the simulation controls and
+falls back to WASM if GPU initialization fails. Map preparation transfers the
+same starting agents, terrain, and potential fields to the GPU once; subsequent
+physics and compact telemetry run on the GPU.
+
+Both views run only the selected physics engine. Both engines integrate in 16 ms
 ticks; playback speed controls how many ticks run, and actual speed measures
 simulation seconds per wall-clock second. Unlimited mode measures throughput.
 The GPU agent view renders from the physics storage buffer and samples reduced

@@ -42,8 +42,10 @@
         {
             <SimulationControlBar
                 IsRunning="@_isRunning"
-                SimulationTime="@(_engine?.SimulationTime ?? 0)"
-                EvacuatedCount="@(_engine?.EvacuatedCount ?? 0)"
+                IsBusy="@_isStarting"
+                Engine="@_activeEngine"
+                SimulationTime="@_statsCollector.Stats.SimulationTime"
+                EvacuatedCount="@_statsCollector.Stats.EvacuatedAgents"
                 TotalAgents="@_simTotalAgents"
                 RenderMode="@_simConfig.RenderMode"
                 ShowWhiskers="@_simConfig.ShowWhiskers"
@@ -411,9 +413,9 @@
             CensusPopulation="@_censusPopulation"
             CensusCells="@_censusCells"
             IsSimulating="@_isSimulating"
-            EvacuatedCount="@(_engine?.EvacuatedCount ?? 0)"
+            EvacuatedCount="@_statsCollector.Stats.EvacuatedAgents"
             TotalSimulatedAgents="@_simTotalAgents"
-            SimulationTime="@(_engine?.SimulationTime ?? 0)"
+            SimulationTime="@_statsCollector.Stats.SimulationTime"
             TimeScale="@_simConfig.TimeScale"
             Unlimited="@_simConfig.Unlimited"
             OnStartSimulation="HandleStartSimulation"
@@ -474,6 +476,9 @@
     private bool _isConfigOpen = false;
     private bool _isSimulating = false;
     private bool _isRunning = false;
+    private bool _isStarting;
+    private string _activeEngine = "wasm";
+    private Task? _simulationLoopTask;
     private int _simTotalAgents = 0;
     private SimulationConfig _simConfig = new();
     private CrowdSimulationEngine? _engine;
@@ -633,6 +638,7 @@
 
     private async Task HandleStartSimulation()
     {
+        if (_isStarting) return;
         if (_isSimulating)
         {
             await StopSimulation();
@@ -660,9 +666,8 @@
 
         try
         {
-            // Stop existing simulation if any
-            _simCts?.Cancel();
-            _isRunning = false;
+            _isStarting = true;
+            await StopSimulationLoopAsync();
 
             // 1. Calculate Geographic Bounding Box
             var (minLat, maxLat, minLng, maxLng) = ComputeGeographicBoundingBox(_mapItems, _activeSession);
@@ -898,19 +903,38 @@
                 targets = targets.Select(t => new { x = t.X, y = t.Y, width = t.Width, height = t.Height, name = t.Name, id = t.Id })
             });
 
+            _activeEngine = "wasm";
+            try
+            {
+                string? preferredEngine = null;
+                try { preferredEngine = await JS.InvokeAsync<string?>("localStorage.getItem", "plansafe_simulation_engine"); }
+                catch (JSException) { }
+                if (preferredEngine != "wasm" && await _simModule.InvokeAsync<bool>("checkWebGpuSupport"))
+                {
+                    await _simulator.InvokeVoidAsync("initMapGpu", MapGpuSnapshot.Capture(_engine));
+                    _activeEngine = "webgpu";
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[PlanSafe] Map WebGPU initialization failed; using WASM: {ex.Message}");
+            }
+
             // 7. Show agents on map immediately!
             await RequestRender();
 
             // 8. Start simulation loop
-            _isRunning = true;
-            _simCts = new CancellationTokenSource();
-            _ = RunSimulationLoopAsync(_simCts.Token);
+            StartSimulationLoop();
             StateHasChanged();
         }
         catch (Exception ex)
         {
             _simWarningMessage = $"Błąd uruchomienia symulacji: {ex.Message}";
             StateHasChanged();
+        }
+        finally
+        {
+            _isStarting = false;
         }
     }
 
@@ -919,6 +943,12 @@
         if (_simulator == null || _engine == null) return;
         try
         {
+            if (_activeEngine == "webgpu")
+            {
+                await _simulator.InvokeVoidAsync("renderGpu", _simConfig.RenderMode, _simConfig.ShowWhiskers,
+                    _simConfig.WhiskerLength, _simConfig.Granulation);
+                return;
+            }
             int count = _engine.SimulatedAgentCount;
             await _simulator.InvokeVoidAsync("render",
                 _engine.AgentPositionX[..count],
@@ -939,12 +969,49 @@
     {
         var sw = Stopwatch.StartNew();
         long lastRenderTime = sw.ElapsedMilliseconds;
+        long lastTelemetryTime = 0;
+        long lastUiTime = 0;
+        double lastStepTime = 0;
+        double tickBudget = 0;
 
         while (!ct.IsCancellationRequested && _isRunning && _engine != null)
         {
-            double scale = _simConfig.Unlimited ? 20.0 : _simConfig.TimeScale;
-            _engine.Step(0.016, scale);
-            _statsCollector.SampleTelemetry(_engine);
+            double stepTime = sw.Elapsed.TotalSeconds;
+            if (_simConfig.Unlimited) tickBudget = 0;
+            else tickBudget += (stepTime - lastStepTime) * _simConfig.TimeScale / 0.016;
+            lastStepTime = stepTime;
+            int batch = _simConfig.Unlimited ? 32 : Math.Clamp((int)Math.Floor(tickBudget), 0, 32);
+            if (_activeEngine == "webgpu" && _simulator != null)
+            {
+                if (batch > 0) await _simulator.InvokeVoidAsync("stepGpu", batch);
+                if (sw.ElapsedMilliseconds - lastTelemetryTime >= 100)
+                {
+                    await SampleGpuTelemetry();
+                    lastTelemetryTime = sw.ElapsedMilliseconds;
+                }
+            }
+            else if (batch > 0)
+            {
+                long chunkStart = sw.ElapsedMilliseconds;
+                int completed = 0;
+                for (int tick = 0; tick < batch; tick++)
+                {
+                    _engine.Step(0.016, 1.0);
+                    completed++;
+                    if (sw.ElapsedMilliseconds - chunkStart >= 12) break;
+                }
+                batch = completed;
+                _statsCollector.SampleTelemetry(_engine);
+            }
+            if (!_simConfig.Unlimited) tickBudget -= batch;
+
+            if (_statsCollector.Stats.IsComplete)
+            {
+                _isRunning = false;
+                await RequestRender();
+                await InvokeAsync(StateHasChanged);
+                break;
+            }
 
             long now = sw.ElapsedMilliseconds;
             int frameInterval = _simConfig.RenderFps switch
@@ -959,51 +1026,82 @@
             {
                 lastRenderTime = now;
                 await RequestRender();
+            }
+
+            if (now - lastUiTime >= 100)
+            {
+                lastUiTime = now;
                 await InvokeAsync(StateHasChanged);
             }
 
-            if (!_simConfig.Unlimited)
-            {
-                await Task.Delay(1, ct);
-            }
-            else
-            {
-                await Task.Yield();
-            }
+            await Task.Delay(1);
         }
+    }
+
+    private void StartSimulationLoop()
+    {
+        _simCts?.Dispose();
+        _simCts = new CancellationTokenSource();
+        _isRunning = true;
+        _simulationLoopTask = RunSimulationLoopAsync(_simCts.Token);
+    }
+
+    private async Task StopSimulationLoopAsync()
+    {
+        _isRunning = false;
+        _simCts?.Cancel();
+        if (_simulationLoopTask != null) await _simulationLoopTask;
+    }
+
+    private async Task SampleGpuTelemetry()
+    {
+        if (_simulator == null) return;
+        var sample = await _simulator.InvokeAsync<GpuSimulationTelemetry?>("getGpuTelemetry");
+        if (sample != null) _statsCollector.SampleTelemetry(sample);
     }
 
     private async Task ToggleSimulation()
     {
-        _isRunning = !_isRunning;
-        if (_isRunning)
+        if (_isStarting) return;
+        if (!_isRunning)
         {
-            _simCts = new CancellationTokenSource();
-            _ = RunSimulationLoopAsync(_simCts.Token);
+            if (_statsCollector.Stats.IsComplete) await ResetSimulation();
+            StartSimulationLoop();
         }
         else
         {
-            _simCts?.Cancel();
+            await StopSimulationLoopAsync();
+            if (_activeEngine == "webgpu") await SampleGpuTelemetry();
         }
         await InvokeAsync(StateHasChanged);
     }
 
     private async Task StepSimulation()
     {
-        if (_engine == null) return;
-        _engine.Step(0.016, _simConfig.TimeScale);
-        _statsCollector.SampleTelemetry(_engine);
+        if (_isStarting || _isRunning || _engine == null) return;
+        if (_activeEngine == "webgpu" && _simulator != null)
+        {
+            await _simulator.InvokeVoidAsync("stepGpu", 1);
+            await SampleGpuTelemetry();
+        }
+        else
+        {
+            _engine.Step(0.016, 1.0);
+            _statsCollector.SampleTelemetry(_engine);
+        }
         await RequestRender();
         await InvokeAsync(StateHasChanged);
     }
 
     private async Task ResetSimulation()
     {
-        _simCts?.Cancel();
-        _isRunning = false;
+        if (_isStarting) return;
+        await StopSimulationLoopAsync();
         if (_engine != null)
         {
-            _engine.Reset();
+            if (_activeEngine == "webgpu" && _simulator != null)
+                await _simulator.InvokeVoidAsync("resetMapGpu");
+            else _engine.Reset();
             _statsCollector.Reset(_engine.AgentCount);
         }
         await RequestRender();
@@ -1012,8 +1110,8 @@
 
     private async Task StopSimulation()
     {
-        _simCts?.Cancel();
-        _isRunning = false;
+        if (_isStarting) return;
+        await StopSimulationLoopAsync();
         _isSimulating = false;
         if (_simulator != null)
         {
@@ -1065,6 +1163,9 @@
 
     private async Task HandleSaveConfig(SimulationConfig config)
     {
+        bool resume = _isRunning;
+        await StopSimulationLoopAsync();
+        bool granulationChanged = _simConfig.Granulation != config.Granulation;
         _simConfig = config.Clone();
         if (_activeSession != null)
         {
@@ -1073,14 +1174,25 @@
         }
         if (_engine != null)
         {
-            _engine.Granulation = _simConfig.Granulation;
             _engine.SocialRepulsionWeight = _simConfig.SocialRepulsionWeight;
             _engine.WhiskerLength = _simConfig.WhiskerLength;
             _engine.WeightDistance = _simConfig.WeightDistance;
             _engine.WeightOccupancy = _simConfig.WeightOccupancy;
             _engine.PotentialFieldMap.RefineDynamicField();
+            if (granulationChanged)
+            {
+                _engine.SetGranulation(_simConfig.Granulation);
+                _statsCollector.Reset(_engine.AgentCount);
+            }
+            if (_activeEngine == "webgpu" && _simulator != null)
+            {
+                if (granulationChanged)
+                    await _simulator.InvokeVoidAsync("initMapGpu", MapGpuSnapshot.Capture(_engine));
+                else await _simulator.InvokeVoidAsync("setGpuWeight", _simConfig.SocialRepulsionWeight);
+            }
         }
         await RequestRender();
+        if (resume) StartSimulationLoop();
         StateHasChanged();
     }
 
@@ -1287,10 +1399,7 @@
     public async ValueTask DisposeAsync()
     {
         _disposed = true;
-        if (_isRunning)
-        {
-            _simCts?.Cancel();
-        }
+        await StopSimulationLoopAsync();
         _simCts?.Dispose();
 
         if (_simulator != null)

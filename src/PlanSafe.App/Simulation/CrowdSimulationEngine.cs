@@ -28,6 +28,8 @@ public class PotentialFieldGrid
     public readonly float[] DynamicCrowdPenalty;
     private readonly float[] RawCellDensity;
     private readonly float[] SmoothedCellDensity;
+    public ReadOnlySpan<bool> ObstacleMask => ObstacleMaskMatrix;
+    public ReadOnlySpan<float> SmoothedDensity => SmoothedCellDensity;
     private readonly PriorityQueue<int, float> _dynamicPq = new(4096);
     private Obstacle[] CachedExitZones = Array.Empty<Obstacle>();
     private readonly bool[] SinkProtectedMask;

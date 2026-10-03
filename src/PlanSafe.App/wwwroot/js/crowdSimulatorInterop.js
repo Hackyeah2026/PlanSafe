@@ -1015,6 +1015,32 @@ export function initSimulator(canvasRef, mapContainerId = null) {
     // --- WebGPU Compute Simulation Strategy ---
     let gpuEngine = null;
     let isGpuReady = false;
+    let gpuMapSnapshot = null;
+
+    async function initMapGpu(snapshot) {
+        isGpuReady = false;
+        try {
+            if (!gpuEngine) {
+                gpuEngine = new GpuSimulationEngine();
+                await gpuEngine.boot();
+            }
+            await gpuEngine.syncInFlight(0);
+            gpuEngine.initializeMap(snapshot);
+            gpuMapSnapshot = snapshot;
+            isGpuReady = true;
+        } catch (error) {
+            gpuEngine?.dispose();
+            gpuEngine = null;
+            gpuMapSnapshot = null;
+            throw error;
+        }
+    }
+
+    async function resetMapGpu() {
+        if (!gpuEngine || !isGpuReady || !gpuMapSnapshot) return;
+        await gpuEngine.syncInFlight(0);
+        gpuEngine.initializeMap(gpuMapSnapshot);
+    }
 
     async function initGpu(agentCount, granulation, socialWeight, config) {
         if (!isWebGpuSupported()) {
@@ -1077,6 +1103,8 @@ export function initSimulator(canvasRef, mapContainerId = null) {
             lastShowFlowParticles = showFlowParticles;
             lastWasGpu = true;
             if (isMapMode) updateLeafletProjection();
+            // A hidden map overlay can report zero size while stopping/restarting.
+            if (canvas.width <= 0 || canvas.height <= 0) return;
             if (renderMode === 'agents') {
                 const surface = await gpuEngine.drawAgents(canvas.width, canvas.height,
                     scaleX, scaleY, offsetX, offsetY, isMapMode ? 4.0 : 3.2,
@@ -1157,6 +1185,8 @@ export function initSimulator(canvasRef, mapContainerId = null) {
         render: render,
         renderBinary: renderBinary,
         initGpu: initGpu,
+        initMapGpu: initMapGpu,
+        resetMapGpu: resetMapGpu,
         stepGpu: stepGpu,
         renderGpu: renderGpu,
         getGpuTelemetry: async () => gpuEngine && isGpuReady ? await gpuEngine.captureTelemetry() : null,
@@ -1175,6 +1205,7 @@ export function initSimulator(canvasRef, mapContainerId = null) {
             if (!gpuEngine || !isGpuReady) return;
             await gpuEngine.syncInFlight(0);
             gpuEngine.dispatch('plansafe-sim', 'weight', { socialRepulsionWeight: value }, { add: () => {} });
+            if (gpuMapSnapshot) gpuMapSnapshot.socialRepulsionWeight = value;
         },
         isWebGpuSupported: function () { return isWebGpuSupported(); },
         setWorldConfig: function (config) {
@@ -1222,6 +1253,7 @@ export function initSimulator(canvasRef, mapContainerId = null) {
                 try { gpuEngine.dispose(); } catch (e) { }
                 gpuEngine = null;
                 isGpuReady = false;
+                gpuMapSnapshot = null;
             }
             if (!isMapMode) {
                 canvas.removeEventListener('pointerdown', onPointerDown);
