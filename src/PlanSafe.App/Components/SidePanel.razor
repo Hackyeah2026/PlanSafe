@@ -52,6 +52,17 @@
             </span>
             <span class="btn-text">Start evacuation</span>
         </button>
+
+        <button type="button" class="btn-command btn-statistics" @onclick="HandleOpenStatistics" title="Open evacuation statistics and analytics">
+            <span class="btn-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+            </span>
+            <span class="btn-text">Statistics</span>
+        </button>
     </div>
 
     <!-- Live Telemetry / Overview -->
@@ -90,6 +101,7 @@
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback OnStartSimulation { get; set; }
     [Parameter] public EventCallback OnConfigureSimulation { get; set; }
+    [Parameter] public EventCallback OnOpenStatistics { get; set; }
 
     // Retained for backward compatibility with existing callers
     [Parameter] public List<MapZoneItem>? Items { get; set; }
@@ -116,6 +128,14 @@
         if (OnConfigureSimulation.HasDelegate)
         {
             await OnConfigureSimulation.InvokeAsync();
+        }
+    }
+
+    private async Task HandleOpenStatistics()
+    {
+        if (OnOpenStatistics.HasDelegate)
+        {
+            await OnOpenStatistics.InvokeAsync();
         }
     }
 }

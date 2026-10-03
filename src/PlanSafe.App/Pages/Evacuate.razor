@@ -3,6 +3,8 @@
 @using System.Diagnostics
 @using PlanSafe.App.Simulation
 @using PlanSafe.Contracts.Models.Simulation
+@using PlanSafe.App.Components
+@using PlanSafe.Contracts.Models.Stats
 @inject IJSRuntime JS
 @inject NavigationManager Nav
 @implements IAsyncDisposable
@@ -35,6 +37,14 @@
                 {
                     <span>&#x1F4F1; Zatwierdź Plan & Kod QR</span>
                 }
+            </button>
+            <button type="button" class="btn @(_showStats ? "btn-info" : "btn-outline-info") ms-2 fw-bold shadow-sm" @onclick="ToggleStats" title="Analytics & Statistics">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+                <span class="ms-1">Statistics</span>
             </button>
         </div>
     </div>
@@ -300,9 +310,9 @@
 
                 <hr class="border-secondary my-2" />
                 <div class="small text-muted">
-                    <div data-testid="status" role="status" aria-live="polite">Status: <strong class="@(isRunning ? "text-success" : "text-warning")">@(isRunning ? "Uruchomiona" : "Zatrzymana")</strong></div>
-                    <div>Aktywni agenci: @agentCount (Ewakuowani: @_engine?.EvacuatedCount)</div>
-                    <div>Symulowane kropki: @SimulatedAgentCount</div>
+                    <div data-testid="status" role="status" aria-live="polite">Status: <strong class="@(isRunning ? "text-success" : (_engine != null && _engine.ActiveAgentCount == 0 && _engine.EvacuatedCount >= _engine.AgentCount && _engine.EvacuatedCount > 0 ? "text-info" : "text-warning"))">@(_engine != null && _engine.ActiveAgentCount == 0 && _engine.EvacuatedCount >= _engine.AgentCount && _engine.EvacuatedCount > 0 ? "Zakończona" : (isRunning ? "Uruchomiona" : "Zatrzymana"))</strong></div>
+                    <div>Aktywni agenci: @((_engine?.AgentCount ?? agentCount) - (_engine?.EvacuatedCount ?? 0)) (Ewakuowani: @(_engine?.EvacuatedCount ?? 0))</div>
+                    <div>Symulowane kropki: @(_engine?.ActiveAgentCount ?? SimulatedAgentCount)</div>
                     <div>Fizyka tłumu: Diagram Weidmanna (gęstość-prędkość) &bull; Asymetria lider-następca</div>
                     <div>Jednostki metryczne: Promień agenta ~@(granulation > 1 ? (0.35 * (1.0 + 0.20 * Math.Sqrt(granulation - 1))).ToString("F2", System.Globalization.CultureInfo.InvariantCulture) : "0.35")m &bull; Prędkość ~1.4 m/s (5.0 km/h)</div>
                     <div>Warstwa mapowa: Współrzędne w metrach [0, @worldWidth.ToString("F0")] &times; [0, @worldHeight.ToString("F0")]</div>
@@ -310,6 +320,13 @@
             </div>
         </div>
     </div>
+
+    <!-- Floating Live Statistics Popup -->
+    <StatisticsPopup 
+        IsOpen="_showStats" 
+        OnClose="() => _showStats = false" 
+        Stats="_statsCollector.Stats" 
+        IsLive="true" />
 </div>
 
 @if (showPublishModal && publishedPlan != null)
@@ -399,6 +416,9 @@
     private CrowdSimulationEngine? _engine;
     private CancellationTokenSource? _simCts;
 
+    private bool _showStats = false;
+    private readonly SimulationStatsCollector _statsCollector = new();
+
     private int agentCount = 500;
     private int granulation = 1;
     private int SimulatedAgentCount => Math.Max(1, (int)Math.Ceiling((double)agentCount / Math.Max(1, granulation)));
@@ -476,6 +496,7 @@
             _engine.WhiskerLength = whiskerLength;
             _engine.SetEnvironment(obstacles, targets, weightDistance, weightOccupancy);
             _engine.InitializeAgents();
+            _statsCollector.Reset(_engine.AgentCount);
 
             await SyncWorldConfigAsync();
             ready = true;
@@ -503,6 +524,14 @@
 
     private async Task ToggleSimulation()
     {
+        if (!isRunning && _engine != null && _engine.ActiveAgentCount == 0 && _engine.EvacuatedCount >= _engine.AgentCount && _engine.EvacuatedCount > 0)
+        {
+            _engine.Reset();
+            _engine.InitializeAgents();
+            _statsCollector.Reset(_engine.AgentCount);
+            await RequestRender();
+        }
+
         isRunning = !isRunning;
         if (isRunning)
         {
@@ -522,6 +551,7 @@
     {
         if (_engine == null) return;
         _engine.Step(0.016, timeScale);
+        _statsCollector.SampleTelemetry(_engine);
         await RequestRender();
         await InvokeAsync(StateHasChanged);
     }
@@ -537,6 +567,7 @@
         {
             _engine.Reset();
             _engine.InitializeAgents();
+            _statsCollector.Reset(_engine.AgentCount);
         }
         await RequestRender();
         await InvokeAsync(StateHasChanged);
@@ -546,6 +577,7 @@
     {
         var sw = Stopwatch.StartNew();
         long lastRenderTime = sw.ElapsedMilliseconds;
+        long lastStatsRenderTime = sw.ElapsedMilliseconds;
         var fpsTimer = Stopwatch.StartNew();
         int frameCount = 0;
         int stepCount = 0;
@@ -554,7 +586,18 @@
         {
             double scale = unlimited ? 20.0 : timeScale;
             _engine.Step(0.016, scale);
+            _statsCollector.SampleTelemetry(_engine);
             stepCount++;
+
+            if (_engine.ActiveAgentCount == 0 && _engine.EvacuatedCount >= _engine.AgentCount && _engine.EvacuatedCount > 0)
+            {
+                isRunning = false;
+                renderFramesPerSecond = 0;
+                simulationStepsPerSecond = 0;
+                await RequestRender();
+                await InvokeAsync(StateHasChanged);
+                break;
+            }
 
             long now = sw.ElapsedMilliseconds;
             int frameInterval = renderFps switch
@@ -570,6 +613,12 @@
                 lastRenderTime = now;
                 frameCount++;
                 await RequestRender();
+            }
+
+            if (_showStats && now - lastStatsRenderTime >= 100)
+            {
+                lastStatsRenderTime = now;
+                await InvokeAsync(StateHasChanged);
             }
 
             if (fpsTimer.ElapsedMilliseconds >= 1000)
@@ -630,6 +679,7 @@
             _engine.WhiskerLength = whiskerLength;
             _engine.SetEnvironment(obstacles, targets, weightDistance, weightOccupancy);
             _engine.InitializeAgents();
+            _statsCollector.Reset(_engine.AgentCount);
         }
 
         await SyncWorldConfigAsync();
@@ -642,6 +692,7 @@
         {
             _engine.AgentCount = agentCount;
             _engine.InitializeAgents();
+            _statsCollector.Reset(_engine.AgentCount);
             await RequestRender();
         }
     }
@@ -651,6 +702,7 @@
         if (_engine != null)
         {
             _engine.SetGranulation(granulation);
+            _statsCollector.Reset(_engine.AgentCount);
             await RequestRender();
         }
     }
@@ -742,6 +794,11 @@
     private async Task ZoomOut()
     {
         if (simulator != null) await simulator.InvokeVoidAsync("zoom", 0.8);
+    }
+
+    private void ToggleStats()
+    {
+        _showStats = !_showStats;
     }
 
     private async Task ResetCamera()

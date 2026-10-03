@@ -907,7 +907,7 @@ public class CrowdSimulationEngine
     public double WeightOccupancy { get; set; } = 0.0;
     public List<EvacuationTarget> Targets { get; } = new();
     public int[] AgentTargetIndex { get; } = new int[MaxAllowedAgents];
-    public int EvacuatedCount { get; private set; } = 0;
+    public int EvacuatedCount => Math.Min(AgentCount, _evacuatedCount * Math.Max(1, Granulation));
 
     public SpatialHashGrid SpatialHashGridIndex { get; private set; } = new(6.0, MaxAllowedAgents, 65536);
     public PotentialFieldGrid PotentialFieldMap { get; private set; } = new(8.0, 1000.0, 1000.0);
@@ -926,11 +926,12 @@ public class CrowdSimulationEngine
     // sinks and evacuated agents are parked (radius 0) after the active prefix of the arrays.
     public MapScenario? MapScenario { get; private set; }
     public bool IsMapScenario => MapScenario is not null;
-    public int ActiveAgentCount => IsMapScenario ? _activeMapAgents : SimulatedAgentCount;
+    public int ActiveAgentCount => IsMapScenario ? _activeMapAgents : _activePresetAgents;
     public double SimulationTime { get; private set; }
     public const double StalledEvacuationSeconds = 600.0;
     public const double FirstArrivalTimeoutSeconds = 3600.0;
     private int _activeMapAgents;
+    private int _activePresetAgents;
     private Obstacle[] _mapExitZones = Array.Empty<Obstacle>();
     private int[] _evacuatedPerExit = Array.Empty<int>();
     private double[] _evacuationTimes = Array.Empty<double>();
@@ -1342,7 +1343,10 @@ public class CrowdSimulationEngine
 
         int activeCount = SimulatedAgentCount;
         double radius = GetAgentRadius(Granulation);
-        EvacuatedCount = 0;
+        _evacuatedCount = 0;
+        _lastEvacuationTime = 0;
+        SimulationTime = 0;
+        FrameCounter = 0;
 
         if (IsMapScenario)
         {
@@ -1351,6 +1355,12 @@ public class CrowdSimulationEngine
             PotentialFieldMap.RefineDynamicField();
             _dynamicFieldTimer = 0.0;
             return;
+        }
+
+        _activePresetAgents = activeCount;
+        if (_evacuationTimes == null || _evacuationTimes.Length < activeCount)
+        {
+            _evacuationTimes = new double[activeCount];
         }
 
         for (int i = 0; i < activeCount && i < MaxAllowedAgents; i++)
@@ -1379,7 +1389,7 @@ public class CrowdSimulationEngine
     public void UpdatePhysics(double dt)
     {
         int activeCount = ActiveAgentCount;
-        if (IsMapScenario) SimulationTime += dt;
+        SimulationTime += dt;
 
         // Aktualizacja gęstości komórkowej na siatce przy każdym kroku fizyki dla ciągłego samplingu (tylko makro dla Granulation > 1):
         if (Granulation > 1)
@@ -2014,7 +2024,7 @@ public class CrowdSimulationEngine
             AgentPositionY[agentIndex] = Math.Clamp(AgentPositionY[agentIndex], AgentRadius[agentIndex], WorldHeight - AgentRadius[agentIndex]);
         }
 
-        if (IsMapScenario) ProcessEvacuations();
+        ProcessEvacuations();
     }
 
     /// <summary>Switches to a real map area. The scenario raster defines walls and every exit is a sink.</summary>
@@ -2353,6 +2363,17 @@ public class CrowdSimulationEngine
     /// <summary>Agents inside an exit area leave the crowd and are parked after the active prefix.</summary>
     private void ProcessEvacuations()
     {
+        if (IsMapScenario)
+        {
+            ProcessMapEvacuations();
+            return;
+        }
+
+        ProcessPresetEvacuations();
+    }
+
+    private void ProcessMapEvacuations()
+    {
         var exits = MapScenario!.Exits;
         double catchMargin = PotentialFieldMap.CellSize;
         int agentIndex = 0;
@@ -2376,7 +2397,66 @@ public class CrowdSimulationEngine
             AgentVelocityY[last] = 0.0;
             AgentLocalDensity[last] = 0.0;
             _evacuatedPerExit[exitIndex]++;
-            _evacuationTimes[_evacuatedCount++] = SimulationTime;
+            if (_evacuationTimes != null && _evacuatedCount < _evacuationTimes.Length)
+            {
+                _evacuationTimes[_evacuatedCount] = SimulationTime;
+            }
+            _evacuatedCount++;
+            _lastEvacuationTime = SimulationTime;
+        }
+    }
+
+    private void ProcessPresetEvacuations()
+    {
+        if (_activePresetAgents <= 0) return;
+
+        int agentIndex = 0;
+        while (agentIndex < _activePresetAgents)
+        {
+            double px = AgentPositionX[agentIndex];
+            double py = AgentPositionY[agentIndex];
+            bool evacuated = false;
+
+            if (MultiTargetEnabled && Targets.Count > 0)
+            {
+                for (int t = 0; t < Targets.Count; t++)
+                {
+                    var target = Targets[t];
+                    if (!target.IsActive) continue;
+                    if (px >= target.X && px <= target.X + target.Width + 5.0 &&
+                        py >= target.Y && py <= target.Y + target.Height)
+                    {
+                        evacuated = true;
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                if (px >= ExitZone.X && px <= ExitZone.X + ExitZone.Width + 5.0 &&
+                    py >= ExitZone.Y && py <= ExitZone.Y + ExitZone.Height)
+                {
+                    evacuated = true;
+                }
+            }
+
+            if (!evacuated)
+            {
+                agentIndex++;
+                continue;
+            }
+
+            int last = --_activePresetAgents;
+            SwapAgents(agentIndex, last);
+            AgentRadius[last] = 0.0;
+            AgentVelocityX[last] = 0.0;
+            AgentVelocityY[last] = 0.0;
+            AgentLocalDensity[last] = 0.0;
+            if (_evacuationTimes != null && _evacuatedCount < _evacuationTimes.Length)
+            {
+                _evacuationTimes[_evacuatedCount] = SimulationTime;
+            }
+            _evacuatedCount++;
             _lastEvacuationTime = SimulationTime;
         }
     }
@@ -2391,6 +2471,7 @@ public class CrowdSimulationEngine
         (AgentRadius[a], AgentRadius[b]) = (AgentRadius[b], AgentRadius[a]);
         (AgentMaxSpeed[a], AgentMaxSpeed[b]) = (AgentMaxSpeed[b], AgentMaxSpeed[a]);
         (AgentLocalDensity[a], AgentLocalDensity[b]) = (AgentLocalDensity[b], AgentLocalDensity[a]);
+        (AgentTargetIndex[a], AgentTargetIndex[b]) = (AgentTargetIndex[b], AgentTargetIndex[a]);
     }
 
     public double TimeScale { get; set; } = 1.0;

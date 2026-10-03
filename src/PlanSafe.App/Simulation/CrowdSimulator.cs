@@ -17,6 +17,7 @@ public class CrowdSimulator
     public float SimulationTime { get; private set; }
     public float MeanSpeed { get; private set; }
     public float PeakDensity { get; private set; }
+    public SimulationStatsCollector? StatsCollector { get; set; }
 
     // Physical agent parameters
     public float AgentRadius { get; set; } = 0.20f; // 20cm radius (40cm shoulder width)
@@ -65,6 +66,7 @@ public class CrowdSimulator
         MeanSpeed = 0f;
         PeakDensity = 0f;
         Array.Clear(Grid.DensityGrid, 0, Grid.TotalCells);
+        StatsCollector?.Reset(ActiveAgents);
     }
 
     public void SpawnAgent(float x, float y)
@@ -211,6 +213,7 @@ public class CrowdSimulator
                 NextBuffer.PosX[i] = px;
                 NextBuffer.PosY[i] = py;
                 EvacuatedCount++;
+                StatsCollector?.RecordAgentEvacuated(SimulationTime);
                 continue;
             }
 
@@ -776,6 +779,9 @@ public class CrowdSimulator
 
         // Swap ping-pong buffers
         SwapBuffers();
+
+        // Sample live analytics and telemetry
+        StatsCollector?.SampleTelemetry(this);
     }
 
     private void ResolveObstacleCollisions(

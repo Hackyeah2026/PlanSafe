@@ -531,6 +531,9 @@ export function initSimulator(canvasRef) {
             const kernelRadiusSq = kernelRadiusMeters * kernelRadiusMeters;
 
             for (let i = 0; i < count; i++) {
+                const rawR = floatArray[i * 5 + 4];
+                if (rawR <= 0.001) continue;
+
                 const wx = floatArray[i * 5];
                 const wy = floatArray[i * 5 + 1];
                 const u = floatArray[i * 5 + 2];
@@ -665,6 +668,9 @@ export function initSimulator(canvasRef) {
             const whiskerScreenLen = whiskerLength * scale;
 
             for (let i = 0; i < count; i++) {
+                const rawR = floatArray[i * 5 + 4];
+                if (rawR <= 0.001) continue;
+
                 const u = floatArray[i * 5 + 2];
                 const v = floatArray[i * 5 + 3];
                 const speedSq = u * u + v * v;
@@ -686,6 +692,9 @@ export function initSimulator(canvasRef) {
         }
 
         for (let i = 0; i < count; i++) {
+            const rawR = Number.isFinite(floatArray[i * 5 + 4]) ? floatArray[i * 5 + 4] : 0.35;
+            if (rawR <= 0.001) continue;
+
             const rawX = floatArray[i * 5];
             const rawY = floatArray[i * 5 + 1];
             const wx = Number.isFinite(rawX) ? rawX : 0;
@@ -700,7 +709,6 @@ export function initSimulator(canvasRef) {
             const u = Number.isFinite(floatArray[i * 5 + 2]) ? floatArray[i * 5 + 2] : 0;
             const v = Number.isFinite(floatArray[i * 5 + 3]) ? floatArray[i * 5 + 3] : 0;
             const speed = Math.hypot(u, v);
-            const rawR = Number.isFinite(floatArray[i * 5 + 4]) ? floatArray[i * 5 + 4] : 0.35;
             const r = Math.max(rawR * scale, 3.2);
             const colorIdx = Math.min(paletteSize - 1, Math.max(0, (speed * (paletteSize / 2.2)) | 0));
 

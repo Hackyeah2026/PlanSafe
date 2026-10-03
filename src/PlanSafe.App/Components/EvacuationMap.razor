@@ -161,6 +161,19 @@
                     <span>Tree Map</span>
                 </button>
 
+                <!-- Statistics Button -->
+                <button type="button" 
+                        class="btn-floating-pill-action btn-pill-stats" 
+                        @onclick="() => _isStatsOpen = true" 
+                        title="View evacuation analytics & statistics (sample data)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="20" x2="18" y2="10"></line>
+                        <line x1="12" y1="20" x2="12" y2="4"></line>
+                        <line x1="6" y1="20" x2="6" y2="14"></line>
+                    </svg>
+                    <span>Statistics</span>
+                </button>
+
                 <div class="branch-pill-divider"></div>
 
                 <!-- Center Map Button -->
@@ -220,6 +233,18 @@
                             <path d="M18 9a9 9 0 0 1-9 9"></path>
                         </svg>
                         <span>Tree</span>
+                    </button>
+
+                    <button type="button" 
+                            class="btn-floating-pill-action btn-pill-stats" 
+                            @onclick="() => _isStatsOpen = true" 
+                            title="Statistics">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="20" x2="18" y2="10"></line>
+                            <line x1="12" y1="20" x2="12" y2="4"></line>
+                            <line x1="6" y1="20" x2="6" y2="14"></line>
+                        </svg>
+                        <span>Stats</span>
                     </button>
 
                     <button type="button" 
@@ -342,6 +367,7 @@
             CensusCells="@_censusCells"
             OnStartSimulation="HandleStartSimulation"
             OnConfigureSimulation="() => _isTreeMapOpen = true"
+            OnOpenStatistics="() => _isStatsOpen = true"
             OnClose="ToggleMobilePanel" />
     </aside>
 
@@ -357,6 +383,13 @@
         OnCheckoutSession="HandleCheckoutSession" 
         OnRequestBranch="HandleRequestBranchFromTree" 
         OnClose="() => _isTreeMapOpen = false" />
+
+    <!-- Evacuation Statistics & Analytics Popup (Sample Data) -->
+    <StatisticsPopup 
+        IsOpen="_isStatsOpen" 
+        OnClose="() => _isStatsOpen = false" 
+        Stats="_sampleStats" 
+        IsLive="false" />
 </div>
 
 @code {
@@ -371,6 +404,8 @@
     private MapSession? _branchParentSession;
     private bool _isCreateBranchOpen = false;
     private bool _isTreeMapOpen = false;
+    private bool _isStatsOpen = false;
+    private readonly PlanSafe.Contracts.Models.Stats.SimulationLiveStats _sampleStats = PlanSafe.App.Simulation.SimulationStatsCollector.CreateSampleData();
 
     private string _activeCategory = "navigate"; // "navigate", "evac", "safe", "blockade"
     private string _selectedShape = "polygon"; // "polygon", "circle"
