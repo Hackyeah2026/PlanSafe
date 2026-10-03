@@ -461,6 +461,7 @@
     private string renderFps = "30";
 
     private double ActualSpeed => simulationStepsPerSecond * 0.016;
+    private const string EnginePreferenceStorageKey = "plansafe_simulation_engine";
     private bool SimulationComplete => _statsCollector.Stats.IsComplete;
     private int _gpuActiveDots;
     private string activeEngine = "webgpu";
@@ -544,7 +545,16 @@
                 isWebGpuSupported = false;
             }
 
-            activeEngine = "wasm";
+            string? preferredEngine = null;
+            try
+            {
+                preferredEngine = await JS.InvokeAsync<string?>("localStorage.getItem", EnginePreferenceStorageKey);
+            }
+            catch (JSException)
+            {
+                // Storage can be unavailable; automatic engine selection still works.
+            }
+            activeEngine = isWebGpuSupported && preferredEngine != "wasm" ? "webgpu" : "wasm";
 
             _engine = new CrowdSimulationEngine(worldWidth, worldHeight, agentCount);
             _engine.Granulation = granulation;
@@ -555,6 +565,8 @@
             _statsCollector.Reset(_engine.AgentCount);
 
             await SyncWorldConfigAsync();
+            _gpuActiveDots = SimulatedAgentCount;
+            if (activeEngine == "webgpu") await InitializeGpuEngineAsync();
             ready = true;
             await RequestRender();
         }
@@ -567,9 +579,22 @@
 
     private async Task SetEngine(string engine)
     {
-        if (!ready || isRunning || activeEngine == engine) return;
+        if (!ready || isRunning) return;
         if (engine == "webgpu" && !isWebGpuSupported) return;
         ready = false;
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", EnginePreferenceStorageKey, engine);
+        }
+        catch (JSException)
+        {
+            // A manual selection also works for this visit without persistent storage.
+        }
+        if (activeEngine == engine)
+        {
+            ready = true;
+            return;
+        }
         _engine?.Reset();
         _engine?.InitializeAgents();
         _statsCollector.Reset(agentCount);
@@ -577,21 +602,24 @@
         simulationStepsPerSecond = 0;
         renderFramesPerSecond = 0;
         activeEngine = engine;
-        if (activeEngine == "webgpu" && simulator != null)
-        {
-            try
-            {
-                await simulator.InvokeVoidAsync("initGpu", agentCount, granulation, socialRepulsionWeight, GetWorldConfigDto());
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[PlanSafe] Failed to switch to WebGPU: {ex.Message}");
-                activeEngine = "wasm";
-            }
-        }
+        if (activeEngine == "webgpu") await InitializeGpuEngineAsync();
         ready = true;
         await RequestRender();
         await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task InitializeGpuEngineAsync()
+    {
+        if (simulator == null) return;
+        try
+        {
+            await simulator.InvokeVoidAsync("initGpu", agentCount, granulation, socialRepulsionWeight, GetWorldConfigDto());
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[PlanSafe] Failed to initialize WebGPU: {ex.Message}");
+            activeEngine = "wasm";
+        }
     }
 
     private async Task SyncWorldConfigAsync()
