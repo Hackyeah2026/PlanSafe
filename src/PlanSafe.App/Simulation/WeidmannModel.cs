@@ -45,4 +45,70 @@ public static class WeidmannModel
         float speed = (float)(v0 * factor);
         return Math.Clamp(speed, 0f, v0);
     }
+
+    public const float ComfortDensityThreshold = 0.70f;
+    public const float ConstrainedDensityThreshold = 2.20f;
+    public const float DenseCrowdThreshold = 4.70f;
+
+    /// <summary>
+    /// Calculates effective local density based on forward cone kernel and distance to the leader ahead.
+    /// In single-file or constrained queues (forwardKernelSum <= 2.20), single leaders do not trigger Jam Regime IV.
+    /// </summary>
+    public static float CalculateEffectiveDensity(float forwardKernelSum, float closestForwardDistance)
+    {
+        float forwardDensity = 0.0f;
+        if (closestForwardDistance > 0.05f && closestForwardDistance < 1.8f)
+        {
+            forwardDensity = 1.20f / (closestForwardDistance * closestForwardDistance);
+        }
+
+        if (forwardKernelSum <= 3.50f)
+        {
+            forwardDensity = Math.Min(forwardDensity, ConstrainedDensityThreshold);
+        }
+        else
+        {
+            forwardDensity = Math.Min(forwardDensity, DefaultJamDensity - 0.05f);
+        }
+
+        return Math.Max(forwardKernelSum, forwardDensity);
+    }
+
+    /// <summary>
+    /// Computes pushing intensity factor Phi(rho) based on empirical crowd research.
+    /// </summary>
+    public static float CalculatePushingFactor(float density)
+    {
+        if (density <= ComfortDensityThreshold) return 0.0f;
+        if (density <= 2.50f)
+        {
+            return (density - ComfortDensityThreshold) / (2.50f - ComfortDensityThreshold);
+        }
+        return 1.0f + 0.85f * (density - 2.50f);
+    }
+
+    /// <summary>
+    /// Computes rear pushing force transmitted by trailing agents in dense queues.
+    /// </summary>
+    public static float CalculateRearPushingForce(
+        float density,
+        float distance,
+        float radiusSum,
+        float contactBuffer = 0.25f,
+        float rearForwardDrive = 1.0f)
+    {
+        float pushingFactor = CalculatePushingFactor(density);
+        if (pushingFactor <= 0.0f) return 0.0f;
+
+        float contactThreshold = radiusSum + contactBuffer;
+        if (distance >= contactThreshold || distance <= 0.0001f) return 0.0f;
+
+        float penetration = Math.Max(0.0f, radiusSum - distance);
+        float contactPush = penetration * 4.0f;
+
+        float proximityFactor = (contactThreshold - distance) / contactBuffer;
+        float drivePush = Math.Max(0.0f, rearForwardDrive) * 1.5f * proximityFactor;
+
+        return pushingFactor * (contactPush + drivePush);
+    }
 }

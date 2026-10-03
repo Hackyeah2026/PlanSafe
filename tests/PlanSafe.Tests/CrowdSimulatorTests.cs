@@ -509,4 +509,61 @@ public class CrowdSimulatorTests
                 $"Follower {i} speed is too low ({sim.CurrentBuffer.Speed[i]:F3} m/s) after 0.75s");
         }
     }
+
+    [Fact]
+    public void CrowdSimulator_TwoMeterCorridor_UtilizesEntireWidthAcrossFourLanes()
+    {
+        var preset = MapPresets.CreateTwoObstaclesNarrowCorridor();
+        var grid = new SimulationGrid(preset.Width, preset.Height, preset.CellSize);
+        preset.SetupGrid(grid);
+
+        var sim = new CrowdSimulator(grid, maxAgents: 500);
+        preset.PopulateAgents(sim, 400);
+
+        // Run for 300 steps (7.5 seconds) so a dense flow establishes inside the corridor (x in [12, 16])
+        float minYInsideCorridor = float.MaxValue;
+        float maxYInsideCorridor = float.MinValue;
+        int agentsInCorridor = 0;
+
+        for (int step = 0; step < 300; step++)
+        {
+            sim.Step(0.025f);
+
+            if (step > 150)
+            {
+                for (int i = 0; i < sim.CurrentBuffer.Count; i++)
+                {
+                    if (sim.CurrentBuffer.Active[i] == 0) continue;
+                    float px = sim.CurrentBuffer.PosX[i];
+                    float py = sim.CurrentBuffer.PosY[i];
+
+                    // Check agents fully inside the narrow corridor (x between 12.5m and 15.5m)
+                    if (px >= 12.5f && px <= 15.5f)
+                    {
+                        agentsInCorridor++;
+                        if (py < minYInsideCorridor) minYInsideCorridor = py;
+                        if (py > maxYInsideCorridor) maxYInsideCorridor = py;
+
+                        // Wall collision invariants: corridor is y in [7.0, 9.0], radius is 0.20m
+                        // Agents must never penetrate the walls (y must be in [7.20 - 0.01, 8.80 + 0.01])
+                        Assert.True(py >= 7.19f, $"Agent {i} penetrated top obstacle wall in corridor: py={py:F3}");
+                        Assert.True(py <= 8.81f, $"Agent {i} penetrated bottom obstacle wall in corridor: py={py:F3}");
+                    }
+                }
+            }
+        }
+
+        Assert.True(agentsInCorridor > 50, $"Expected robust flow through corridor, but observed {agentsInCorridor} agent-steps");
+
+        // The corridor is 2.0m wide (y: 7.0m to 9.0m). With 20cm radius, usable space is y in [7.20, 8.80] (span of 1.6m).
+        // If agents only walked in 2 sparse rows in the middle, span would be < 0.8m.
+        // With all 4 lanes utilized, agents walk near top wall (y <= 7.35m) and near bottom wall (y >= 8.65m), span >= 1.30m!
+        float lateralSpan = maxYInsideCorridor - minYInsideCorridor;
+        Assert.True(minYInsideCorridor <= 7.40f,
+            $"Corridor top lanes underutilized! minY={minYInsideCorridor:F3} (expected <= 7.40m close to top wall)");
+        Assert.True(maxYInsideCorridor >= 8.60f,
+            $"Corridor bottom lanes underutilized! maxY={maxYInsideCorridor:F3} (expected >= 8.60m close to bottom wall)");
+        Assert.True(lateralSpan >= 1.30f,
+            $"Corridor space not utilized entirely! Lateral span was only {lateralSpan:F3}m (expected >= 1.30m across all 4 lanes)");
+    }
 }
