@@ -60,6 +60,7 @@ nunit-*.xml
 node_modules/
 src/PlanSafe.App/wwwroot/js/*
 !src/PlanSafe.App/wwwroot/js/mapInterop.js
+!src/PlanSafe.App/wwwroot/js/crowdSimulatorInterop.js
 
 # Build & publish artifacts
 dist/

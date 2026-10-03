@@ -76,7 +76,7 @@ public class CrowdSimulator
     }
 
     /// <summary>
-    /// Executes one simulation time step (dt) using EvacuFlow continuum crowd dynamics.
+    /// Executes one simulation time step (dt) using PlanSafe continuum crowd dynamics.
     /// Incorporates analytical bilinear potential field flow, continuous wall sliding,
     /// radial crowd pressure decompression, and empirical fundamental diagram bounds.
     /// </summary>
@@ -89,7 +89,7 @@ public class CrowdSimulator
         SimulationTime += dt;
 
         // -------------------------------------------------------------
-        // PASS 1: Density Scatter & Smoothing (Matching EvacuFlow)
+        // PASS 1: Density Scatter & Smoothing (Matching PlanSafe)
         // -------------------------------------------------------------
         Array.Clear(Grid.DensityGrid, 0, Grid.TotalCells);
         float invCellArea = 1.0f / Grid.CellArea;

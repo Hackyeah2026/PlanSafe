@@ -324,7 +324,7 @@ public class SimulationGrid
 
     /// <summary>
     /// Computes continuous bilinear analytical flow direction (flowX = -dP/dx, flowY = -dP/dy)
-    /// from the potential field, matching EvacuFlow PotentialFieldGrid.GetFlowDirection.
+    /// from the potential field, matching PlanSafe PotentialFieldGrid.GetFlowDirection.
     /// Smoothly glides along corridor boundaries without wall-normal deflection.
     /// </summary>
     public void GetFlowDirection(float px, float py, out float dirX, out float dirY, float[]? potentialMatrix = null)
