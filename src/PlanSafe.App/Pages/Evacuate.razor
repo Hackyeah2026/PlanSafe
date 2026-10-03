@@ -181,6 +181,15 @@
     private async Task InitializeJsRenderer()
     {
         if (_grid == null) return;
+        try
+        {
+            await JS.InvokeAsync<IJSObjectReference>("import", "./js/main.js");
+        }
+        catch
+        {
+            // Fallback if already loaded via script tag
+        }
+
         await JS.InvokeVoidAsync(
             "PlanSafeRenderer.init",
             "simCanvas",
