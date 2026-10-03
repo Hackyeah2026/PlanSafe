@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <RunAOTCompilation>true</RunAOTCompilation>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" PrivateAssets="all" />
+    <ProjectReference Include="../PlanSafe.Contracts/PlanSafe.Contracts.csproj" />
+  </ItemGroup>
+  <Target Name="CompileTypeScript" BeforeTargets="PrepareForBuild">
+    <Exec Command="npm run build" WorkingDirectory="$(MSBuildProjectDirectory)/../.." />
+    <ItemGroup>
+      <Content Remove="wwwroot/js/**/*.js" />
+      <Content Include="wwwroot/js/**/*.js" />
+    </ItemGroup>
+  </Target>
+</Project>

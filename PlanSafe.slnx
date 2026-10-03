@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PlanSafe.App/PlanSafe.App.csproj" />
+    <Project Path="src/PlanSafe.Api/PlanSafe.Api.csproj" />
+    <Project Path="src/PlanSafe.Contracts/PlanSafe.Contracts.csproj" />
+    <Project Path="src/PlanSafe.Worker/PlanSafe.Worker.csproj" />
+  </Folder>
+</Solution>

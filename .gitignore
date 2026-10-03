@@ -55,3 +55,21 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+# Frontend tooling and generated static assets
+node_modules/
+src/PlanSafe.App/wwwroot/js/
+
+# Local development state
+.devenv*
+.direnv/
+.env.*
+!.env.example
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.user
+*.suo
+.idea/
+.vscode/

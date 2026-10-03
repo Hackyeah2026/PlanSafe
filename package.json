@@ -1,0 +1,14 @@
+{
+  "name": "plansafe",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "format": "prettier --write . && dotnet format PlanSafe.slnx",
+    "format:check": "prettier --check . && dotnet format PlanSafe.slnx --verify-no-changes"
+  },
+  "devDependencies": {
+    "prettier": "3.9.9",
+    "typescript": "7.0.2"
+  }
+}

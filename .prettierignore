@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+node_modules/
+.devenv/
+.direnv/
+artifacts/
+src/PlanSafe.App/wwwroot/js/
+devenv.lock
+LICENSE

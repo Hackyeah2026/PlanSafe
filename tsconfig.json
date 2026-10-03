@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "noEmitOnError": true,
+    "rootDir": "src/PlanSafe.App/TypeScript",
+    "outDir": "src/PlanSafe.App/wwwroot/js"
+  },
+  "include": ["src/PlanSafe.App/TypeScript/**/*.ts"]
+}
