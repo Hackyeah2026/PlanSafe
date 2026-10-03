@@ -60,6 +60,14 @@ nunit-*.xml
 node_modules/
 src/PlanSafe.App/wwwroot/js/
 
+# Visual Studio & IDEs
+.vs/
+*.user
+*.userosscache
+*.suo
+.idea/
+.vscode/
+
 # Local development state
 .devenv*
 .direnv/
@@ -69,7 +77,3 @@ src/PlanSafe.App/wwwroot/js/
 *.db-*
 *.sqlite
 *.sqlite-*
-*.user
-*.suo
-.idea/
-.vscode/
