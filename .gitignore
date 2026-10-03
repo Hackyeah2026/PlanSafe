@@ -84,3 +84,6 @@ dist/
 *.db-*
 *.sqlite
 *.sqlite-*
+
+# Local helper scripts
+redeploy.ps1
