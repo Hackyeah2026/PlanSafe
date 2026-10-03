@@ -6,6 +6,9 @@ const mapInstances = new Map();
 
 // Helper to expose global bridge for popup click actions
 window.PlanSafeMap = {
+    getMap: (containerId) => {
+        return mapInstances.get(containerId)?.map;
+    },
     deleteItem: (containerId, itemId) => {
         deleteMapItem(containerId, itemId);
     },

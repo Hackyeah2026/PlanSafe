@@ -26,6 +26,36 @@ public class SimulationConfig
     [JsonPropertyName("timeScale")]
     public float TimeScale { get; set; } = 1.0f;
 
+    [JsonPropertyName("granulation")]
+    public int Granulation { get; set; } = 1;
+
+    [JsonPropertyName("socialRepulsionWeight")]
+    public double SocialRepulsionWeight { get; set; } = 4.5;
+
+    [JsonPropertyName("whiskerLength")]
+    public double WhiskerLength { get; set; } = 2.5;
+
+    [JsonPropertyName("showWhiskers")]
+    public bool ShowWhiskers { get; set; } = false;
+
+    [JsonPropertyName("renderMode")]
+    public string RenderMode { get; set; } = "agents";
+
+    [JsonPropertyName("renderFps")]
+    public string RenderFps { get; set; } = "30";
+
+    [JsonPropertyName("weightDistance")]
+    public double WeightDistance { get; set; } = 0.5;
+
+    [JsonPropertyName("weightOccupancy")]
+    public double WeightOccupancy { get; set; } = 0.5;
+
+    [JsonPropertyName("unlimited")]
+    public bool Unlimited { get; set; } = false;
+
+    [JsonPropertyName("useGusCensus")]
+    public bool UseGusCensus { get; set; } = true;
+
     public SimulationConfig Clone()
     {
         return new SimulationConfig
@@ -35,7 +65,17 @@ public class SimulationConfig
             AgentRadius = AgentRadius,
             EvacuationSpeed = EvacuationSpeed,
             DynamicDensityPenalty = DynamicDensityPenalty,
-            TimeScale = TimeScale
+            TimeScale = TimeScale,
+            Granulation = Granulation,
+            SocialRepulsionWeight = SocialRepulsionWeight,
+            WhiskerLength = WhiskerLength,
+            ShowWhiskers = ShowWhiskers,
+            RenderMode = RenderMode,
+            RenderFps = RenderFps,
+            WeightDistance = WeightDistance,
+            WeightOccupancy = WeightOccupancy,
+            Unlimited = Unlimited,
+            UseGusCensus = UseGusCensus
         };
     }
 }

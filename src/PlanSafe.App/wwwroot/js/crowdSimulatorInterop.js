@@ -4,9 +4,10 @@ export function checkWebGpuSupport() {
     return isWebGpuSupported();
 }
 
-export function initSimulator(canvasRef) {
+export function initSimulator(canvasRef, mapContainerId = null) {
     const canvas = canvasRef;
-    const ctx = canvas.getContext('2d', { alpha: false });
+    const isMapMode = !!mapContainerId;
+    const ctx = canvas.getContext('2d', { alpha: isMapMode });
 
     // --- World & Camera State ---
     let worldWidth = 200.0;   // in meters
@@ -16,9 +17,51 @@ export function initSimulator(canvasRef) {
     let exitZone = { x: 184, y: 80, width: 12, height: 40 };
 
     let scale = 1.0;          // pixels per meter
+    let scaleX = 1.0;
+    let scaleY = 1.0;
     let offsetX = 0;          // translation X in canvas pixels
     let offsetY = 0;          // translation Y in canvas pixels
-    let isInteractive = true;
+    let isInteractive = !isMapMode;
+
+    // --- Geographic Map Bounds (for Map Overlay Mode) ---
+    let leafletMap = null;
+    let originLat = null;
+    let originLng = null;
+    let minLat = null;
+    let maxLng = null;
+
+    function updateLeafletProjection() {
+        if (!leafletMap && mapContainerId) {
+            leafletMap = window.PlanSafeMap?.getMap(mapContainerId);
+            if (leafletMap) {
+                leafletMap.on('move', onMapSync);
+                leafletMap.on('zoom', onMapSync);
+                leafletMap.on('viewreset', onMapSync);
+                leafletMap.on('resize', onMapSync);
+            }
+        }
+        if (!leafletMap || originLat == null || originLng == null || minLat == null || maxLng == null) return;
+        if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+        }
+        const pNW = leafletMap.latLngToContainerPoint([originLat, originLng]);
+        const pSE = leafletMap.latLngToContainerPoint([minLat, maxLng]);
+        scaleX = (pSE.x - pNW.x) / Math.max(worldWidth, 1.0);
+        scaleY = (pSE.y - pNW.y) / Math.max(worldHeight, 1.0);
+        scale = Math.min(Math.abs(scaleX), Math.abs(scaleY));
+        offsetX = pNW.x;
+        offsetY = pNW.y;
+    }
+
+    function onMapSync() {
+        updateLeafletProjection();
+        redrawCurrent();
+    }
+
+    if (isMapMode) {
+        updateLeafletProjection();
+    }
 
     // --- Heatmap / Metric Grid Setup ---
     const gridCols = 180;
@@ -235,19 +278,23 @@ export function initSimulator(canvasRef) {
     // --- Coordinate Transforms ---
     function worldToScreen(wx, wy) {
         return {
-            x: wx * scale + offsetX,
-            y: wy * scale + offsetY
+            x: wx * scaleX + offsetX,
+            y: wy * scaleY + offsetY
         };
     }
 
     function screenToWorld(sx, sy) {
         return {
-            x: (sx - offsetX) / scale,
-            y: (sy - offsetY) / scale
+            x: (sx - offsetX) / (scaleX || scale),
+            y: (sy - offsetY) / (scaleY || scale)
         };
     }
 
     function fitBounds(w, h, padding = 30) {
+        if (isMapMode) {
+            updateLeafletProjection();
+            return;
+        }
         worldWidth = w || worldWidth;
         worldHeight = h || worldHeight;
 
@@ -255,6 +302,8 @@ export function initSimulator(canvasRef) {
         const availableHeight = Math.max(canvas.height - padding * 2, 50);
 
         scale = Math.min(availableWidth / worldWidth, availableHeight / worldHeight);
+        scaleX = scale;
+        scaleY = scale;
         offsetX = (canvas.width - worldWidth * scale) / 2;
         offsetY = (canvas.height - worldHeight * scale) / 2;
     }
@@ -692,9 +741,12 @@ export function initSimulator(canvasRef) {
         lastGranulation = granulation;
         lastShowFlowParticles = showFlowParticles;
 
+        if (isMapMode) {
+            updateLeafletProjection();
+        }
         const worldOrigin = worldToScreen(0, 0);
-        const screenWorldW = worldWidth * scale;
-        const screenWorldH = worldHeight * scale;
+        const screenWorldW = worldWidth * scaleX;
+        const screenWorldH = worldHeight * scaleY;
 
         if (renderMode === 'heatmap' || renderMode === 'density') {
             updateTrailCanvas();
@@ -834,30 +886,39 @@ export function initSimulator(canvasRef) {
             trailCtx.drawImage(offscreenCanvas, worldOrigin.x, worldOrigin.y, screenWorldW, screenWorldH);
             trailCtx.restore();
 
-            ctx.fillStyle = '#080a0f';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            drawWorldGrid();
+            if (isMapMode) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            } else {
+                ctx.fillStyle = '#080a0f';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                drawWorldGrid();
+            }
             ctx.drawImage(trailCanvas, 0, 0);
             if (showFlowParticles) {
                 updateAndRenderFlowParticles(ctx, floatArray, count);
             }
-            drawObstaclesAndTargets();
-            drawScaleBar();
+            if (!isMapMode) {
+                drawObstaclesAndTargets();
+                drawScaleBar();
+            }
             return;
         }
 
         // --- AGENTS RENDERING (BATCHED BY COLOR FOR 60 FPS) ---
-        ctx.fillStyle = '#080a0f';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        drawEnvironment();
+        if (isMapMode) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        } else {
+            ctx.fillStyle = '#080a0f';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            drawEnvironment();
+        }
 
         // Optional whiskers (batched into single stroke)
         if (showWhiskers) {
             ctx.beginPath();
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
             ctx.lineWidth = 1;
-            const whiskerScreenLen = whiskerLength * scale;
+            const whiskerScreenLen = whiskerLength * Math.min(scaleX, scaleY);
 
             for (let i = 0; i < count; i++) {
                 const rawR = floatArray[i * 5 + 4];
@@ -901,7 +962,7 @@ export function initSimulator(canvasRef) {
             const u = Number.isFinite(floatArray[i * 5 + 2]) ? floatArray[i * 5 + 2] : 0;
             const v = Number.isFinite(floatArray[i * 5 + 3]) ? floatArray[i * 5 + 3] : 0;
             const speed = Math.hypot(u, v);
-            const r = Math.max(rawR * scale, 3.2);
+            const r = Math.max(rawR * Math.min(scaleX, scaleY), isMapMode ? 4.0 : 3.2);
             const colorIdx = Math.min(paletteSize - 1, Math.max(0, (speed * (paletteSize / 2.2)) | 0));
 
             colorBuckets[colorIdx].push(s.x, s.y, r);
@@ -936,7 +997,7 @@ export function initSimulator(canvasRef) {
             ctx.stroke();
         }
 
-        drawScaleBar();
+        if (!isMapMode) drawScaleBar();
     }
 
     // --- WebGPU Compute Simulation Strategy ---
@@ -1059,7 +1120,16 @@ export function initSimulator(canvasRef) {
             if (config.obstacles) obstacles = config.obstacles;
             if (config.targets) targets = config.targets;
             if (config.exitZone) exitZone = config.exitZone;
-            fitBounds(worldWidth, worldHeight);
+            if (config.originLat !== undefined) originLat = config.originLat;
+            if (config.originLng !== undefined) originLng = config.originLng;
+            if (config.minLat !== undefined) minLat = config.minLat;
+            if (config.maxLng !== undefined) maxLng = config.maxLng;
+
+            if (isMapMode) {
+                updateLeafletProjection();
+            } else {
+                fitBounds(worldWidth, worldHeight);
+            }
             initFlowParticles();
             redrawCurrent();
         },
@@ -1096,11 +1166,23 @@ export function initSimulator(canvasRef) {
                 gpuEngine = null;
                 isGpuReady = false;
             }
-            canvas.removeEventListener('pointerdown', onPointerDown);
-            window.removeEventListener('pointermove', onPointerMove);
-            window.removeEventListener('pointerup', onPointerUp);
-            canvas.removeEventListener('wheel', onWheel);
-            canvas.removeEventListener('dblclick', onDblClick);
+            if (!isMapMode) {
+                canvas.removeEventListener('pointerdown', onPointerDown);
+                window.removeEventListener('pointermove', onPointerMove);
+                window.removeEventListener('pointerup', onPointerUp);
+                canvas.removeEventListener('wheel', onWheel);
+                canvas.removeEventListener('dblclick', onDblClick);
+            }
+            if (leafletMap) {
+                leafletMap.off('move', onMapSync);
+                leafletMap.off('zoom', onMapSync);
+                leafletMap.off('viewreset', onMapSync);
+                leafletMap.off('resize', onMapSync);
+            }
         }
     };
+}
+
+export function initMapSimulator(canvasRef, mapContainerId) {
+    return initSimulator(canvasRef, mapContainerId);
 }

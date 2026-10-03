@@ -18,7 +18,7 @@ public class Obstacle
 public class PotentialFieldGrid
 {
     public readonly double CellSize;
-    private readonly double InvCellSize;
+    public readonly double InvCellSize;
     public readonly int ColumnCount;
     public readonly int RowCount;
     public readonly int TotalCells;
@@ -199,18 +199,36 @@ public class PotentialFieldGrid
         for (int row = 0; row < RowCount; row++)
         {
             double wy = (row + 0.5) * CellSize;
+            double cellMinY = row * CellSize;
+            double cellMaxY = cellMinY + CellSize;
             int rowOffset = row * ColumnCount;
 
             for (int col = 0; col < ColumnCount; col++)
             {
                 double wx = (col + 0.5) * CellSize;
+                double cellMinX = col * CellSize;
+                double cellMaxX = cellMinX + CellSize;
 
                 foreach (var obstacle in obstacles)
                 {
-                    // Cell is an obstacle only if its center is strictly inside the obstacle interior.
-                    // Points on the exact boundary (e.g. wx == obstacle.X) represent free passage along the outer wall.
-                    if (wx > obstacle.X + 0.001 && wx < obstacle.X + obstacle.Width - 0.001 &&
-                        wy > obstacle.Y + 0.001 && wy < obstacle.Y + obstacle.Height - 0.001)
+                    bool isObstacle;
+                    if (obstacle.Width < CellSize || obstacle.Height < CellSize)
+                    {
+                        // For thin obstacles (e.g. barricades or narrow walls), check AABB overlap so they are not missed
+                        isObstacle = cellMinX < obstacle.X + obstacle.Width &&
+                                     cellMaxX > obstacle.X &&
+                                     cellMinY < obstacle.Y + obstacle.Height &&
+                                     cellMaxY > obstacle.Y;
+                    }
+                    else
+                    {
+                        // Cell is an obstacle only if its center is strictly inside the obstacle interior.
+                        // Points on the exact boundary (e.g. wx == obstacle.X) represent free passage along the outer wall.
+                        isObstacle = wx > obstacle.X + 0.001 && wx < obstacle.X + obstacle.Width - 0.001 &&
+                                     wy > obstacle.Y + 0.001 && wy < obstacle.Y + obstacle.Height - 0.001;
+                    }
+
+                    if (isObstacle)
                     {
                         ObstacleMaskMatrix[rowOffset + col] = true;
                         break;
@@ -816,7 +834,44 @@ public class PotentialFieldGrid
             return (flowX / gradientMagnitude, flowY / gradientMagnitude);
         }
 
+        // Inside a sink/target zone (flat potential = 0), guide agents toward the target center
+        if (CachedExitZones != null && CachedExitZones.Length > 0)
+        {
+            double bestDistSq = double.MaxValue;
+            double bestDirX = 0, bestDirY = 0;
+            for (int i = 0; i < CachedExitZones.Length; i++)
+            {
+                var z = CachedExitZones[i];
+                double cx = z.X + z.Width * 0.5;
+                double cy = z.Y + z.Height * 0.5;
+                double dx = cx - px;
+                double dy = cy - py;
+                double dSq = dx * dx + dy * dy;
+                if (dSq < bestDistSq)
+                {
+                    bestDistSq = dSq;
+                    bestDirX = dx;
+                    bestDirY = dy;
+                }
+            }
+            double len = Math.Sqrt(bestDistSq);
+            if (len > 0.001)
+            {
+                return (bestDirX / len, bestDirY / len);
+            }
+            return (1.0, 0.0);
+        }
+
         return (1.0, 0.0);
+    }
+
+    public float SamplePotential(double px, double py)
+    {
+        int col = (int)(px * InvCellSize);
+        int row = (int)(py * InvCellSize);
+        if (col < 0 || col >= ColumnCount || row < 0 || row >= RowCount)
+            return float.MaxValue;
+        return DynamicPotentialFieldMatrix[row * ColumnCount + col];
     }
 }
 
@@ -926,6 +981,11 @@ public class CrowdSimulationEngine
     // sinks and evacuated agents are parked (radius 0) after the active prefix of the arrays.
     public MapScenario? MapScenario { get; private set; }
     public bool IsMapScenario => MapScenario is not null;
+    /// <summary>
+    /// When true, disables preset bottleneck corridor constraints and left-wall artificial repulsion,
+    /// allowing natural open-field movement across geographic map scenarios.
+    /// </summary>
+    public bool IsMapMode { get; set; }
     public int ActiveAgentCount => IsMapScenario ? _activeMapAgents : _activePresetAgents;
     public double SimulationTime { get; private set; }
     public const double StalledEvacuationSeconds = 600.0;
@@ -947,6 +1007,11 @@ public class CrowdSimulationEngine
     {
         if (granulation is < 1 or > 25) throw new ArgumentOutOfRangeException(nameof(granulation));
         Granulation = granulation;
+        if (_initialCustomPositions != null && _initialCustomPositions.Length > 0)
+        {
+            InitializeAgentsWithPositions(_initialCustomPositions);
+            return;
+        }
         InitializeAgents();
     }
 
@@ -995,6 +1060,7 @@ public class CrowdSimulationEngine
             Targets.Clear();
             Targets.AddRange(targets);
             MultiTargetEnabled = targets.Count > 1;
+            ExitZone = new Obstacle(targets[0].X, targets[0].Y, targets[0].Width, targets[0].Height, targets[0].Id);
         }
 
         if (weightDistance.HasValue) WeightDistance = weightDistance.Value;
@@ -1333,6 +1399,75 @@ public class CrowdSimulationEngine
         }
     }
 
+    private (double X, double Y)[]? _initialCustomPositions;
+
+    /// <summary>
+    /// Initializes agents with precomputed positions (e.g. derived from GUS census data or map evacuation zones).
+    /// </summary>
+    public void InitializeAgentsWithPositions(IReadOnlyList<(double X, double Y)> positions, int? seed = null)
+    {
+        ArgumentNullException.ThrowIfNull(positions);
+        _initialCustomPositions = positions.ToArray();
+        Random random = seed.HasValue ? new Random(seed.Value) : new Random();
+
+        int totalCount = positions.Count;
+        AgentCount = totalCount;
+        int activeCount = SimulatedAgentCount;
+        double radius = GetAgentRadius(Granulation);
+        _evacuatedCount = 0;
+        _lastEvacuationTime = 0;
+        SimulationTime = 0;
+        FrameCounter = 0;
+
+        _activePresetAgents = activeCount;
+        _activeMapAgents = activeCount;
+        if (MapScenario != null && (_evacuatedPerExit == null || _evacuatedPerExit.Length != MapScenario.Exits.Length))
+        {
+            _evacuatedPerExit = new int[MapScenario.Exits.Length];
+        }
+        if (_evacuationTimes == null || _evacuationTimes.Length < activeCount)
+        {
+            _evacuationTimes = new double[activeCount];
+        }
+
+        // When Granulation > 1, sample evenly from the custom positions to place macro-dots
+        double step = activeCount > 0 ? (double)totalCount / activeCount : 1.0;
+        for (int i = 0; i < activeCount && i < MaxAllowedAgents; i++)
+        {
+            int posIdx = Math.Min(totalCount - 1, (int)(i * step));
+            var (px, py) = positions[posIdx];
+
+            if (IsMapScenario)
+            {
+                if (!IsReachable(px, py) || (MapScenario is { } scenario && scenario.IsBlockedAt(px, py)))
+                {
+                    if (FindNearestReachable(px, py, 50.0) is { } open)
+                    {
+                        px = open.X;
+                        py = open.Y;
+                    }
+                }
+            }
+
+            AgentPositionX[i] = Math.Clamp(px, radius, WorldWidth - radius);
+            AgentPositionY[i] = Math.Clamp(py, radius, WorldHeight - radius);
+            AgentVelocityX[i] = 0.0;
+            AgentVelocityY[i] = 0.0;
+            AgentRadius[i] = radius;
+            AgentMaxSpeed[i] = 1.3 + random.NextDouble() * 0.4;
+            AgentLocalDensity[i] = 0.0;
+        }
+
+        if (MultiTargetEnabled && Targets.Count > 1)
+        {
+            ReevaluateTargetAssignments();
+        }
+
+        PotentialFieldMap.UpdateDynamicDensity(activeCount, AgentPositionX, AgentPositionY, Granulation);
+        PotentialFieldMap.RefineDynamicField();
+        _dynamicFieldTimer = 0.0;
+    }
+
     public void InitializeAgents(int? seed = null)
     {
         Random random = seed.HasValue ? new Random(seed.Value) : new Random();
@@ -1427,7 +1562,7 @@ public class CrowdSimulationEngine
         double forwardCoeff = 1.528 * scaleSqrtG;
 
         // The preset bottleneck corridor does not exist on a map (NaN bounds never match).
-        double corridorMinX = IsMapScenario ? double.NaN : WorldWidth * 0.35 - 0.5;
+        double corridorMinX = (IsMapScenario || IsMapMode) ? double.NaN : WorldWidth * 0.35 - 0.5;
         double corridorMaxX = WorldWidth * 0.47 + 1.0;
         double corridorMinY = WorldHeight * 0.455;
         double corridorMaxY = WorldHeight * 0.545;
@@ -1444,7 +1579,7 @@ public class CrowdSimulationEngine
         for (int agentIndex = 0; agentIndex < activeCount; agentIndex++)
         {
             // 1. Bazowy kierunek z pola potencjału
-            var (flowDirectionX, flowDirectionY) = PotentialFieldMap.GetFlowDirection(AgentPositionX[agentIndex], AgentPositionY[agentIndex]);
+            var (flowDirectionX, flowDirectionY) = PotentialFieldMap!.GetFlowDirection(AgentPositionX[agentIndex], AgentPositionY[agentIndex]);
 
             double currentAgentSpeed = Math.Sqrt(AgentVelocityX[agentIndex] * AgentVelocityX[agentIndex] + AgentVelocityY[agentIndex] * AgentVelocityY[agentIndex]);
             bool hasSignificantVelocity = currentAgentSpeed > 0.05;
@@ -1461,7 +1596,7 @@ public class CrowdSimulationEngine
             double wallRepulsionForceY = 0;
             double minDistanceToObstacle = double.MaxValue;
 
-            if (!IsMapScenario && AgentPositionX[agentIndex] < 6.0)
+            if (!IsMapScenario && !IsMapMode && AgentPositionX[agentIndex] < 6.0)
             {
                 wallRepulsionForceX += Math.Max(1.0, (6.0 - AgentPositionX[agentIndex]) * 2.0);
             }
@@ -1520,17 +1655,49 @@ public class CrowdSimulationEngine
                             // Czołowe zderzenie ze ścianą: nadaj wektor styczny do ściany omijający przeszkodę
                             double tan1X = -normalY;
                             double tan1Y = normalX;
-                            double obsCenterY = obstacle.Y + obstacle.Height * 0.5;
-                            double bypassSign = (AgentPositionY[agentIndex] < obsCenterY) ? -1.0 : 1.0;
-                            if (tan1Y * bypassSign >= 0)
+
+                            double sampleBaseX = px + normalX * 0.5;
+                            double sampleBaseY = py + normalY * 0.5;
+                            float pot1 = PotentialFieldMap != null ? PotentialFieldMap.SamplePotential(sampleBaseX + tan1X * 1.5, sampleBaseY + tan1Y * 1.5) : float.MaxValue;
+                            float pot2 = PotentialFieldMap != null ? PotentialFieldMap.SamplePotential(sampleBaseX - tan1X * 1.5, sampleBaseY - tan1Y * 1.5) : float.MaxValue;
+
+                            if (pot1 < pot2)
                             {
                                 travelDirectionX = tan1X;
                                 travelDirectionY = tan1Y;
                             }
-                            else
+                            else if (pot2 < pot1)
                             {
                                 travelDirectionX = -tan1X;
                                 travelDirectionY = -tan1Y;
+                            }
+                            else
+                            {
+                                double dotFlow = flowDirectionX * tan1X + flowDirectionY * tan1Y;
+                                if (dotFlow > 0.001)
+                                {
+                                    travelDirectionX = tan1X;
+                                    travelDirectionY = tan1Y;
+                                }
+                                else if (dotFlow < -0.001)
+                                {
+                                    travelDirectionX = -tan1X;
+                                    travelDirectionY = -tan1Y;
+                                }
+                                else
+                                {
+                                    double dotVel = normalizedVelocityX * tan1X + normalizedVelocityY * tan1Y;
+                                    if (dotVel >= 0)
+                                    {
+                                        travelDirectionX = tan1X;
+                                        travelDirectionY = tan1Y;
+                                    }
+                                    else
+                                    {
+                                        travelDirectionX = -tan1X;
+                                        travelDirectionY = -tan1Y;
+                                    }
+                                }
                             }
                         }
                     }
@@ -1678,10 +1845,10 @@ public class CrowdSimulationEngine
             }
             else
             {
-                double forwardMacroDensity = PotentialFieldMap.SampleSmoothedDensity(
+                double forwardMacroDensity = PotentialFieldMap!.SampleSmoothedDensity(
                     px + 1.8 * normalizedVelocityX,
                     py + 1.8 * normalizedVelocityY);
-                double currentMacroDensity = PotentialFieldMap.SampleSmoothedDensity(
+                double currentMacroDensity = PotentialFieldMap!.SampleSmoothedDensity(
                     px,
                     py);
                 effectiveForwardKernel = Math.Max(Math.Max(currentMacroDensity, forwardMacroDensity), forwardKernelSum);
@@ -2022,6 +2189,37 @@ public class CrowdSimulationEngine
 
             AgentPositionX[agentIndex] = Math.Clamp(AgentPositionX[agentIndex], AgentRadius[agentIndex], WorldWidth - AgentRadius[agentIndex]);
             AgentPositionY[agentIndex] = Math.Clamp(AgentPositionY[agentIndex], AgentRadius[agentIndex], WorldHeight - AgentRadius[agentIndex]);
+
+            // Total blockade: agents are physically rejected from ever remaining inside a blocked building cell
+            if (IsMapScenario && MapScenario!.IsBlockedAt(AgentPositionX[agentIndex], AgentPositionY[agentIndex]))
+            {
+                if (FindNearestReachable(AgentPositionX[agentIndex], AgentPositionY[agentIndex], 20.0) is { } openCell)
+                {
+                    double nudgeX = openCell.X - AgentPositionX[agentIndex];
+                    double nudgeY = openCell.Y - AgentPositionY[agentIndex];
+                    AgentPositionX[agentIndex] = openCell.X;
+                    AgentPositionY[agentIndex] = openCell.Y;
+
+                    double nudgeLen = Math.Sqrt(nudgeX * nudgeX + nudgeY * nudgeY);
+                    if (nudgeLen > 0.0001)
+                    {
+                        double nX = nudgeX / nudgeLen;
+                        double nY = nudgeY / nudgeLen;
+                        // Cancel any velocity component directed into the obstacle (opposite to nudge)
+                        double normalV = AgentVelocityX[agentIndex] * (-nX) + AgentVelocityY[agentIndex] * (-nY);
+                        if (normalV > 0)
+                        {
+                            AgentVelocityX[agentIndex] += normalV * nX;
+                            AgentVelocityY[agentIndex] += normalV * nY;
+                        }
+                    }
+                    else
+                    {
+                        AgentVelocityX[agentIndex] = 0.0;
+                        AgentVelocityY[agentIndex] = 0.0;
+                    }
+                }
+            }
         }
 
         ProcessEvacuations();
@@ -2216,6 +2414,90 @@ public class CrowdSimulationEngine
         box.Height = cell;
     }
 
+    private bool[]? _reachableMask;
+    private MapScenario? _reachableMaskScenario;
+
+    /// <summary>8-connected flood fill over walkable raster cells starting at every exit (computed once per scenario).</summary>
+    private bool[]? GetReachableMask()
+    {
+        var scenario = MapScenario;
+        if (scenario is null) return null;
+        if (_reachableMask != null && ReferenceEquals(_reachableMaskScenario, scenario)) return _reachableMask;
+
+        int cols = scenario.Columns, rows = scenario.Rows;
+        var blocked = scenario.Blocked;
+        var reachable = new bool[blocked.Length];
+        var queue = new Queue<int>();
+        foreach (var exit in scenario.Exits)
+        {
+            int ec = Math.Clamp((int)(exit.X / scenario.CellSize), 0, cols - 1);
+            int er = Math.Clamp((int)(exit.Y / scenario.CellSize), 0, rows - 1);
+            int start = er * cols + ec;
+            if (!blocked[start] && !reachable[start]) { reachable[start] = true; queue.Enqueue(start); }
+        }
+        while (queue.Count > 0)
+        {
+            int index = queue.Dequeue();
+            int c = index % cols, r = index / cols;
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                int nr = r + dy;
+                if (nr < 0 || nr >= rows) continue;
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    int nc = c + dx;
+                    if (nc < 0 || nc >= cols) continue;
+                    int next = nr * cols + nc;
+                    if (blocked[next] || reachable[next]) continue;
+                    if (dx != 0 && dy != 0 && blocked[r * cols + nc] && blocked[nr * cols + c]) continue;
+                    reachable[next] = true;
+                    queue.Enqueue(next);
+                }
+            }
+        }
+        _reachableMask = reachable;
+        _reachableMaskScenario = scenario;
+        return reachable;
+    }
+
+    public bool IsReachable(double px, double py)
+    {
+        var scenario = MapScenario;
+        var mask = GetReachableMask();
+        if (scenario is null || mask is null) return true;
+        if (!(px >= 0) || !(py >= 0)) return false;
+        int c = (int)(px / scenario.CellSize), r = (int)(py / scenario.CellSize);
+        if (c >= scenario.Columns || r >= scenario.Rows) return false;
+        return mask[r * scenario.Columns + c];
+    }
+
+    /// <summary>Center of the nearest raster cell connected to an exit, within maxDistance.</summary>
+    public (double X, double Y)? FindNearestReachable(double px, double py, double maxDistance = 50.0)
+    {
+        var scenario = MapScenario;
+        var mask = GetReachableMask();
+        if (scenario is null || mask is null) return (px, py);
+        double cell = scenario.CellSize;
+        int centerCol = Math.Clamp((int)(px / cell), 0, scenario.Columns - 1);
+        int centerRow = Math.Clamp((int)(py / cell), 0, scenario.Rows - 1);
+        int reach = (int)Math.Ceiling(maxDistance / cell);
+        double bestDistSq = maxDistance * maxDistance;
+        (double X, double Y)? best = null;
+        for (int r = Math.Max(0, centerRow - reach); r <= Math.Min(scenario.Rows - 1, centerRow + reach); r++)
+        {
+            for (int c = Math.Max(0, centerCol - reach); c <= Math.Min(scenario.Columns - 1, centerCol + reach); c++)
+            {
+                if (!mask[r * scenario.Columns + c]) continue;
+                double cx = (c + 0.5) * cell, cy = (r + 0.5) * cell;
+                double distSq = (cx - px) * (cx - px) + (cy - py) * (cy - py);
+                if (distSq < bestDistSq) { bestDistSq = distSq; best = (cx, cy); }
+            }
+        }
+        if (best.HasValue) return best;
+        if (maxDistance < 400.0) return FindNearestReachable(px, py, Math.Min(400.0, maxDistance * 4.0));
+        return scenario.NearestOpenCell(px, py, maxDistance);
+    }
+
     private void RebuildMapGrids(MapScenario scenario)
     {
         // The field shares the raster resolution whenever possible so its gradient never points
@@ -2249,7 +2531,7 @@ public class CrowdSimulationEngine
                             blockedCount++;
                     }
                 }
-                mask[row * grid.ColumnCount + col] = blockedCount * 4 >= total * 3;
+                mask[row * grid.ColumnCount + col] = blockedCount * 2 >= total;
             }
         }
         grid.InitializeStaticMask(mask);
@@ -2411,20 +2693,21 @@ public class CrowdSimulationEngine
         if (_activePresetAgents <= 0) return;
 
         int agentIndex = 0;
+        double catchMargin = Math.Max(2.5, PotentialFieldMap?.CellSize * 0.5 ?? 2.5);
         while (agentIndex < _activePresetAgents)
         {
             double px = AgentPositionX[agentIndex];
             double py = AgentPositionY[agentIndex];
             bool evacuated = false;
 
-            if (MultiTargetEnabled && Targets.Count > 0)
+            if (Targets.Count > 0)
             {
                 for (int t = 0; t < Targets.Count; t++)
                 {
                     var target = Targets[t];
                     if (!target.IsActive) continue;
-                    if (px >= target.X && px <= target.X + target.Width + 5.0 &&
-                        py >= target.Y && py <= target.Y + target.Height)
+                    if (px >= target.X - catchMargin && px <= target.X + target.Width + catchMargin &&
+                        py >= target.Y - catchMargin && py <= target.Y + target.Height + catchMargin)
                     {
                         evacuated = true;
                         break;
@@ -2433,8 +2716,8 @@ public class CrowdSimulationEngine
             }
             else
             {
-                if (px >= ExitZone.X && px <= ExitZone.X + ExitZone.Width + 5.0 &&
-                    py >= ExitZone.Y && py <= ExitZone.Y + ExitZone.Height)
+                if (px >= ExitZone.X - catchMargin && px <= ExitZone.X + ExitZone.Width + catchMargin &&
+                    py >= ExitZone.Y - catchMargin && py <= ExitZone.Y + ExitZone.Height + catchMargin)
                 {
                     evacuated = true;
                 }
@@ -2478,6 +2761,11 @@ public class CrowdSimulationEngine
 
     public void Reset()
     {
+        if (_initialCustomPositions != null && _initialCustomPositions.Length > 0)
+        {
+            InitializeAgentsWithPositions(_initialCustomPositions);
+            return;
+        }
         InitializeAgents();
     }
 

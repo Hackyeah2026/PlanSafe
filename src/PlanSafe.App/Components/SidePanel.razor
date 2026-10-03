@@ -33,16 +33,16 @@
             <span class="btn-text">Configure simulation/evacuation</span>
         </button>
 
-        <button type="button" class="btn-command btn-start-simulation" @onclick="HandleStartSimulation" title="Open Simulation Demo">
+        <button type="button" class="btn-command btn-start-simulation" @onclick="HandleStartSimulation" title="Start crowd movement simulation">
             <span class="btn-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                     <polygon points="5 3 19 12 5 21 5 3"></polygon>
                 </svg>
             </span>
-            <span class="btn-text">Simulation Demo</span>
+            <span class="btn-text">@(IsSimulating ? "Stop simulation" : "Start simulation")</span>
         </button>
 
-        <button type="button" class="btn-command btn-start-evacuation" title="Trigger citizen evacuation protocol">
+        <button type="button" class="btn-command btn-start-evacuation" @onclick="HandleStartEvacuation" title="Trigger citizen evacuation protocol">
             <span class="btn-icon">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
@@ -50,7 +50,7 @@
                     <line x1="12" y1="17" x2="12.01" y2="17"></line>
                 </svg>
             </span>
-            <span class="btn-text">Start evacuation</span>
+            <span class="btn-text">@(IsSimulating ? "Stop simulation" : "Start evacuation")</span>
         </button>
 
         <button type="button" class="btn-command btn-statistics" @onclick="HandleOpenStatistics" title="Open evacuation statistics and analytics">
@@ -68,23 +68,42 @@
     <!-- Live Telemetry / Overview -->
     <div class="metrics-section">
         <div class="section-label">Operational Overview</div>
-        
-        <div class="metric-card">
-            <div class="metric-label">GUS NSP 2021 Evacuees</div>
-            <div class="metric-value highlight" style="color: #f97316;">
-                @CensusPopulation.ToString("N0") <span style="font-size: 0.8rem; font-weight: 500; color: #a1a1aa;">occupants</span>
+
+        @if (IsSimulating)
+        {
+            var pct = TotalSimulatedAgents > 0 ? (int)Math.Round((double)EvacuatedCount / TotalSimulatedAgents * 100) : 0;
+            <div class="metric-card">
+                <div class="metric-label">Status Ewakuacji na Mapie</div>
+                <div class="metric-value highlight" style="color: #10b981;">
+                    @EvacuatedCount <span style="font-size: 0.8rem; font-weight: 500; color: #a1a1aa;">/ @TotalSimulatedAgents (@pct%)</span>
+                </div>
+                <div class="progress my-1" style="height: 6px;">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: @pct%;"></div>
+                </div>
+                <div class="metric-sub">
+                    <span>Czas: @SimulationTime.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)s • Tempo: @(Unlimited ? "Max" : $"{TimeScale:0.#}×")</span>
+                </div>
             </div>
-            <div class="metric-sub">
-                @if (CensusCells > 0)
-                {
-                    <span>@CensusCells census cells (125m) • 1:1 census occupancy</span>
-                }
-                else
-                {
-                    <span>Draw evacuation zone to estimate census evacuees</span>
-                }
+        }
+        else
+        {
+            <div class="metric-card">
+                <div class="metric-label">GUS NSP 2021 Evacuees</div>
+                <div class="metric-value highlight" style="color: #f97316;">
+                    @CensusPopulation.ToString("N0") <span style="font-size: 0.8rem; font-weight: 500; color: #a1a1aa;">occupants</span>
+                </div>
+                <div class="metric-sub">
+                    @if (CensusCells > 0)
+                    {
+                        <span>@CensusCells census cells (125m) • 1:1 census occupancy</span>
+                    }
+                    else
+                    {
+                        <span>Draw evacuation zone to estimate census evacuees</span>
+                    }
+                </div>
             </div>
-        </div>
+        }
 
         <div class="metric-card">
             <div class="metric-label">Initial Location (Test)</div>
@@ -98,12 +117,27 @@
     [Parameter] public string Mode { get; set; } = "Standby";
     [Parameter] public int CensusPopulation { get; set; } = 0;
     [Parameter] public int CensusCells { get; set; } = 0;
+    [Parameter] public bool IsSimulating { get; set; } = false;
+    [Parameter] public int EvacuatedCount { get; set; } = 0;
+    [Parameter] public int TotalSimulatedAgents { get; set; } = 0;
+    [Parameter] public double SimulationTime { get; set; } = 0.0;
+    [Parameter] public double TimeScale { get; set; } = 1.0;
+    [Parameter] public bool Unlimited { get; set; } = false;
+
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback OnStartSimulation { get; set; }
+    [Parameter] public EventCallback OnStartEvacuation { get; set; }
     [Parameter] public EventCallback OnConfigureSimulation { get; set; }
     [Parameter] public EventCallback OnOpenStatistics { get; set; }
 
     // Retained for backward compatibility with existing callers
+    [Parameter] public bool IsMobileOpen { get; set; }
+    [Parameter] public string? CurrentScenarioName { get; set; }
+    [Parameter] public string? CurrentSessionId { get; set; }
+    [Parameter] public MapZoneItem? ActiveMapItem { get; set; }
+    [Parameter] public string? SelectedTool { get; set; }
+    [Parameter] public string? SelectedCategory { get; set; }
+    [Parameter] public string? SelectedShape { get; set; }
     [Parameter] public List<MapZoneItem>? Items { get; set; }
     [Parameter] public Func<MapZoneItem, int>? OnGetZonePopulation { get; set; }
     [Parameter] public EventCallback<string> OnDeleteItem { get; set; }
@@ -118,6 +152,18 @@
     private async Task HandleStartSimulation()
     {
         if (OnStartSimulation.HasDelegate)
+        {
+            await OnStartSimulation.InvokeAsync();
+        }
+    }
+
+    private async Task HandleStartEvacuation()
+    {
+        if (OnStartEvacuation.HasDelegate)
+        {
+            await OnStartEvacuation.InvokeAsync();
+        }
+        else if (OnStartSimulation.HasDelegate)
         {
             await OnStartSimulation.InvokeAsync();
         }
