@@ -58,7 +58,13 @@ nunit-*.xml
 
 # Frontend tooling and generated static assets
 node_modules/
-src/PlanSafe.App/wwwroot/js/
+src/PlanSafe.App/wwwroot/js/*
+!src/PlanSafe.App/wwwroot/js/mapInterop.js
+
+# Local deploy artifacts
+.deploy.pid
+deploy.log
+dist/
 
 # Visual Studio & IDEs
 .vs/

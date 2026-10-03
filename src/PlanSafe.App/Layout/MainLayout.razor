@@ -1,4 +1,4 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 <div class="page">
     <div class="sidebar">
         <NavMenu />
@@ -6,10 +6,14 @@
 
     <main>
         <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            <div class="brand-tag">
+                <span class="pulse-indicator"></span>
+                <span class="brand-text">PlanSafe System</span>
+            </div>
+            <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a>
         </div>
 
-        <article class="content px-4">
+        <article class="content-viewport">
             @Body
         </article>
     </main>

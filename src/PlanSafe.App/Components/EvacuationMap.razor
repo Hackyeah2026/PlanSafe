@@ -1,0 +1,84 @@
+@namespace PlanSafe.App.Components
+@inject IMapInterop MapInterop
+@implements IAsyncDisposable
+
+<div class="map-module-layout">
+    <!-- Map Canvas Area -->
+    <div class="map-area">
+        <div id="@MapContainerId" class="map-viewport"></div>
+
+        <!-- Floating Map Quick Actions -->
+        <div class="map-floating-controls">
+            <button type="button" class="btn-recenter" @onclick="HandleRecenter" title="Reset view to initial test location (Kraków)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polygon points="12 8 8 12 12 16 12 8"></polygon>
+                    <line x1="12" y1="2" x2="12" y2="4"></line>
+                    <line x1="12" y1="20" x2="12" y2="22"></line>
+                    <line x1="2" y1="12" x2="4" y2="12"></line>
+                    <line x1="20" y1="12" x2="22" y2="12"></line>
+                </svg>
+                <span>Center Map</span>
+            </button>
+        </div>
+
+        <!-- Mobile Drawer Toggle Tab -->
+        @if (!isMobilePanelOpen)
+        {
+            <div class="mobile-drawer-toggle">
+                <button type="button" class="btn-drawer-toggle" @onclick="ToggleMobilePanel" aria-label="Open Control Panel">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="18 15 12 9 6 15"></polyline>
+                    </svg>
+                    <span>Open Controls</span>
+                </button>
+            </div>
+        }
+    </div>
+
+    <!-- Side Panel Dock / Mobile Drawer -->
+    <aside class="side-panel-wrapper @(isMobilePanelOpen ? "drawer-open" : "drawer-closed")">
+        <div class="drawer-drag-handle d-md-none" @onclick="ToggleMobilePanel">
+            <div class="handle-bar"></div>
+        </div>
+        <SidePanel OnClose="ToggleMobilePanel" />
+    </aside>
+</div>
+
+@code {
+    private string MapContainerId { get; set; } = $"map-{Guid.NewGuid():N}";
+    private bool isMobilePanelOpen = false;
+    private bool isMapInitialized = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !isMapInitialized)
+        {
+            isMapInitialized = true;
+            // Center of Kraków: [50.0614, 19.9366] at zoom 14
+            await MapInterop.InitializeMapAsync(MapContainerId, 50.0614, 19.9366, 14);
+        }
+    }
+
+    private async Task HandleRecenter()
+    {
+        await MapInterop.CenterOnKrakowAsync(MapContainerId);
+    }
+
+    private async Task ToggleMobilePanel()
+    {
+        isMobilePanelOpen = !isMobilePanelOpen;
+        StateHasChanged();
+        // Give time for CSS transition to settle, then invalidate map size
+        await Task.Delay(250);
+        await MapInterop.InvalidateSizeAsync(MapContainerId);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (isMapInitialized)
+        {
+            await MapInterop.DisposeMapAsync(MapContainerId);
+        }
+    }
+}
