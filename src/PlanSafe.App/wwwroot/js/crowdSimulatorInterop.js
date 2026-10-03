@@ -264,13 +264,12 @@ export function initSimulator(canvasRef) {
             trailCanvas.width = canvas.width;
             trailCanvas.height = canvas.height;
             trailCtx = trailCanvas.getContext('2d');
-            trailCtx.fillStyle = '#000';
-            trailCtx.fillRect(0, 0, trailCanvas.width, trailCanvas.height);
+            trailCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
         }
     }
 
     // --- Environment Rendering ---
-    function drawEnvironment() {
+    function drawWorldGrid() {
         const worldScreenOrigin = worldToScreen(0, 0);
         const worldScreenWidth = worldWidth * scale;
         const worldScreenHeight = worldHeight * scale;
@@ -300,7 +299,9 @@ export function initSimulator(canvasRef) {
             ctx.lineTo(p2.x, p2.y);
         }
         ctx.stroke();
+    }
 
+    function drawObstaclesAndTargets() {
         // Obstacles (Buildings / Barriers)
         if (obstacles && obstacles.length > 0) {
             for (let obs of obstacles) {
@@ -360,6 +361,11 @@ export function initSimulator(canvasRef) {
                 ctx.fillText('STREFA EWAKUACJI', ez.x + ezw / 2, ez.y + ezh / 2 + 4);
             }
         }
+    }
+
+    function drawEnvironment() {
+        drawWorldGrid();
+        drawObstaclesAndTargets();
     }
 
     // --- Dynamic Scale Bar & HUD Overlay ---
@@ -523,8 +529,7 @@ export function initSimulator(canvasRef) {
         if (renderMode === 'heatmap' || renderMode === 'density') {
             updateTrailCanvas();
             const isDensity = renderMode === 'density';
-            trailCtx.fillStyle = isDensity ? 'rgba(0, 0, 0, 0.06)' : 'rgba(0, 0, 0, 0.08)';
-            trailCtx.fillRect(0, 0, trailCanvas.width, trailCanvas.height);
+            trailCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
 
             if (!isDensity) speedSum.fill(0);
             weightSum.fill(0);
@@ -654,8 +659,9 @@ export function initSimulator(canvasRef) {
 
             ctx.fillStyle = '#080a0f';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            drawEnvironment();
+            drawWorldGrid();
             ctx.drawImage(trailCanvas, 0, 0);
+            drawObstaclesAndTargets();
             drawScaleBar();
             return;
         }
