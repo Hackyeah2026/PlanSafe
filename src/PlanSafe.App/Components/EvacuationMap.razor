@@ -19,10 +19,11 @@
 <div class="map-module-layout">
     <!-- Map Canvas Area -->
     <div class="map-area">
-        <div id="@MapContainerId" class="map-viewport"></div>
-        <canvas id="@SimCanvasId" @ref="_simCanvasRef"
-                class="map-simulation-canvas @(_isSimulating ? "active" : "")"
-                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 450; display: @(_isSimulating ? "block" : "none");"></canvas>
+        <div id="@MapContainerId" class="map-viewport">
+            <canvas id="@SimCanvasId" @ref="_simCanvasRef"
+                    class="map-simulation-canvas @(_isSimulating ? "active" : "")"
+                    style="display: @(_isSimulating ? "block" : "none");"></canvas>
+        </div>
 
         @if (!string.IsNullOrEmpty(_simWarningMessage))
         {
