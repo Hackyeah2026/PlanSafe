@@ -12,3 +12,4 @@ if grep -rl --include='*.csproj' '<IsTestProject>true</IsTestProject>\|Microsoft
 fi
 shellcheck infra/ci/*.sh infra/mikrus/*.sh
 python3 infra/mikrus/test_deploy.py
+python3 infra/ci/test_upload.py

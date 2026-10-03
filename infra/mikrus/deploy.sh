@@ -11,6 +11,17 @@ run=${BASH_REMATCH[1]}
 attempt=${BASH_REMATCH[2]}
 root=/srv/plansafe
 script_dir=$(cd -- "$(dirname -- "$0")" && pwd)
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=config.sh
+source "$script_dir/config.sh"
+validate_http_port
+health_port=$MIKRUS_HTTP_PORT
+journal_dir=/etc/systemd/system/systemd-journald.service.d
+journal_dir_existed=0
+[[ ! -d $journal_dir ]] || journal_dir_existed=1
+for path in /etc/systemd /etc/systemd/system "$journal_dir" "$journal_dir/10-lxc-credentials.conf" /etc/systemd/journald.conf.d /etc/systemd/journald.conf.d/plansafe.conf /etc/nginx/sites-available /etc/nginx/sites-available/plansafe.conf; do
+    [[ ! -L $path ]] || { echo "Refusing symlinked configuration: $path" >&2; exit 1; }
+done
 for path in "$root" "$root/releases" "$root/data" "$root/deploy.lock" "$root/deployed"; do
     [[ ! -L $path ]] || { echo "Refusing symlinked storage: $path" >&2; exit 1; }
 done
@@ -40,7 +51,8 @@ fi
 release=$root/releases/$id
 [[ ! -e $release && ! -L $release ]] || { echo 'Release already exists' >&2; exit 1; }
 backup=$(mktemp -d "$root/.config.XXXXXXXX")
-configs=(/etc/nginx/sites-available/plansafe.conf /etc/nginx/sites-enabled/plansafe.conf /etc/nginx/sites-enabled/default /etc/systemd/system/plansafe-api.service /etc/systemd/journald.conf.d/plansafe.conf)
+configs=(/etc/nginx/sites-available/plansafe.conf /etc/nginx/sites-enabled/plansafe.conf /etc/nginx/sites-enabled/default /etc/systemd/system/plansafe-api.service /etc/systemd/journald.conf.d/plansafe.conf "$journal_dir/10-lxc-credentials.conf")
+old_port=$(awk '/^[[:space:]]*listen [0-9]+ / {print $2; exit}' /etc/nginx/sites-available/plansafe.conf 2>/dev/null || true)
 for i in "${!configs[@]}"; do
     target=${configs[$i]}
     if [[ -e $target || -L $target ]]; then cp -a "$target" "$backup/$i"; fi
@@ -50,7 +62,7 @@ switched=0
 success=0
 installed=0
 status_code() {
-    curl --silent --show-error --noproxy '*' --max-time 3 -o /dev/null -w '%{http_code}' "http://127.0.0.1$1"
+    curl --silent --show-error --noproxy '*' --max-time 3 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$health_port$1"
 }
 healthy() {
     [[ $(curl --fail --silent --noproxy '*' --max-time 3 http://127.0.0.1:5001/api/health) == OK ]] &&
@@ -69,8 +81,14 @@ finish() {
             rm -f "${configs[$i]}"
             if [[ -e $backup/$i || -L $backup/$i ]]; then cp -a "$backup/$i" "${configs[$i]}"; fi
         done
+        if (( ! journal_dir_existed )); then rmdir "$journal_dir" 2>/dev/null || true; fi
+        # Restored nginx may use the previous deployment's port (including legacy 80).
+        if [[ $old_port =~ ^[0-9]{1,5}$ ]]; then health_port=$old_port; fi
         systemctl daemon-reload || true
-        systemctl restart systemd-journald || true
+        # Optional logging recovery must not interrupt rollback or replace its exit status.
+        if ! systemctl restart systemd-journald; then
+            echo 'WARNING: journald configuration recovery failed; configuration restored but may not be applied. Inspect systemd-journald.service status/logs.' >&2
+        fi
         if ((switched)); then
             if [[ -n $old ]]; then
                 ln -s "$old" "$root/current.rollback"

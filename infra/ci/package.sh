@@ -19,6 +19,6 @@ python3 infra/mikrus/archive.py artifacts/release.tar.gz
 tar -czf artifacts/worker-validation.tar.gz -C "$stage/worker" .
 cp artifacts/release.tar.gz "$stage/release.tar.gz"
 mkdir "$stage/infra"
-cp infra/mikrus/{deploy.sh,provision.sh,archive.py,nginx.conf,plansafe-api.service} "$stage/infra/"
+cp infra/mikrus/{deploy.sh,provision.sh,config.sh,archive.py,nginx.conf,plansafe-api.service} "$stage/infra/"
 tar -czf artifacts/deploy-bundle.tar.gz -C "$stage" release.tar.gz infra
 du -h artifacts/{release,worker-validation,deploy-bundle}.tar.gz
