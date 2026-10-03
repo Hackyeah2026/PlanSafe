@@ -944,7 +944,9 @@
     border: 1px solid rgba(71, 85, 105, 0.55);
     border-radius: 12px;
     padding: 6px 10px;
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    box-shadow:
+      0 6px 24px rgba(0, 0, 0, 0.5),
+      0 0 0 1px rgba(255, 255, 255, 0.04);
     gap: 6px;
   }
 
@@ -1053,7 +1055,9 @@
   border-radius: 9999px;
   padding: 3px 6px 3px 10px;
   gap: 5px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
   white-space: nowrap;
 }
 
@@ -1714,7 +1718,10 @@
   flex: 1;
   max-height: 70vh;
   background: #090e1a;
-  background-image: radial-gradient(rgba(148, 163, 184, 0.09) 1px, transparent 1px);
+  background-image: radial-gradient(
+    rgba(148, 163, 184, 0.09) 1px,
+    transparent 1px
+  );
   background-size: 16px 16px;
 }
 
