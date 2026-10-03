@@ -40,19 +40,142 @@ export function initSimulator(canvasRef) {
     let trackedMaxSpeed = 2.0;
     let trackedMaxDensity = 5.0;
 
+    // --- Vector Field Flow Particles Setup ---
     let flowParticles = [];
-    const numFlowParticles = 250;
+    const numFlowParticles = 450;
+
+    function createFlowParticle(floatArray, count) {
+        const p = {
+            x: 0,
+            y: 0,
+            prevX: 0,
+            prevY: 0,
+            age: Math.floor(Math.random() * 40),
+            maxLife: 30 + Math.floor(Math.random() * 35)
+        };
+        respawnFlowParticle(p, floatArray, count);
+        return p;
+    }
+
+    function respawnFlowParticle(p, floatArray, count) {
+        p.age = 0;
+        p.maxLife = 30 + Math.floor(Math.random() * 35);
+
+        // Prefer spawning directly on an actively moving agent
+        if (floatArray && count > 0) {
+            for (let attempt = 0; attempt < 8; attempt++) {
+                const idx = Math.floor(Math.random() * count);
+                const u = floatArray[idx * 5 + 2];
+                const v = floatArray[idx * 5 + 3];
+                if (u * u + v * v > 0.04) {
+                    const jitterX = (Math.random() - 0.5) * 4.0;
+                    const jitterY = (Math.random() - 0.5) * 4.0;
+                    p.x = Math.max(0, Math.min(worldWidth, floatArray[idx * 5] + jitterX));
+                    p.y = Math.max(0, Math.min(worldHeight, floatArray[idx * 5 + 1] + jitterY));
+                    p.prevX = p.x;
+                    p.prevY = p.y;
+                    return;
+                }
+            }
+        }
+
+        // Fallback: spawn in world bounds
+        p.x = Math.random() * worldWidth;
+        p.y = Math.random() * worldHeight;
+        p.prevX = p.x;
+        p.prevY = p.y;
+    }
 
     function initFlowParticles() {
         flowParticles = [];
         for (let i = 0; i < numFlowParticles; i++) {
-            flowParticles.push({
-                x: Math.random() * worldWidth,
-                y: Math.random() * worldHeight,
-                vx: 0,
-                vy: 0
-            });
+            flowParticles.push(createFlowParticle(lastFloatArray, lastCount));
         }
+    }
+
+    function sampleVelocity(wx, wy) {
+        const gx = (wx / worldWidth) * gridCols - 0.5;
+        const gy = (wy / worldHeight) * gridRows - 0.5;
+        if (gx < 0 || gx >= gridCols - 1 || gy < 0 || gy >= gridRows - 1) return null;
+
+        const x0 = Math.floor(gx);
+        const y0 = Math.floor(gy);
+        const x1 = x0 + 1;
+        const y1 = y0 + 1;
+        const fx = gx - x0;
+        const fy = gy - y0;
+
+        const i00 = y0 * gridCols + x0;
+        const i10 = y0 * gridCols + x1;
+        const i01 = y1 * gridCols + x0;
+        const i11 = y1 * gridCols + x1;
+
+        const w00 = weightSum[i00], w10 = weightSum[i10], w01 = weightSum[i01], w11 = weightSum[i11];
+        const totalW = w00 + w10 + w01 + w11;
+        if (totalW < 0.01) return null;
+
+        const vx00 = w00 > 0.001 ? vxSum[i00] / w00 : 0;
+        const vx10 = w10 > 0.001 ? vxSum[i10] / w10 : 0;
+        const vx01 = w01 > 0.001 ? vxSum[i01] / w01 : 0;
+        const vx11 = w11 > 0.001 ? vxSum[i11] / w11 : 0;
+
+        const vy00 = w00 > 0.001 ? vySum[i00] / w00 : 0;
+        const vy10 = w10 > 0.001 ? vySum[i10] / w10 : 0;
+        const vy01 = w01 > 0.001 ? vySum[i01] / w01 : 0;
+        const vy11 = w11 > 0.001 ? vySum[i11] / w11 : 0;
+
+        const vx = (vx00 * (1 - fx) + vx10 * fx) * (1 - fy) + (vx01 * (1 - fx) + vx11 * fx) * fy;
+        const vy = (vy00 * (1 - fx) + vy10 * fx) * (1 - fy) + (vy01 * (1 - fx) + vy11 * fx) * fy;
+        return { vx, vy };
+    }
+
+    function updateAndRenderFlowParticles(targetCtx, floatArray, count) {
+        if (flowParticles.length === 0) {
+            initFlowParticles();
+        }
+
+        targetCtx.save();
+        targetCtx.lineCap = 'round';
+
+        const stepScale = 0.45;
+
+        for (let i = 0; i < flowParticles.length; i++) {
+            const p = flowParticles[i];
+            p.age++;
+
+            const vel = sampleVelocity(p.x, p.y);
+            const speedSq = vel ? (vel.vx * vel.vx + vel.vy * vel.vy) : 0;
+
+            if (!vel || speedSq < 0.02 || p.age >= p.maxLife || p.x < 0 || p.x > worldWidth || p.y < 0 || p.y > worldHeight) {
+                respawnFlowParticle(p, floatArray, count);
+                continue;
+            }
+
+            p.prevX = p.x;
+            p.prevY = p.y;
+            p.x += vel.vx * stepScale;
+            p.y += vel.vy * stepScale;
+
+            const lifeFrac = p.age / p.maxLife;
+            const alpha = Math.sin(lifeFrac * Math.PI) * 0.85;
+
+            const s0 = worldToScreen(p.prevX, p.prevY);
+            const s1 = worldToScreen(p.x, p.y);
+
+            targetCtx.strokeStyle = `rgba(220, 245, 255, ${alpha.toFixed(2)})`;
+            targetCtx.lineWidth = Math.max(1.2, Math.min(2.5, 1.3 * scale));
+            targetCtx.beginPath();
+            targetCtx.moveTo(s0.x, s0.y);
+            targetCtx.lineTo(s1.x, s1.y);
+            targetCtx.stroke();
+
+            targetCtx.fillStyle = `rgba(255, 255, 255, ${Math.min(1.0, alpha * 1.25).toFixed(2)})`;
+            targetCtx.beginPath();
+            targetCtx.arc(s1.x, s1.y, Math.max(1.1, 1.3 * scale), 0, Math.PI * 2);
+            targetCtx.fill();
+        }
+
+        targetCtx.restore();
     }
 
     // --- Coordinate Transforms ---
@@ -92,10 +215,11 @@ export function initSimulator(canvasRef) {
     let lastShowWhiskers = false;
     let lastWhiskerLength = 2.5;
     let lastGranulation = 1;
+    let lastShowFlowParticles = true;
 
     function redrawCurrent() {
         if (lastFloatArray && lastCount > 0) {
-            renderCore(lastFloatArray, lastCount, lastRenderMode, lastShowWhiskers, lastWhiskerLength, lastGranulation);
+            renderCore(lastFloatArray, lastCount, lastRenderMode, lastShowWhiskers, lastWhiskerLength, lastGranulation, lastShowFlowParticles);
         } else {
             ctx.fillStyle = '#080a0f';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -482,11 +606,11 @@ export function initSimulator(canvasRef) {
     }
 
     // --- Render binary (High performance: zero JSON serialization, batched draw calls) ---
-    function renderBinary(rawBuffer, count, renderMode = 'agents', showWhiskers = false, whiskerLength = 2.5, granulation = 1) {
+    function renderBinary(rawBuffer, count, renderMode = 'agents', showWhiskers = false, whiskerLength = 2.5, granulation = 1, showFlowParticles = true) {
         try {
             const floatArray = extractFloatArray(rawBuffer, count);
             if (floatArray && floatArray.length >= count * 5) {
-                renderCore(floatArray, count, renderMode, showWhiskers, whiskerLength, granulation);
+                renderCore(floatArray, count, renderMode, showWhiskers, whiskerLength, granulation, showFlowParticles);
             } else {
                 console.warn("renderBinary: invalid buffer length", {
                     extractedLength: floatArray ? floatArray.length : 0,
@@ -502,7 +626,7 @@ export function initSimulator(canvasRef) {
     }
 
     // --- Render arrays (Backward compatibility) ---
-    function render(posX, posY, vx, vy, radius, count, renderMode = 'agents', showWhiskers = false, whiskerLength = 2.5, granulation = 1) {
+    function render(posX, posY, vx, vy, radius, count, renderMode = 'agents', showWhiskers = false, whiskerLength = 2.5, granulation = 1, showFlowParticles = true) {
         const floatArray = new Float32Array(count * 5);
         for (let i = 0; i < count; i++) {
             floatArray[i * 5] = posX[i];
@@ -511,16 +635,17 @@ export function initSimulator(canvasRef) {
             floatArray[i * 5 + 3] = vy[i];
             floatArray[i * 5 + 4] = radius[i];
         }
-        renderCore(floatArray, count, renderMode, showWhiskers, whiskerLength, granulation);
+        renderCore(floatArray, count, renderMode, showWhiskers, whiskerLength, granulation, showFlowParticles);
     }
 
-    function renderCore(floatArray, count, renderMode, showWhiskers, whiskerLength, granulation = 1) {
+    function renderCore(floatArray, count, renderMode, showWhiskers, whiskerLength, granulation = 1, showFlowParticles = true) {
         lastFloatArray = floatArray;
         lastCount = count;
         lastRenderMode = renderMode;
         lastShowWhiskers = showWhiskers;
         lastWhiskerLength = whiskerLength;
         lastGranulation = granulation;
+        lastShowFlowParticles = showFlowParticles;
 
         const worldOrigin = worldToScreen(0, 0);
         const screenWorldW = worldWidth * scale;
@@ -668,6 +793,9 @@ export function initSimulator(canvasRef) {
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             drawWorldGrid();
             ctx.drawImage(trailCanvas, 0, 0);
+            if (showFlowParticles) {
+                updateAndRenderFlowParticles(ctx, floatArray, count);
+            }
             drawObstaclesAndTargets();
             drawScaleBar();
             return;
@@ -813,7 +941,7 @@ export function initSimulator(canvasRef) {
         return gpuFloatArray;
     }
 
-    async function renderGpu(renderMode, showWhiskers, whiskerLength, granulation = 1) {
+    async function renderGpu(renderMode, showWhiskers, whiskerLength, granulation = 1, showFlowParticles = true) {
         if (!gpuEngine || !isGpuReady) return;
         try {
             const preview = await gpuEngine.capturePreview();
@@ -828,7 +956,7 @@ export function initSimulator(canvasRef) {
                 floatArray[i * 5 + 3] = target[3 * count + i];
                 floatArray[i * 5 + 4] = target[4 * count + i];
             }
-            renderCore(floatArray, count, renderMode, showWhiskers, whiskerLength, granulation);
+            renderCore(floatArray, count, renderMode, showWhiskers, whiskerLength, granulation, showFlowParticles);
         } catch (err) {
             console.error("[PlanSafe] renderGpu error:", err);
         }
