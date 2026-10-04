@@ -113,9 +113,7 @@ test("switching updates Razor and map popups without restarting the page, and pe
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("lang", "pl");
   await page.goto("/evacuate");
-  await expect(
-    page.getByText("Twoja trasa ewakuacji", { exact: true }),
-  ).toBeVisible();
+  await expect(page.locator(".evac-header h1")).toHaveText("Ewakuacja");
   await expect(page.locator("html")).toHaveAttribute("lang", "pl");
 });
 

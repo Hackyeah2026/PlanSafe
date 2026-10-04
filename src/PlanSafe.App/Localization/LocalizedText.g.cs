@@ -12,6 +12,8 @@ public sealed class LocalizedText(IStringLocalizer<UiStrings> strings)
     public DirectionText Direction { get; } = new(strings);
     public DrawingText Drawing { get; } = new(strings);
     public EvacuationText Evacuation { get; } = new(strings);
+    public EvacuationUiText EvacuationUi { get; } = new(strings);
+    public EvacuationUxText EvacuationUx { get; } = new(strings);
     public LocationText Location { get; } = new(strings);
     public MapText Map { get; } = new(strings);
     public NavigationText Navigation { get; } = new(strings);
@@ -163,6 +165,88 @@ public sealed class LocalizedText(IStringLocalizer<UiStrings> strings)
         public string Start => strings["Evacuation.Start"].Value;
         public string Title => strings["Evacuation.Title"].Value;
         public string WalkingTime(object arg0) => strings["Evacuation.WalkingTime", arg0].Value;
+    }
+
+    public sealed class EvacuationUiText(IStringLocalizer<UiStrings> strings)
+    {
+        public string Appearance => strings["EvacuationUi.Appearance"].Value;
+        public string Assignment => strings["EvacuationUi.Assignment"].Value;
+        public string BearingHint => strings["EvacuationUi.BearingHint"].Value;
+        public string CancelCorrection => strings["EvacuationUi.CancelCorrection"].Value;
+        public string Checking => strings["EvacuationUi.Checking"].Value;
+        public string CorrectMap => strings["EvacuationUi.CorrectMap"].Value;
+        public string CorrectionHint => strings["EvacuationUi.CorrectionHint"].Value;
+        public string Details => strings["EvacuationUi.Details"].Value;
+        public string Direction => strings["EvacuationUi.Direction"].Value;
+        public string Dismiss => strings["EvacuationUi.Dismiss"].Value;
+        public string Expired => strings["EvacuationUi.Expired"].Value;
+        public string FindingLocation => strings["EvacuationUi.FindingLocation"].Value;
+        public string FindingShelter => strings["EvacuationUi.FindingShelter"].Value;
+        public string Fit => strings["EvacuationUi.Fit"].Value;
+        public string FitHint => strings["EvacuationUi.FitHint"].Value;
+        public string FullShelter => strings["EvacuationUi.FullShelter"].Value;
+        public string GpsDenied => strings["EvacuationUi.GpsDenied"].Value;
+        public string GpsError => strings["EvacuationUi.GpsError"].Value;
+        public string GpsInsecure => strings["EvacuationUi.GpsInsecure"].Value;
+        public string GpsTimeout => strings["EvacuationUi.GpsTimeout"].Value;
+        public string GpsUnavailable => strings["EvacuationUi.GpsUnavailable"].Value;
+        public string GpsUnsupported => strings["EvacuationUi.GpsUnsupported"].Value;
+        public string HideMap => strings["EvacuationUi.HideMap"].Value;
+        public string Information => strings["EvacuationUi.Information"].Value;
+        public string Legend => strings["EvacuationUi.Legend"].Value;
+        public string LoadError => strings["EvacuationUi.LoadError"].Value;
+        public string Loading => strings["EvacuationUi.Loading"].Value;
+        public string LoadingLabel => strings["EvacuationUi.LoadingLabel"].Value;
+        public string LocationHelp => strings["EvacuationUi.LocationHelp"].Value;
+        public string LocationHint => strings["EvacuationUi.LocationHint"].Value;
+        public string MapLabel => strings["EvacuationUi.MapLabel"].Value;
+        public string MapSelectLabel => strings["EvacuationUi.MapSelectLabel"].Value;
+        public string MapTools => strings["EvacuationUi.MapTools"].Value;
+        public string Navigate => strings["EvacuationUi.Navigate"].Value;
+        public string NewTab => strings["EvacuationUi.NewTab"].Value;
+        public string NoAssignment => strings["EvacuationUi.NoAssignment"].Value;
+        public string NoShelter => strings["EvacuationUi.NoShelter"].Value;
+        public string NotSet => strings["EvacuationUi.NotSet"].Value;
+        public string Outside => strings["EvacuationUi.Outside"].Value;
+        public string PageTitle => strings["EvacuationUi.PageTitle"].Value;
+        public string PickHint => strings["EvacuationUi.PickHint"].Value;
+        public string Places(object arg0, object arg1) => strings["EvacuationUi.Places", arg0, arg1].Value;
+        public string PlanUnavailable => strings["EvacuationUi.PlanUnavailable"].Value;
+        public string PreviewHint => strings["EvacuationUi.PreviewHint"].Value;
+        public string RefreshGps => strings["EvacuationUi.RefreshGps"].Value;
+        public string RefreshPage => strings["EvacuationUi.RefreshPage"].Value;
+        public string RetryGps => strings["EvacuationUi.RetryGps"].Value;
+        public string SelectMap => strings["EvacuationUi.SelectMap"].Value;
+        public string SelectMyLocation => strings["EvacuationUi.SelectMyLocation"].Value;
+        public string SelectedCoordinates(object arg0, object arg1) => strings["EvacuationUi.SelectedCoordinates", arg0, arg1].Value;
+        public string ShowMap => strings["EvacuationUi.ShowMap"].Value;
+        public string UseGps => strings["EvacuationUi.UseGps"].Value;
+        public string WalkingTime(object arg0) => strings["EvacuationUi.WalkingTime", arg0].Value;
+        public string Where => strings["EvacuationUi.Where"].Value;
+        public string WrongPlan => strings["EvacuationUi.WrongPlan"].Value;
+        public string YourShelter => strings["EvacuationUi.YourShelter"].Value;
+    }
+
+    public sealed class EvacuationUxText(IStringLocalizer<UiStrings> strings)
+    {
+        public string ChangeLocation => strings["EvacuationUx.ChangeLocation"].Value;
+        public string CollapsePanel => strings["EvacuationUx.CollapsePanel"].Value;
+        public string ConfirmLocation => strings["EvacuationUx.ConfirmLocation"].Value;
+        public string ExpandPanel => strings["EvacuationUx.ExpandPanel"].Value;
+        public string GpsConfirmed => strings["EvacuationUx.GpsConfirmed"].Value;
+        public string GpsDenied => strings["EvacuationUx.GpsDenied"].Value;
+        public string GpsError => strings["EvacuationUx.GpsError"].Value;
+        public string GpsInsecure => strings["EvacuationUx.GpsInsecure"].Value;
+        public string GpsPending => strings["EvacuationUx.GpsPending"].Value;
+        public string GpsTimeout => strings["EvacuationUx.GpsTimeout"].Value;
+        public string GpsUnavailable => strings["EvacuationUx.GpsUnavailable"].Value;
+        public string GpsUnsupported => strings["EvacuationUx.GpsUnsupported"].Value;
+        public string LocationHint => strings["EvacuationUx.LocationHint"].Value;
+        public string MapConfirmed => strings["EvacuationUx.MapConfirmed"].Value;
+        public string OutsideHint => strings["EvacuationUx.OutsideHint"].Value;
+        public string PickInside => strings["EvacuationUx.PickInside"].Value;
+        public string PickOnMap => strings["EvacuationUx.PickOnMap"].Value;
+        public string ShelterDetails => strings["EvacuationUx.ShelterDetails"].Value;
     }
 
     public sealed class LocationText(IStringLocalizer<UiStrings> strings)
@@ -368,6 +452,8 @@ public sealed class LocalizedText(IStringLocalizer<UiStrings> strings)
         public string OccupancySummary(object arg0, object arg1, object arg2) => strings["Shelter.OccupancySummary", arg0, arg1, arg2].Value;
         public string OccupancyValue(object arg0) => strings["Shelter.OccupancyValue", arg0].Value;
         public string OccupancyWeight => strings["Shelter.OccupancyWeight"].Value;
+        public string PeopleCount(object arg0) => strings["Shelter.PeopleCount", arg0].Value;
+        public string PeopleHere => strings["Shelter.PeopleHere"].Value;
         public string Places(object arg0, object arg1) => strings["Shelter.Places", arg0, arg1].Value;
         public string PresetA => strings["Shelter.PresetA"].Value;
         public string PresetB => strings["Shelter.PresetB"].Value;

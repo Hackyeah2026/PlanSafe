@@ -1,17 +1,17 @@
 @namespace PlanSafe.App.Components
 @using PlanSafe.Contracts.Models.Map
 
-<div class="map-module-layout ui-workspace @(_isSimulating ? "simulating" : "") @(_isStarting ? "simulation-preparing" : "") @(isMobilePanelOpen ? "panel-open" : "")"
+<div class="map-module-layout ui-workspace @(_isSimulating ? "simulating" : "") @(_isStarting ? "simulation-preparing" : "") @(_isMobilePanelOpen ? "panel-open" : "")"
      aria-busy="@_isStarting.ToString().ToLowerInvariant()">
     <span class="simulation-preparation-cursor" aria-hidden="true"></span>
     <!-- Map Canvas Area -->
     <div class="map-area">
         <div id="@MapContainerId" class="map-viewport">
-            <canvas id="@SimCanvasId" @ref="_simCanvasRef"
+            <canvas id="@SimCanvasId" @ref="_simulationCanvas"
                     class="map-simulation-canvas @(_isSimulating ? "active" : "")"></canvas>
         </div>
 
-        @if (_simWarningMessage is not null)
+        @if (_simulationWarningMessage is not null)
         {
             <div class="sim-warning-toast surface-panel" role="status">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -19,8 +19,8 @@
                     <line x1="12" y1="9" x2="12" y2="13"></line>
                     <line x1="12" y1="17" x2="12.01" y2="17"></line>
                 </svg>
-                <span>@(_simWarningMessage?.Invoke())</span>
-                <button type="button" class="btn-toast-close" aria-label="@L.Simulation.DismissMessage" @onclick="() => _simWarningMessage = null">&times;</button>
+                <span>@(_simulationWarningMessage?.Invoke())</span>
+                <button type="button" class="btn-toast-close" aria-label="@L.Simulation.DismissMessage" @onclick="() => _simulationWarningMessage = null">&times;</button>
             </div>
         }
 
@@ -32,11 +32,11 @@
                 Engine="@_activeEngine"
                 SimulationTime="@_statsCollector.Stats.SimulationTime"
                 EvacuatedCount="@_statsCollector.Stats.EvacuatedAgents"
-                TotalAgents="@_simTotalAgents"
-                RenderMode="@_simConfig.RenderMode"
-                ShowWhiskers="@_simConfig.ShowWhiskers"
-                TimeScale="@_simConfig.TimeScale"
-                Unlimited="@_simConfig.Unlimited"
+                TotalAgents="@_totalSimulationAgents"
+                RenderMode="@_simulationConfig.RenderMode"
+                ShowWhiskers="@_simulationConfig.ShowWhiskers"
+                TimeScale="@_simulationConfig.TimeScale"
+                Unlimited="@_simulationConfig.Unlimited"
                 OnToggle="ToggleSimulation"
                 OnStep="StepSimulation"
                 OnReset="ResetSimulation"
@@ -59,9 +59,9 @@
                    CensusLoaded="@CensusService.IsLoaded"
                    CensusLoading="@_isCensusLoading"
                    CensusPopulation="@_censusPopulation"
-                   BranchName='@(_activeSession?.BranchName ?? "main")' Expanded="@isMobilePanelOpen"
+                   BranchName='@(_activeSession?.BranchName ?? "main")' Expanded="@_isMobilePanelOpen"
                    IsSimulating="@_isSimulating" EvacuatedCount="@_statsCollector.Stats.EvacuatedAgents"
-                   TotalSimulatedAgents="@_simTotalAgents" SimulationTime="@_statsCollector.Stats.SimulationTime"
+                   TotalSimulatedAgents="@_totalSimulationAgents" SimulationTime="@_statsCollector.Stats.SimulationTime"
                    OnStartEvacuation="HandleStartEvacuation"
                    OnStartSimulation="HandleStartSimulation" OnConfigureSimulation="() => _isConfigOpen = true"
                    OnScenarios="() => _isTreeMapOpen = true" OnNewBranch="() => _isCreateBranchOpen = true"
@@ -72,8 +72,9 @@
     @if (_isPublishPlanOpen)
     {
         <PublishPlanModal IsOpen="true" MapItems="@_mapItems"
-                          ActiveSession="@_activeSession" WeightDistance="@_simConfig.WeightDistance"
-                          WeightOccupancy="@_simConfig.WeightOccupancy" OnClose="() => _isPublishPlanOpen = false" />
+                          AgentCount="@PlannedAgentCount"
+                          ActiveSession="@_activeSession" WeightDistance="@_simulationConfig.WeightDistance"
+                          WeightOccupancy="@_simulationConfig.WeightOccupancy" OnClose="() => _isPublishPlanOpen = false" />
     }
 
     <!-- Scenario Modals -->
@@ -92,7 +93,7 @@
     <!-- Simulation & Evacuation Configuration Modal -->
     <SimulationConfigModal
         IsOpen="@_isConfigOpen"
-        Config="@_simConfig"
+        Config="@_simulationConfig"
         CensusPopulation="@_censusPopulation"
         OnSave="HandleSaveConfig"
         OnStartSimulation="HandleStartSimulation"

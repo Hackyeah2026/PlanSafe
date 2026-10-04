@@ -9,6 +9,35 @@ namespace PlanSafe.Api.Tests;
 
 public sealed class EvacuationStateServiceTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void OccupancyOnlyAlternatesNewArrivalsBetweenUnlimitedZones(bool geographic)
+    {
+        using var service = new EvacuationStateService();
+        var targets = new List<EvacuationTarget>
+        {
+            new("near", "Near", 19.93, 50.06, 0, 0, 0, 0, true, 50.06, 19.93),
+            new("far", "Far", 19.95, 50.08, 0, 0, 0, 0, true, 50.08, 19.95)
+        };
+        service.PublishPlan(new PublishPlanRequest(targets, WeightDistance: 0, WeightOccupancy: 1));
+        var request = new TargetAssignmentRequest(19.93, 50.06,
+            Latitude: geographic ? 50.06 : null, Longitude: geographic ? 19.93 : null);
+        for (int i = 0; i < 6; i++)
+        {
+            var result = service.AssignTarget(request);
+            Assert.Equal(i % 2 == 0 ? "near" : "far", result.Target!.Id);
+            Assert.False(result.Target.IsFull);
+            service.CheckIn(new CheckInRequest(result.Target.Id, 1));
+            var refresh = service.AssignTarget(request with { CurrentTargetId = result.Target.Id });
+            Assert.Equal(result.Target.Id, refresh.Target!.Id);
+        }
+        Assert.All(service.GetTargets(), target => Assert.Equal(3, target.CurrentOccupancy));
+        // Switching to distance-only must still choose the nearest zone regardless of load.
+        service.CheckIn(new CheckInRequest("near", 10000));
+        Assert.Equal("near", service.AssignTarget(request with { WeightDistance = 1, WeightOccupancy = 0 }).Target!.Id);
+    }
+
     [Fact]
     public void RepublishingCreatesNewSessionAndUsesCurrentPlanSettings()
     {
@@ -235,5 +264,21 @@ public sealed class EvacuationStateServiceTests
         );
         Assert.NotNull(res2.Target);
         Assert.Equal("safe-zone-rynek", res2.Target.Id);
+
+        // Unlimited safe zones must still balance arrivals on the street-routing path.
+        targets = targets.Select(t => t with { Capacity = 0, CurrentOccupancy = 0 }).ToList();
+        var assignments = new List<string>();
+        for (int i = 0; i < 4; i++)
+        {
+            var result = pathfinder.EvaluateAssignment(50.0615, 19.9365, targets,
+                weightDistance: 0, weightOccupancy: 1);
+            assignments.Add(result.Target!.Id);
+            int selected = targets.FindIndex(t => t.Id == result.Target.Id);
+            targets[selected] = targets[selected] with { CurrentOccupancy = targets[selected].CurrentOccupancy + 1 };
+            Assert.All(result.TargetEvaluations!, evaluation => Assert.False(evaluation.IsFull));
+        }
+        Assert.NotEqual(assignments[0], assignments[1]);
+        Assert.Equal(assignments[0], assignments[2]);
+        Assert.Equal(assignments[1], assignments[3]);
     }
 }

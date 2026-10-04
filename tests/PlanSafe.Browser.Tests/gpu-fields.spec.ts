@@ -8,7 +8,8 @@ test.beforeAll(() => {
     "PotentialFieldParityTests",
     "PLANSAFE_FIELD_REFERENCE",
   );
-  assert.equal(references.length, 9);
+  assert.equal(references.length, 10);
+  assert.ok(references.some((ref) => ref.name === "unlimited-zones"));
   for (const ref of references) {
     for (const key of [
       "staticField",
@@ -27,12 +28,10 @@ test("WebGPU shader fields match WASM reference fields", async ({
     const { GpuSimulationEngine } = (await import(
       gpuModule
     )) as typeof import("../../src/PlanSafe.App/TypeScript/crowdSimulatorGpu.js");
-    const source = await (await fetch("/crowdSimulatorGpu.js")).text();
-    const physicsWgsl = source.match(
-      /const stepPhysicsShader = `([\s\S]*?)`;/,
-    )?.[1];
-    if (!physicsWgsl)
-      throw new Error("Production physics shader was not found");
+    const physicsShaderModule = "/gpuPhysicsShader.js";
+    const { stepPhysicsShader: physicsWgsl } = (await import(
+      physicsShaderModule
+    )) as typeof import("../../src/PlanSafe.App/TypeScript/gpuPhysicsShader.js");
     const flowShader =
       physicsWgsl.split("@compute")[0] +
       `

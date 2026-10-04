@@ -60,6 +60,21 @@ npx playwright install --with-deps chromium
 bash infra/ci/check-browser.sh
 ```
 
+## Simulation code structure
+
+`EvacuationMap.razor.cs` coordinates map UI and playback. Geographic projection,
+terrain and zone preparation, and population sampling live in
+`MapSimulationBounds`, `MapSimulationScenarioPreparer`, and `EvacuationZoneSampler`.
+`CrowdSimulationEngine` owns CPU agent state and stepping; `PotentialFieldGrid`,
+`SpatialHashGrid`, and `SimulationObstacleQuery` handle fields and spatial queries.
+
+`crowdSimulatorGpu.ts` coordinates GPU buffers and compute passes.
+`gpuMapScenario.ts` handles scenario parsing, fields, and spawning;
+`gpuTelemetryReader.ts` owns statistics readback. WGSL kernels are grouped in
+the `gpu*Shader*.ts` modules by spatial indexing, density, heatmaps, potential
+fields, and physics. Existing scenario exports remain available through
+`crowdSimulatorGpu.ts`.
+
 ## Simulation performance investigation
 
 Run the native .NET physics benchmark, which also exports snapshots for the GPU

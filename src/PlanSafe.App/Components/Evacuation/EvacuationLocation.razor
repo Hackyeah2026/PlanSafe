@@ -1,0 +1,27 @@
+<section class="location-choice" aria-label="@L.Location.YourPosition">
+    <p class="location-message" role="status" data-testid="location-message">
+        @(OutsideZone ? L.EvacuationUx.OutsideHint : ErrorMessage ?? (GpsLoading ? L.EvacuationUx.GpsPending : L.EvacuationUx.LocationHint))
+    </p>
+    <div class="location-actions">
+        <AppButton Tone="ButtonTone.Primary" OnClick="OnSelectMap">@L.EvacuationUi.SelectMap</AppButton>
+        @if (GpsAvailable)
+        {
+            <AppButton Disabled="GpsLoading" OnClick="OnGps"><UiIcon Kind="UiIconKind.Phone" /> @(GpsLoading ? L.EvacuationUi.FindingLocation : ErrorMessage != null ? L.EvacuationUi.RetryGps : L.EvacuationUi.UseGps)</AppButton>
+        }
+        @if (CanCancel)
+        {
+            <AppButton OnClick="OnCancel">@L.Common.Cancel</AppButton>
+        }
+    </div>
+</section>
+
+@code {
+    [Parameter] public bool GpsLoading { get; set; }
+    [Parameter] public bool GpsAvailable { get; set; }
+    [Parameter] public bool OutsideZone { get; set; }
+    [Parameter] public bool CanCancel { get; set; }
+    [Parameter] public string? ErrorMessage { get; set; }
+    [Parameter] public EventCallback OnGps { get; set; }
+    [Parameter] public EventCallback OnSelectMap { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+}

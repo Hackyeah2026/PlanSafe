@@ -568,10 +568,10 @@
     <value>Zoom out</value>
   </data>
   <data name="Navigation.Demo" xml:space="preserve">
-    <value>Simulation demo</value>
+    <value>Simulation Demo (debug)</value>
   </data>
   <data name="Navigation.DemoTitle" xml:space="preserve">
-    <value>Simulation demo - PlanSafe</value>
+    <value>Simulation Demo (debug) - PlanSafe</value>
   </data>
   <data name="Navigation.Label" xml:space="preserve">
     <value>Application navigation</value>
@@ -1313,6 +1313,234 @@
   </data>
   <data name="Statistics.Title" xml:space="preserve">
     <value>Analytics and statistics</value>
+  </data>
+  <data name="EvacuationUi.PageTitle" xml:space="preserve">
+    <value>Evacuation - PlanSafe</value>
+  </data>
+  <data name="EvacuationUi.Appearance" xml:space="preserve">
+    <value>Appearance</value>
+  </data>
+  <data name="EvacuationUi.LoadingLabel" xml:space="preserve">
+    <value>Loading evacuation</value>
+  </data>
+  <data name="EvacuationUi.Loading" xml:space="preserve">
+    <value>Loading shelters and the evacuation zone...</value>
+  </data>
+  <data name="EvacuationUi.PlanUnavailable" xml:space="preserve">
+    <value>Evacuation plan unavailable</value>
+  </data>
+  <data name="EvacuationUi.RefreshPage" xml:space="preserve">
+    <value>Refresh page</value>
+  </data>
+  <data name="EvacuationUi.MapLabel" xml:space="preserve">
+    <value>Evacuation zone map</value>
+  </data>
+  <data name="EvacuationUi.MapSelectLabel" xml:space="preserve">
+    <value>Map: select your location inside the evacuation zone</value>
+  </data>
+  <data name="EvacuationUi.MapTools" xml:space="preserve">
+    <value>Map tools</value>
+  </data>
+  <data name="EvacuationUi.FitHint" xml:space="preserve">
+    <value>Show the entire zone and shelters</value>
+  </data>
+  <data name="EvacuationUi.Fit" xml:space="preserve">
+    <value>Fit map</value>
+  </data>
+  <data name="EvacuationUi.Legend" xml:space="preserve">
+    <value>Legend</value>
+  </data>
+  <data name="EvacuationUi.FullShelter" xml:space="preserve">
+    <value>Full shelter</value>
+  </data>
+  <data name="EvacuationUi.Information" xml:space="preserve">
+    <value>Evacuation information</value>
+  </data>
+  <data name="EvacuationUi.YourShelter" xml:space="preserve">
+    <value>Your shelter</value>
+  </data>
+  <data name="EvacuationUi.Details" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="EvacuationUi.Dismiss" xml:space="preserve">
+    <value>Dismiss</value>
+  </data>
+  <data name="EvacuationUi.CorrectionHint" xml:space="preserve">
+    <value>Select your location inside the zone on the map.</value>
+  </data>
+  <data name="EvacuationUi.CancelCorrection" xml:space="preserve">
+    <value>Cancel location correction</value>
+  </data>
+  <data name="EvacuationUi.NotSet" xml:space="preserve">
+    <value>Your location has not been set.</value>
+  </data>
+  <data name="EvacuationUi.RefreshGps" xml:space="preserve">
+    <value>Refresh GPS</value>
+  </data>
+  <data name="EvacuationUi.UseGps" xml:space="preserve">
+    <value>Use GPS</value>
+  </data>
+  <data name="EvacuationUi.SelectMap" xml:space="preserve">
+    <value>Select on map</value>
+  </data>
+  <data name="EvacuationUi.HideMap" xml:space="preserve">
+    <value>Hide map</value>
+  </data>
+  <data name="EvacuationUi.ShowMap" xml:space="preserve">
+    <value>Show map</value>
+  </data>
+  <data name="EvacuationUi.LocationHelp" xml:space="preserve">
+    <value>Location help</value>
+  </data>
+  <data name="EvacuationUi.PreviewHint" xml:space="preserve">
+    <value>The route currently starts at the zone center, not your confirmed location.</value>
+  </data>
+  <data name="EvacuationUi.PickHint" xml:space="preserve">
+    <value>Select your actual location inside the shaded evacuation zone.</value>
+  </data>
+  <data name="EvacuationUi.SelectMyLocation" xml:space="preserve">
+    <value>Select my location on the map</value>
+  </data>
+  <data name="EvacuationUi.FindingLocation" xml:space="preserve">
+    <value>Finding location...</value>
+  </data>
+  <data name="EvacuationUi.RetryGps" xml:space="preserve">
+    <value>Retry GPS</value>
+  </data>
+  <data name="EvacuationUi.Assignment" xml:space="preserve">
+    <value>Shelter assignment</value>
+  </data>
+  <data name="EvacuationUi.Navigate" xml:space="preserve">
+    <value>Navigate in Google Maps</value>
+  </data>
+  <data name="EvacuationUi.NewTab" xml:space="preserve">
+    <value>(opens a new tab)</value>
+  </data>
+  <data name="EvacuationUi.Direction" xml:space="preserve">
+    <value>Direction to shelter</value>
+  </data>
+  <data name="EvacuationUi.BearingHint" xml:space="preserve">
+    <value>Geographic bearing. Check the walking route in navigation.</value>
+  </data>
+  <data name="EvacuationUi.FindingShelter" xml:space="preserve">
+    <value>Finding a shelter...</value>
+  </data>
+  <data name="EvacuationUi.Checking" xml:space="preserve">
+    <value>Checking distance, occupancy, and roadblocks.</value>
+  </data>
+  <data name="EvacuationUi.Where" xml:space="preserve">
+    <value>Where are you?</value>
+  </data>
+  <data name="EvacuationUi.LocationHint" xml:space="preserve">
+    <value>Use GPS or select your location inside the zone on the map.</value>
+  </data>
+  <data name="EvacuationUi.Outside" xml:space="preserve">
+    <value>Your location is outside the evacuation zone.</value>
+  </data>
+  <data name="EvacuationUi.CorrectMap" xml:space="preserve">
+    <value>Correct your location on the map</value>
+  </data>
+  <data name="EvacuationUi.NoShelter" xml:space="preserve">
+    <value>No available shelter</value>
+  </data>
+  <data name="EvacuationUi.NoAssignment" xml:space="preserve">
+    <value>No shelter assignment is available for your location.</value>
+  </data>
+  <data name="EvacuationUi.LoadError" xml:space="preserve">
+    <value>The evacuation plan could not be loaded. Refresh the page to try again.</value>
+  </data>
+  <data name="EvacuationUi.WrongPlan" xml:space="preserve">
+    <value>This evacuation link no longer matches the published plan. Ask the organizer for a current link.</value>
+  </data>
+  <data name="EvacuationUi.Expired" xml:space="preserve">
+    <value>The evacuation session has expired. Contact the emergency services for current information.</value>
+  </data>
+  <data name="EvacuationUi.GpsDenied" xml:space="preserve">
+    <value>Location access is blocked. Allow location access in your browser's site settings, then retry GPS, or select your location on the map.</value>
+  </data>
+  <data name="EvacuationUi.GpsTimeout" xml:space="preserve">
+    <value>Finding your location took too long. Retry GPS or select your location on the map.</value>
+  </data>
+  <data name="EvacuationUi.GpsUnavailable" xml:space="preserve">
+    <value>Your device could not determine your location. Check that location services are on, or select your location on the map.</value>
+  </data>
+  <data name="EvacuationUi.GpsInsecure" xml:space="preserve">
+    <value>GPS requires a secure HTTPS connection. Select your location on the map to continue.</value>
+  </data>
+  <data name="EvacuationUi.GpsUnsupported" xml:space="preserve">
+    <value>This browser does not support GPS. Select your location on the map to continue.</value>
+  </data>
+  <data name="EvacuationUi.GpsError" xml:space="preserve">
+    <value>Your location could not be retrieved. Retry GPS or select your location on the map.</value>
+  </data>
+  <data name="EvacuationUi.WalkingTime" xml:space="preserve">
+    <value>about {0} min on foot</value>
+  </data>
+  <data name="EvacuationUi.Places" xml:space="preserve">
+    <value>{0} / {1} spaces</value>
+  </data>
+  <data name="EvacuationUi.SelectedCoordinates" xml:space="preserve">
+    <value>{0}°N, {1}°E (selected on the map)</value>
+  </data>
+  <data name="EvacuationUx.ExpandPanel" xml:space="preserve">
+    <value>Expand evacuation information</value>
+  </data>
+  <data name="EvacuationUx.CollapsePanel" xml:space="preserve">
+    <value>Collapse evacuation information</value>
+  </data>
+  <data name="EvacuationUx.ConfirmLocation" xml:space="preserve">
+    <value>Confirm your location</value>
+  </data>
+  <data name="EvacuationUx.PickOnMap" xml:space="preserve">
+    <value>Select your location on the map</value>
+  </data>
+  <data name="EvacuationUx.PickInside" xml:space="preserve">
+    <value>Choose a point inside the zone</value>
+  </data>
+  <data name="EvacuationUx.GpsConfirmed" xml:space="preserve">
+    <value>Located using GPS</value>
+  </data>
+  <data name="EvacuationUx.MapConfirmed" xml:space="preserve">
+    <value>Location selected on map</value>
+  </data>
+  <data name="EvacuationUx.ChangeLocation" xml:space="preserve">
+    <value>Change location</value>
+  </data>
+  <data name="EvacuationUx.ShelterDetails" xml:space="preserve">
+    <value>Shelter details</value>
+  </data>
+  <data name="EvacuationUx.OutsideHint" xml:space="preserve">
+    <value>Your location is outside this evacuation zone. Select a point inside the shaded area.</value>
+  </data>
+  <data name="EvacuationUx.GpsPending" xml:space="preserve">
+    <value>Finding your location. You can also select it on the map.</value>
+  </data>
+  <data name="EvacuationUx.LocationHint" xml:space="preserve">
+    <value>Select where you are to find a route to a shelter.</value>
+  </data>
+  <data name="EvacuationUx.GpsDenied" xml:space="preserve">
+    <value>Location access is blocked. Select on the map, or allow location in your browser settings and retry.</value>
+  </data>
+  <data name="EvacuationUx.GpsTimeout" xml:space="preserve">
+    <value>GPS is taking too long. Select your location on the map or try again.</value>
+  </data>
+  <data name="EvacuationUx.GpsUnavailable" xml:space="preserve">
+    <value>GPS could not find your location. Select it on the map or try again.</value>
+  </data>
+  <data name="EvacuationUx.GpsInsecure" xml:space="preserve">
+    <value>GPS needs HTTPS. Select your location on the map to continue.</value>
+  </data>
+  <data name="EvacuationUx.GpsUnsupported" xml:space="preserve">
+    <value>GPS is not supported in this browser. Select your location on the map.</value>
+  </data>
+  <data name="EvacuationUx.GpsError" xml:space="preserve">
+    <value>Location could not be retrieved. Select it on the map or retry GPS.</value>
+  </data>
+  <data name="Shelter.PeopleCount" xml:space="preserve">
+    <value>{0} people</value>
+  </data>
+  <data name="Shelter.PeopleHere" xml:space="preserve">
+    <value>People currently here</value>
   </data>
   <data name="Statistics.AverageSpeed" xml:space="preserve">
     <value>Average speed (mean)</value>

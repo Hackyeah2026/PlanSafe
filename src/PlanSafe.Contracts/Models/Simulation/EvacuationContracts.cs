@@ -33,9 +33,11 @@ public sealed record EvacuationTarget(
 {
     public double CenterX => X + (Width / 2.0);
     public double CenterY => Y + (Height / 2.0);
-    public double OccupancyRatio => Capacity > 0 ? (double)CurrentOccupancy / Capacity : 1.0;
-    public bool IsFull => CurrentOccupancy >= Capacity;
-    public int AvailableCapacity => Math.Max(0, Capacity - CurrentOccupancy);
+    // A non-positive capacity represents an open safe zone with no occupancy limit.
+    public bool HasCapacityLimit => Capacity > 0;
+    public double OccupancyRatio => Capacity > 0 ? (double)CurrentOccupancy / Capacity : 0.0;
+    public bool IsFull => HasCapacityLimit && CurrentOccupancy >= Capacity;
+    public int? AvailableCapacity => HasCapacityLimit ? Math.Max(0, Capacity - CurrentOccupancy) : null;
 }
 
 /// <summary>
