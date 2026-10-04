@@ -1,34 +1,57 @@
 @using PlanSafe.Contracts.Models.Simulation
 @inject IJSRuntime JS
 
-<div class="plan-share @(Projector ? "plan-share--projector" : "")">
-    <div class="share-heading">
-        <span class="share-status"><UiIcon Kind="UiIconKind.Shield" /> @L.Publish.Ready</span>
-        <h3>@L.Publish.Scan</h3>
-    </div>
-    <div class="share-qr" role="img" aria-label="@L.Publish.QrLabel">@((MarkupString)WrapSvgResponsive(Plan.QrCodeSvg))</div>
-    <p class="share-session ui-muted">@L.Publish.CodeLabel <strong>@Plan.SessionId</strong></p>
-    <div class="share-link">
-        <label for="@linkId">@L.Publish.LinkLabel</label>
-        <input id="@linkId" type="text" class="app-input" readonly value="@Plan.EvacuateUrl" />
-        @if (Projector)
-        {
-            <p class="share-projector-url">@Plan.EvacuateUrl</p>
-        }
-        <div class="share-actions">
-            <AppButton OnClick="CopyUrlAsync">@(copied ? L.Publish.LinkCopied : L.Publish.CopyLink)</AppButton>
-            <a class="app-button app-button--primary" href="@Plan.EvacuateUrl" target="_blank" rel="noopener">@L.Publish.NextPerson <UiIcon Kind="UiIconKind.ArrowRight" /></a>
+@if (Projector)
+{
+    <div class="fullscreen-qr-view">
+        <button type="button" 
+                class="fullscreen-qr-close" 
+                data-dialog-close 
+                aria-label="@L.Publish.CloseProjector" 
+                @onclick="HandleCloseProjector">
+            <UiIcon Kind="UiIconKind.Close" />
+        </button>
+        <div class="fullscreen-qr-frame" role="img" aria-label="@L.Publish.QrLabel">
+            @((MarkupString)WrapSvgResponsive(Plan.QrCodeSvg))
         </div>
-        <span class="share-feedback ui-muted" role="status">@(feedback?.Invoke())</span>
     </div>
-</div>
+}
+else
+{
+    <div class="plan-share">
+        <div class="share-heading">
+            <span class="share-status"><UiIcon Kind="UiIconKind.Shield" /> @L.Publish.Ready</span>
+            <h3>@L.Publish.Scan</h3>
+        </div>
+        <div class="share-qr" role="img" aria-label="@L.Publish.QrLabel">@((MarkupString)WrapSvgResponsive(Plan.QrCodeSvg))</div>
+        <p class="share-session ui-muted">@L.Publish.CodeLabel <strong>@Plan.SessionId</strong></p>
+        <div class="share-link">
+            <label for="@linkId">@L.Publish.LinkLabel</label>
+            <input id="@linkId" type="text" class="app-input" readonly value="@Plan.EvacuateUrl" />
+            <div class="share-actions">
+                <AppButton OnClick="CopyUrlAsync">@(copied ? L.Publish.LinkCopied : L.Publish.CopyLink)</AppButton>
+                <a class="app-button app-button--primary" href="@Plan.EvacuateUrl" target="_blank" rel="noopener">@L.Publish.NextPerson <UiIcon Kind="UiIconKind.ArrowRight" /></a>
+            </div>
+            <span class="share-feedback ui-muted" role="status">@(feedback?.Invoke())</span>
+        </div>
+    </div>
+}
 
 @code {
     [Parameter, EditorRequired] public PublishPlanResponse Plan { get; set; } = default!;
     [Parameter] public bool Projector { get; set; }
+    [Parameter] public EventCallback OnCloseProjector { get; set; }
     private readonly string linkId = $"plan-link-{Guid.NewGuid():N}";
     private bool copied;
     private Func<string?>? feedback;
+
+    private async Task HandleCloseProjector()
+    {
+        if (OnCloseProjector.HasDelegate)
+        {
+            await OnCloseProjector.InvokeAsync();
+        }
+    }
 
     private async Task CopyUrlAsync()
     {

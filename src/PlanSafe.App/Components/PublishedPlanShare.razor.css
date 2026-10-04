@@ -72,19 +72,95 @@
 .share-feedback {
   font-size: 0.8rem;
 }
-.plan-share--projector .share-qr {
-  /* Reserve room for the dialog header, sharing controls, footer, and outer margins. */
-  width: min(440px, max(120px, calc(100dvh - 560px)), 100%);
+.fullscreen-qr-view {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
 }
-.plan-share--projector h3 {
-  font-size: clamp(1.4rem, 3vw, 2.3rem);
-}
-.plan-share--projector .share-session {
-  font-size: 1.2rem;
-}
-.share-projector-url {
+
+.fullscreen-qr-close {
+  position: fixed;
+  top: clamp(16px, 3vmin, 32px);
+  right: clamp(16px, 3vmin, 32px);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  cursor: pointer;
+  padding: 0;
   margin: 0;
-  overflow-wrap: anywhere;
-  text-align: center;
-  color: var(--ui-info);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  z-index: 100;
+}
+
+.fullscreen-qr-close:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.55);
+  transform: scale(1.08);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55);
+  color: #ffffff;
+}
+
+.fullscreen-qr-close:active {
+  transform: scale(0.94);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.fullscreen-qr-close:focus-visible {
+  outline: 3px solid var(--ui-accent, #38bdf8);
+  outline-offset: 3px;
+}
+
+.fullscreen-qr-frame {
+  width: min(calc(100vw - 48px), calc(100dvh - 48px));
+  height: min(calc(100vw - 48px), calc(100dvh - 48px));
+  aspect-ratio: 1;
+  background: #ffffff;
+  border-radius: 24px;
+  padding: clamp(16px, 3.5vmin, 40px);
+  box-shadow: 0 25px 70px -10px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.fullscreen-qr-frame svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+@media (max-width: 600px) {
+  .fullscreen-qr-view {
+    padding: 12px;
+  }
+  .fullscreen-qr-frame {
+    width: min(calc(100vw - 24px), calc(100dvh - 24px));
+    height: min(calc(100vw - 24px), calc(100dvh - 24px));
+    border-radius: 16px;
+    padding: 12px;
+  }
+  .fullscreen-qr-close {
+    top: 14px;
+    right: 14px;
+    width: 44px;
+    height: 44px;
+    font-size: 1.2rem;
+  }
 }

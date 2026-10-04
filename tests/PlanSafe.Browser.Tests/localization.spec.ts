@@ -210,4 +210,17 @@ test("publishing and sharing work in Polish and English", async ({ page }) => {
     dialog.getByRole("link", { name: "Evacuate next person" }),
   ).toHaveAttribute("href", /session=LANGTEST$/);
   await expect(dialog).toContainText("LANGTEST");
+
+  await dialog.getByRole("button", { name: "Projector", exact: true }).click();
+  await expect(dialog.getByRole("heading")).not.toBeVisible();
+  await expect(dialog.getByRole("link")).not.toBeVisible();
+  await expect(dialog).not.toContainText("LANGTEST");
+
+  const closeProjectorBtn = dialog.getByRole("button", { name: "Close projector" });
+  await expect(closeProjectorBtn).toBeVisible();
+  await closeProjectorBtn.click();
+
+  await expect(
+    dialog.getByRole("heading", { name: "Share evacuation plan" }),
+  ).toBeVisible();
 });
