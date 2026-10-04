@@ -36,8 +36,8 @@ struct SimParams {
     potRows: u32,
     potCellSize: f32,
     pad0: u32,
-    pad1: u32,
-    pad2: u32,
+    routingEnabled: u32,
+    safeZoneCount: u32,
 };
 
 @group(0) @binding(0) var<storage, read_write> agents: array<Agent>;
@@ -185,8 +185,9 @@ fn nearestRecoveryStreet(pos: vec2<f32>, radius: f32, agentIndex: u32) -> vec2<f
 }
 
 // Bilinear gradient interpolation matching C# GetFlowDirection exactly
-fn getFlowDirection(pos: vec2<f32>) -> vec2<f32> {
+fn getFlowDirection(pos: vec2<f32>, assignedTarget: i32) -> vec2<f32> {
     let pCols = params.potCols;
+    let fieldOffset = select(0u, (u32(max(0, assignedTarget)) + 1u) * params.potCols * params.potRows, params.routingEnabled == 1u && assignedTarget >= 0);
     let pRows = params.potRows;
     let invCellW = 1.0 / params.potCellSize;
     let invCellH = 1.0 / params.potCellSize;
@@ -205,10 +206,10 @@ fn getFlowDirection(pos: vec2<f32>) -> vec2<f32> {
     let idx01 = idx00 + pCols;
     let idx11 = idx01 + 1u;
 
-    let p00 = potentialGrid[idx00];
-    let p10 = potentialGrid[idx10];
-    let p01 = potentialGrid[idx01];
-    let p11 = potentialGrid[idx11];
+    let p00 = potentialGrid[fieldOffset + idx00];
+    let p10 = potentialGrid[fieldOffset + idx10];
+    let p01 = potentialGrid[fieldOffset + idx01];
+    let p11 = potentialGrid[fieldOffset + idx11];
 
     let maxValidPot = 1.7014117e38;
     let v00 = p00 < maxValidPot;
@@ -220,7 +221,7 @@ fn getFlowDirection(pos: vec2<f32>) -> vec2<f32> {
     let nearestRow = clamp(i32(round(v)), 0, i32(pRows) - 1);
     let nearestIdx = u32(nearestRow * i32(pCols) + nearestCol);
 
-    if (potentialGrid[nearestIdx] >= maxValidPot || (!v00 && !v10 && !v01 && !v11)) {
+    if (potentialGrid[fieldOffset + nearestIdx] >= maxValidPot || (!v00 && !v10 && !v01 && !v11)) {
         var bestPot = maxValidPot;
         var bestDx = 1.0;
         var bestDy = 0.0;
@@ -230,7 +231,7 @@ fn getFlowDirection(pos: vec2<f32>) -> vec2<f32> {
             let nr = nearestRow + rOffsets[k];
             if (nc >= 0 && nc < i32(pCols) && nr >= 0 && nr < i32(pRows)) {
                 let nIdx = u32(nr * i32(pCols) + nc);
-                let nPot = potentialGrid[nIdx];
+                let nPot = potentialGrid[fieldOffset + nIdx];
                 if (nPot < bestPot) {
                     bestPot = nPot;
                     bestDx = f32(cOffsets[k]);
@@ -302,6 +303,7 @@ fn getFlowDirection(pos: vec2<f32>) -> vec2<f32> {
     var direction = vec2<f32>(1.0, 0.0);
     for (var e = 0u; e < params.numExits; e++) {
         let z = exits[e];
+        if (params.routingEnabled == 1u && assignedTarget >= 0 && i32(z.w) != assignedTarget) { continue; }
         let center = select(z.xy + z.zw * 0.5, z.xy, params.isMap == 1u);
         let delta = center - pos;
         let dist = dot(delta, delta);
@@ -411,7 +413,12 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if (agent.flags == 0u) { return; }
 
     // 1. Flow direction from potential field (bilinear gradient)
-    let flowDirection = getFlowDirection(agent.pos);
+    var assignedTarget = -1;
+    if (params.isMap == 1u && params.routingEnabled == 1u) {
+        let assignmentsOffset = (params.safeZoneCount + 1u) * params.potCols * params.potRows;
+        assignedTarget = i32(potentialGrid[assignmentsOffset + i]);
+    }
+    let flowDirection = getFlowDirection(agent.pos, assignedTarget);
 
     let currentSpeed = length(agent.vel);
     let hasSignificantVelocity = currentSpeed > 0.05;
@@ -960,6 +967,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let nearExit = (blockedRaster[u32(exitCell.y) * params.mapCols + u32(exitCell.x)] & 4u) != 0u;
         for (var e = 0u; nearExit && e < params.numExits; e++) {
             let exit = exits[e];
+            if (params.routingEnabled == 1u && assignedTarget >= 0 && i32(exit.w) != assignedTarget) { continue; }
             let reach = exit.z + catchMargin;
             if (abs(agent.pos.x - exit.x) <= reach && abs(agent.pos.y - exit.y) <= reach) {
                 agent.radius = 0.0;

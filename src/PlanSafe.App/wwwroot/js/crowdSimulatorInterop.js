@@ -1568,6 +1568,11 @@ export function initSimulator(canvasRef, mapContainerId = null) {
       );
       if (gpuMapSnapshot) gpuMapSnapshot.socialRepulsionWeight = value;
     },
+    setMapRoutingGpu: async function (snapshot) {
+      if (!gpuEngine || !isGpuReady) return;
+      await gpuEngine.updateMapRouting(snapshot);
+      gpuMapSnapshot = snapshot;
+    },
     isWebGpuSupported: function () {
       return isWebGpuSupported();
     },

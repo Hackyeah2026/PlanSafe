@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
 
+test.beforeEach(async ({ context }) => {
+  await context.addInitScript(() =>
+    localStorage.setItem("plansafe.map-tour.v1", "seen"),
+  );
+});
+
 for (const engine of ["wasm", "webgpu"] as const) {
   test(`map edits rebuild navigation and preserve playback: ${engine}`, async ({
     page,
@@ -10,6 +16,7 @@ for (const engine of ["wasm", "webgpu"] as const) {
       route.fulfill({ status: 204 }),
     );
     await page.addInitScript((engine) => {
+      localStorage.setItem("plansafe.map-tour.v1", "seen");
       localStorage.setItem("plansafe.language.v1", "en");
       localStorage.setItem("plansafe_simulation_engine", engine);
       localStorage.setItem(
@@ -45,13 +52,15 @@ for (const engine of ["wasm", "webgpu"] as const) {
     await page
       .getByRole("button", { name: "Start simulation", exact: true })
       .click();
-    await expect(page.getByTestId("map-simulation-engine")).toHaveAttribute(
-      "data-engine",
-      engine,
-    );
+    // Terrain and engine initialization can exceed the default assertion timeout.
     await expect(page.locator(".map-module-layout")).toHaveAttribute(
       "aria-busy",
       "false",
+      { timeout: 60_000 },
+    );
+    await expect(page.getByTestId("map-simulation-engine")).toHaveAttribute(
+      "data-engine",
+      engine,
     );
     const time = async () =>
       parseFloat((await page.locator(".sim-time-text").textContent())!);

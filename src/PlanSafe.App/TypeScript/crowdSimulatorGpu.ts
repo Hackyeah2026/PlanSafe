@@ -12,6 +12,7 @@ import {
 import type { CoreCommandValues } from "./crowdCoreCommand.js";
 import { GpuTelemetryReader } from "./gpuTelemetryReader.js";
 import { GpuAgentRenderer } from "./gpuAgentRenderer.js";
+import { assignMapSafeZones } from "./mapSafeZoneRouting.js";
 import {
   type BrowserCoreCommand,
   type ISimulationEngine,
@@ -66,6 +67,11 @@ export interface MapGpuSnapshot {
   agents: Uint8Array;
   fields: Uint8Array;
   blocked: Uint8Array;
+  routingFields?: Uint8Array | string | null;
+  exitTargets?: number[] | null;
+  weightDistance?: number;
+  weightOccupancy?: number;
+  safeZoneIds?: string[] | null;
 }
 
 export {
@@ -172,6 +178,11 @@ export class GpuSimulationEngine implements ISimulationEngine {
 
   private exitsBuffer: GPUBuffer | undefined;
   private mapBlockedBuffer: GPUBuffer | undefined;
+  private mapRoutingBuffer: GPUBuffer | undefined;
+  private mapRoutingTargetCount = 0;
+  private mapAssignedTargets?: Float32Array;
+  private mapExitTargets?: number[];
+  private mapSafeZoneIds?: string[];
   private isMapScenario = false;
   private mapScenario: ParsedMapScenario | null = null;
   private mapCols = 100;
@@ -866,8 +877,8 @@ export class GpuSimulationEngine implements ISimulationEngine {
     u32[27] = this.potRows;
     f32[28] = this.potCellSize;
     u32[29] = this.isMapScenario && this.mapRecoveryAvailable ? 1 : 0;
-    u32[30] = 0;
-    u32[31] = 0;
+    u32[30] = this.mapRoutingBuffer ? 1 : 0;
+    u32[31] = this.mapRoutingTargetCount;
 
     this.device.queue.writeBuffer(this.paramsBuffer, 0, buf);
   }
@@ -1031,7 +1042,10 @@ export class GpuSimulationEngine implements ISimulationEngine {
         { binding: 1, resource: { buffer: this.cellCountsBuffer } },
         { binding: 2, resource: { buffer: this.cellAgentsBuffer } },
         { binding: 3, resource: { buffer: this.paramsBuffer } },
-        { binding: 4, resource: { buffer: this.potentialBufferA } },
+        {
+          binding: 4,
+          resource: { buffer: this.mapRoutingBuffer ?? this.potentialBufferA },
+        },
         { binding: 5, resource: { buffer: this.smoothedDensityBuffer } },
         { binding: 6, resource: { buffer: blockedRes } },
         { binding: 7, resource: { buffer: exitsRes } },
@@ -1678,6 +1692,13 @@ export class GpuSimulationEngine implements ISimulationEngine {
           let minExitDist = Infinity;
           if (this.mapScenario) {
             for (let e = 0; e < this.mapScenario.exits.length; e++) {
+              const assigned = this.mapAssignedTargets?.[i];
+              if (
+                assigned !== undefined &&
+                assigned >= 0 &&
+                this.mapExitTargets?.[e] !== assigned
+              )
+                continue;
               const ex = this.mapScenario.exits[e];
               const dx = target[i] - ex.x;
               const dy = target[count + i] - ex.y;
@@ -1759,6 +1780,10 @@ export class GpuSimulationEngine implements ISimulationEngine {
       new Float32Array(snapshot.agents.slice().buffer),
     );
     this.initialDensityPending = false;
+    this.configureMapRouting(
+      snapshot,
+      new Float32Array(snapshot.agents.slice().buffer),
+    );
     this.updateSimParams();
   }
 
@@ -1772,8 +1797,11 @@ export class GpuSimulationEngine implements ISimulationEngine {
       throw new Error("A GPU map simulation is required.");
     await this.tickWork;
     await this.syncInFlight(0);
+    await this.capturePreview();
     const previousExits = this.mapScenario.exits;
     const previousCounts = this.evacuatedPerExit;
+    const previousExitTargets = this.mapExitTargets;
+    const previousSafeZoneIds = this.mapSafeZoneIds;
     if (offsetX !== 0 || offsetY !== 0) {
       await this.translateMapBuffer(this.agentsBuffer!, 8, offsetX, offsetY);
       await this.translateMapBuffer(this.recoveryBuffer!, 4, offsetX, offsetY);
@@ -1783,12 +1811,23 @@ export class GpuSimulationEngine implements ISimulationEngine {
     this.evacuatedPerExit = new Array(this.numExits).fill(0);
     for (let index = 0; index < previousExits.length; index++) {
       const exit = previousExits[index];
-      const newIndex = this.mapScenario.exits.findIndex(
+      let newIndex = this.mapScenario.exits.findIndex(
         (candidate) =>
           Math.abs(candidate.x - exit.x - offsetX) < 0.01 &&
           Math.abs(candidate.y - exit.y - offsetY) < 0.01 &&
           candidate.radius === exit.radius,
       );
+      if (
+        newIndex < 0 &&
+        previousExitTargets &&
+        previousSafeZoneIds &&
+        snapshot.safeZoneIds &&
+        snapshot.exitTargets
+      ) {
+        const previousId = previousSafeZoneIds[previousExitTargets[index]];
+        const target = snapshot.safeZoneIds.indexOf(previousId);
+        if (target >= 0) newIndex = snapshot.exitTargets.indexOf(target);
+      }
       if (newIndex >= 0)
         this.evacuatedPerExit[newIndex] += previousCounts[index];
     }
@@ -1799,6 +1838,93 @@ export class GpuSimulationEngine implements ISimulationEngine {
     this.updateSimParams();
     await this.advanceGpuTicks(0, true);
     await this.syncInFlight(0);
+    await this.updateMapRouting(snapshot);
+  }
+
+  /** Reassigns destinations from current GPU positions without resetting the simulation. */
+  async updateMapRouting(snapshot: MapGpuSnapshot): Promise<void> {
+    await this.tickWork;
+    await this.syncInFlight(0);
+    const preview = await this.capturePreview();
+    const agents = new Float32Array(this.activeCount * 8);
+    for (let agent = 0; agent < this.activeCount; agent++) {
+      agents[agent * 8] = preview.values[agent];
+      agents[agent * 8 + 1] = preview.values[this.activeCount + agent];
+      agents[agent * 8 + 4] = preview.values[4 * this.activeCount + agent];
+    }
+    this.configureMapRouting(snapshot, agents);
+    this.updateSimParams();
+  }
+
+  private configureMapRouting(
+    snapshot: MapGpuSnapshot,
+    agents: Float32Array,
+  ): void {
+    this.mapRoutingBuffer?.destroy();
+    this.mapRoutingBuffer = undefined;
+    this.mapRoutingTargetCount = 0;
+    this.mapAssignedTargets = undefined;
+    this.mapExitTargets = snapshot.exitTargets ?? undefined;
+    this.mapSafeZoneIds = snapshot.safeZoneIds ?? undefined;
+    if (
+      snapshot.routingFields &&
+      snapshot.exitTargets &&
+      (snapshot.weightOccupancy ?? 0) > 0
+    ) {
+      const bytes =
+        typeof snapshot.routingFields === "string"
+          ? Uint8Array.from(atob(snapshot.routingFields), (char) =>
+              char.charCodeAt(0),
+            )
+          : snapshot.routingFields;
+      const fields = new Float32Array(bytes.slice().buffer);
+      const cells = this.potCols * this.potRows;
+      const assignments = assignMapSafeZones(
+        fields,
+        agents,
+        this.potCols,
+        this.potRows,
+        this.potCellSize,
+        snapshot.exitTargets,
+        this.evacuatedPerExit,
+        snapshot.weightDistance ?? 1,
+        snapshot.weightOccupancy ?? 0,
+        this.worldWidth,
+        this.worldHeight,
+      );
+      this.mapAssignedTargets = assignments;
+      this.mapExitTargets = snapshot.exitTargets;
+      this.mapRoutingTargetCount = fields.length / cells;
+      const packed = new Float32Array(
+        cells + fields.length + assignments.length,
+      );
+      packed.set(fields, cells);
+      packed.set(assignments, cells + fields.length);
+      this.mapRoutingBuffer = this.device!.createBuffer({
+        size: packed.byteLength,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      });
+      this.device!.queue.writeBuffer(this.mapRoutingBuffer, 0, packed);
+      const encoder = this.device!.createCommandEncoder();
+      encoder.copyBufferToBuffer(
+        this.potentialBufferA!,
+        0,
+        this.mapRoutingBuffer,
+        0,
+        cells * 4,
+      );
+      this.device!.queue.submit([encoder.finish()]);
+      const exits = new Float32Array(Math.max(1, this.numExits) * 4);
+      for (let exit = 0; exit < this.numExits; exit++) {
+        const zone = this.mapScenario!.exits[exit];
+        exits.set(
+          [zone.x, zone.y, zone.radius, snapshot.exitTargets[exit]],
+          exit * 4,
+        );
+      }
+      this.device!.queue.writeBuffer(this.exitsBuffer!, 0, exits);
+    }
+    this.recreateSpatialBindGroups();
   }
 
   private async translateMapBuffer(
@@ -2092,6 +2218,7 @@ export class GpuSimulationEngine implements ISimulationEngine {
     this.potentialBufferB?.destroy();
     this.exitsBuffer?.destroy();
     this.mapBlockedBuffer?.destroy();
+    this.mapRoutingBuffer?.destroy();
     this.kdeParamsBuffer?.destroy();
     this.kdeDepositMassBuffer?.destroy();
     this.kdeDepositSpeedBuffer?.destroy();
