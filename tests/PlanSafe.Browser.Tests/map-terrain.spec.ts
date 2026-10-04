@@ -4,6 +4,12 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import type { GpuTestEngine } from "./gpu-types.js";
 
+test.beforeEach(async ({ context }) => {
+  await context.addInitScript(() =>
+    localStorage.setItem("plansafe.map-tour.v1", "seen"),
+  );
+});
+
 declare global {
   interface Window {
     terrainBlockedCells?: number;

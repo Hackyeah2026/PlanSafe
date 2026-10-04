@@ -1,6 +1,12 @@
 import { expect, test } from "@playwright/test";
 import assert from "node:assert/strict";
 
+test.beforeEach(async ({ context }) => {
+  await context.addInitScript(() =>
+    localStorage.setItem("plansafe.map-tour.v1", "seen"),
+  );
+});
+
 declare global {
   interface Window {
     mapPerformance: { maxHeartbeatMs: number; draws: number };

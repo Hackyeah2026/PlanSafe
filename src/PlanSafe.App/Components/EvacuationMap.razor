@@ -47,8 +47,17 @@
                 OnExit="StopSimulation" />
         }
 
+        @if (_tourPreview)
+        {
+            @* Tour-only illustration: no simulation state or action callbacks are connected. *@
+            <div class="map-tour-controls-preview" hidden inert aria-hidden="true">
+                <SimulationControlBar />
+            </div>
+        }
+
         <div class="map-drawing-toolbar">
-            <MapDrawingTools Category="@_activeCategory" Shape="@_selectedShape" DrawMode="@_activeDrawMode"
+            <AppButton Class="map-tour-replay" OnClick="ReplayMapTour" Disabled='@(!_tourReady || _isStarting || _isSimulating || _tourPreview || _activeDrawMode != "none")' aria-label="@L.Tour.Replay">? <span>@L.Tour.Replay</span></AppButton>
+            <MapDrawingTools TourPreview="@_tourPreview" Category="@_activeCategory" Shape="@_selectedShape" DrawMode="@_activeDrawMode"
                              Hint="@_activeDrawHint" PointCount="@_currentPointCount"
                              OnCategory="SelectCategory" OnShape="SelectShape" OnFinish="FinishPolygon" OnCancel="CancelDrawing" />
         </div>

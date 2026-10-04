@@ -643,7 +643,7 @@ public partial class SimulationDemo : IAsyncDisposable
         publishedPlan = new PublishPlanResponse(
             SessionId: Guid.NewGuid().ToString("N")[..8],
             EvacuateUrl: evacuateUrl,
-            QrCodeSvg: GenerateSimpleQrCodeSvg(evacuateUrl),
+            QrCodeSvg: PlanSafe.Contracts.QrCodeSvg.Generate(evacuateUrl),
             CreatedAtUtc: DateTime.UtcNow
         );
 
@@ -662,67 +662,6 @@ public partial class SimulationDemo : IAsyncDisposable
         if (value is null) return false;
         var str = value.ToString()?.Trim().Replace(',', '.');
         return double.TryParse(str, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out result);
-    }
-
-    private static string GenerateSimpleQrCodeSvg(string url)
-    {
-        int size = 25;
-        bool[,] grid = new bool[size, size];
-
-        void DrawFinder(int r0, int c0)
-        {
-            for (int r = 0; r < 7; r++)
-            {
-                for (int c = 0; c < 7; c++)
-                {
-                    bool border = (r == 0 || r == 6 || c == 0 || c == 6);
-                    bool center = (r >= 2 && r <= 4 && c >= 2 && c <= 4);
-                    grid[r0 + r, c0 + c] = border || center;
-                }
-            }
-        }
-        DrawFinder(0, 0);
-        DrawFinder(0, size - 7);
-        DrawFinder(size - 7, 0);
-
-        for (int i = 8; i < size - 8; i++)
-        {
-            grid[6, i] = (i % 2 == 0);
-            grid[i, 6] = (i % 2 == 0);
-        }
-
-        uint hash = 2166136261;
-        foreach (char ch in url) hash = (hash ^ ch) * 16777619;
-        var rng = new Random((int)hash);
-
-        for (int r = 0; r < size; r++)
-        {
-            for (int c = 0; c < size; c++)
-            {
-                bool inFinder = (r < 8 && c < 8) || (r < 8 && c >= size - 8) || (r >= size - 8 && c < 8);
-                bool inTiming = (r == 6 || c == 6);
-                if (!inFinder && !inTiming)
-                {
-                    grid[r, c] = (rng.Next(100) < 48);
-                }
-            }
-        }
-
-        var sb = new System.Text.StringBuilder();
-        sb.Append($"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 {size + 4} {size + 4}\" shape-rendering=\"crispEdges\">");
-        sb.Append($"<rect width=\"{size + 4}\" height=\"{size + 4}\" fill=\"white\"/>");
-        for (int r = 0; r < size; r++)
-        {
-            for (int c = 0; c < size; c++)
-            {
-                if (grid[r, c])
-                {
-                    sb.Append($"<rect x=\"{c + 2}\" y=\"{r + 2}\" width=\"1\" height=\"1\" fill=\"black\"/>");
-                }
-            }
-        }
-        sb.Append("</svg>");
-        return sb.ToString();
     }
 
     public async ValueTask DisposeAsync()

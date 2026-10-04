@@ -90,6 +90,7 @@ public sealed class EvacuationStateServiceTests
         Assert.StartsWith("<svg", response.QrCodeSvg, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("viewBox=", response.QrCodeSvg, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("</svg>", response.QrCodeSvg, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(response.EvacuateUrl, QrCodeSvgTests.DecodeSvg(response.QrCodeSvg));
     }
 
     [Fact]

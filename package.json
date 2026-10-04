@@ -5,7 +5,7 @@
   "scripts": {
     "prepare": "[ ! -e .git ] || git config --local core.hooksPath .githooks",
     "hooks:install": "git config --local core.hooksPath .githooks",
-    "build": "node scripts/build-localization.mjs && tsc -p tsconfig.json",
+    "build": "node scripts/build-localization.mjs && node scripts/build-tour.mjs && tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:parity": "node --test scripts/test-physics-parity.ts",
     "test:potential": "npm run build && node --test scripts/test-potential-parity.ts",
@@ -31,5 +31,8 @@
   },
   "workspaces": [
     "tests/PlanSafe.Browser.Tests"
-  ]
+  ],
+  "dependencies": {
+    "driver.js": "1.9.0"
+  }
 }

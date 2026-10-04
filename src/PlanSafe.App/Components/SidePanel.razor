@@ -45,13 +45,13 @@
         </div>
 
         <footer class="command-actions" aria-label="@L.Simulation.Controls">
-            <AppButton OnClick="OnConfigureSimulation" title="@L.Simulation.OpenSettings">
+            <AppButton data-map-tour="settings" OnClick="OnConfigureSimulation" title="@L.Simulation.OpenSettings">
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5h5m4 0h9M3 12h11m4 0h3M3 19h3m4 0h11" /><circle cx="10" cy="5" r="2" /><circle cx="16" cy="12" r="2" /><circle cx="8" cy="19" r="2" /></svg> @L.Simulation.Settings
             </AppButton>
-            <AppButton Tone="ButtonTone.Primary" OnClick="OnStartSimulation" Disabled="@CensusLoading">
+            <AppButton data-map-tour="simulation" Tone="ButtonTone.Primary" OnClick="OnStartSimulation" Disabled="@CensusLoading">
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM10 7l7 5-7 5Z" /></svg> @(IsSimulating ? L.Simulation.StopAction : L.Simulation.StartAction)
             </AppButton>
-            <AppButton OnClick="OnStartEvacuation"><UiIcon Kind="UiIconKind.Warning" /> @L.Evacuation.Start</AppButton>
+            <AppButton data-map-tour="evacuation" OnClick="OnStartEvacuation"><UiIcon Kind="UiIconKind.Warning" /> @L.Evacuation.Start</AppButton>
         </footer>
     </ChildContent>
 </CollapsibleMapPanel>

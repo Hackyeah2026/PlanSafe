@@ -556,6 +556,36 @@ export const TextKeys = {
     TimeLabel: "Statistics.TimeLabel",
     Title: "Statistics.Title",
   },
+  Tour: {
+    Back: "Tour.Back",
+    BlockadeBody: "Tour.BlockadeBody",
+    BlockadeTitle: "Tour.BlockadeTitle",
+    CircleBody: "Tour.CircleBody",
+    CircleTitle: "Tour.CircleTitle",
+    Close: "Tour.Close",
+    ControlsBody: "Tour.ControlsBody",
+    ControlsTitle: "Tour.ControlsTitle",
+    Done: "Tour.Done",
+    EvacuationBody: "Tour.EvacuationBody",
+    EvacuationTitle: "Tour.EvacuationTitle",
+    Next: "Tour.Next",
+    PolygonBody: "Tour.PolygonBody",
+    PolygonTitle: "Tour.PolygonTitle",
+    Progress: "Tour.Progress",
+    RemoveBody: "Tour.RemoveBody",
+    RemoveTitle: "Tour.RemoveTitle",
+    Replay: "Tour.Replay",
+    SafeBody: "Tour.SafeBody",
+    SafeTitle: "Tour.SafeTitle",
+    SettingsBody: "Tour.SettingsBody",
+    SettingsTitle: "Tour.SettingsTitle",
+    SimulationBody: "Tour.SimulationBody",
+    SimulationTitle: "Tour.SimulationTitle",
+    WelcomeBody: "Tour.WelcomeBody",
+    WelcomeTitle: "Tour.WelcomeTitle",
+    ZoneBody: "Tour.ZoneBody",
+    ZoneTitle: "Tour.ZoneTitle",
+  },
 } as const;
 type Domains = typeof TextKeys;
 export type TextKey = {
@@ -1148,4 +1178,43 @@ export const englishText: Record<TextKey, string> = {
   "Statistics.ChartKey": "Chart key",
   "Statistics.StandardDeviation": "Mean +/- 1 standard deviation",
   "Statistics.ReferenceThresholds": "Reference thresholds",
+  "Tour.Replay": "Map tour",
+  "Tour.Next": "Next",
+  "Tour.Back": "Back",
+  "Tour.Done": "Start planning",
+  "Tour.Close": "Close tour",
+  "Tour.Progress": "{{current}} of {{total}}",
+  "Tour.WelcomeTitle": "Plan a safe evacuation with PlanSafe",
+  "Tour.WelcomeBody":
+    "Define evacuation areas, choose safe destinations and mark blocked routes. Test how people reach safety, then share your plan.",
+  "Tour.ZoneTitle": "1. Where are people leaving?",
+  "Tour.ZoneBody":
+    "Evacuation zones are areas people need to leave. Choose the “Evacuation zone” tool, then Polygon or Circle. The number of residents comes from census data for these zones. You can set a custom number in Settings; we'll show you where to find them shortly.",
+  "Tour.SafeTitle": "2. Where should they go?",
+  "Tour.SafeBody":
+    "Safe locations are destinations for evacuees. Use this green tool to draw a polygon or circle. Add a reachable safe location to give people somewhere to go.",
+  "Tour.BlockadeTitle": "3. Mark blocked passages",
+  "Tour.BlockadeBody":
+    "Blockades are line barriers that people must avoid. Select Blockade, click the start of the barrier on the map, then click its end. Use them to represent closed streets or inaccessible passages.",
+  "Tour.PolygonTitle": "Draw a polygon",
+  "Tour.PolygonBody":
+    "Choose Evacuation zone or Safe location, then Polygon. Click at least three corners on the map: the third creates the area. Keep clicking to add corners, then choose Done to finish.",
+  "Tour.CircleTitle": "Draw a circle in two clicks",
+  "Tour.CircleBody":
+    "Choose Evacuation zone or Safe location, then Circle. Click once to place the centre, move the pointer to set the radius, then click again to confirm. On touch screens, tap the centre and then the edge.",
+  "Tour.RemoveTitle": "Remove an element",
+  "Tour.RemoveBody":
+    "Switch to Navigate, then click a zone, safe location or blockade on the map. Its popup shows the element details and a Remove button.",
+  "Tour.SettingsTitle": "Tune your scenario",
+  "Tour.SettingsBody":
+    "Configuration lets you choose census data or a custom population, simulation speed and frame rate. Balance distance against shelter occupancy when assigning destinations, and switch between people, speed and density views.",
+  "Tour.SimulationTitle": "Test your plan",
+  "Tour.SimulationBody":
+    "This button runs the crowd movement model using your zones, safe locations, blockades and settings. First, add an evacuation zone and a safe destination. Watch movement and evacuation progress; you can pause playback, change its speed and inspect statistics. You can adjust map elements and settings and run the simulation as many times as you need.",
+  "Tour.EvacuationTitle": "Share the evacuation plan",
+  "Tour.EvacuationBody":
+    "Start evacuation opens a review of your plan. From there, Publish plan creates a shareable link and QR code for the citizen view. Opening this button does not publish automatically. Replay this guide any time with Map tour.",
+  "Tour.ControlsTitle": "Simulation controls",
+  "Tour.ControlsBody":
+    "This panel lets you control a running simulation. The counter shows elapsed time and evacuation progress. Play/Pause controls playback; Step advances the simulation by one step while paused, and Reset starts the run again. Switch between people, speed and density views. The speed button changes the playback rate, including MAX. The chart opens statistics, and × closes simulation mode and returns to planning.",
 };
