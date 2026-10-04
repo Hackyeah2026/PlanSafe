@@ -1314,4 +1314,10 @@
   <data name="Statistics.Title" xml:space="preserve">
     <value>Analytics and statistics</value>
   </data>
+  <data name="Shelter.PeopleCount" xml:space="preserve">
+    <value>{0} people</value>
+  </data>
+  <data name="Shelter.PeopleHere" xml:space="preserve">
+    <value>People currently here</value>
+  </data>
 </root>

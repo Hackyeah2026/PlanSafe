@@ -2570,11 +2570,24 @@ export class GpuSimulationEngine implements ISimulationEngine {
       : [];
     const hasCapacity = active.some(
       (t: any) =>
+        Number(t.capacity ?? t.Capacity ?? 1000) <= 0 ||
         Number(t.currentOccupancy ?? t.CurrentOccupancy ?? 0) <
-        Number(t.capacity ?? t.Capacity ?? 1000),
+          Number(t.capacity ?? t.Capacity ?? 1000),
+    );
+    const openZoneScale = Math.max(
+      1,
+      active.reduce(
+        (total: number, t: any) =>
+          total +
+          (Number(t.capacity ?? t.Capacity ?? 1000) <= 0
+            ? Math.max(0, Number(t.currentOccupancy ?? t.CurrentOccupancy ?? 0))
+            : 0),
+        0,
+      ),
     );
     this.sinks = active.map((t: any) => {
-      const cap = Math.max(1, Number(t.capacity ?? t.Capacity ?? 1000));
+      const rawCapacity = Number(t.capacity ?? t.Capacity ?? 1000);
+      const cap = rawCapacity > 0 ? rawCapacity : openZoneScale;
       const occupancy = Number(t.currentOccupancy ?? t.CurrentOccupancy ?? 0);
       const base =
         ((Math.max(0, this.weightOccupancy) /
@@ -2585,7 +2598,8 @@ export class GpuSimulationEngine implements ISimulationEngine {
       return {
         zone: this.parseObstacle(t)!,
         potential: Math.fround(
-          base + (occupancy >= cap && hasCapacity ? 100000 : 0),
+          base +
+            (rawCapacity > 0 && occupancy >= cap && hasCapacity ? 100000 : 0),
         ),
       };
     });

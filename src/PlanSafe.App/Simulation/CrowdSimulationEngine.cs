@@ -294,7 +294,8 @@ public class PotentialFieldGrid
         var activeTargets = targets.Where(t => t.IsActive).ToList();
         if (activeTargets.Count == 0) return;
 
-        bool hasCapacity = activeTargets.Any(t => t.CurrentOccupancy < t.Capacity);
+        double openZoneScale = OccupancyRouting.OpenZoneScale(activeTargets);
+        bool hasCapacity = activeTargets.Any(t => !t.IsFull);
         double wDist = Math.Max(0.001, weightDistance);
         double wOcc = Math.Max(0.0, weightOccupancy);
         double dMax = Math.Max(1.0, maxDistance);
@@ -306,12 +307,10 @@ public class PotentialFieldGrid
         {
             var t = activeTargets[i];
             zones[i] = new Obstacle(t.X, t.Y, t.Width, t.Height);
-
-            int cap = Math.Max(1, t.Capacity);
-            double occRatio = (double)t.CurrentOccupancy / cap;
+            double occRatio = OccupancyRouting.Cost(t, openZoneScale);
             double potential = (wOcc / wDist) * dMax * occRatio;
 
-            if (t.CurrentOccupancy >= cap && hasCapacity)
+            if (t.IsFull && hasCapacity)
             {
                 potential += 100000.0; // Hard capacity penalty
             }
@@ -623,7 +622,8 @@ public class PotentialFieldGrid
         if (CachedTargets != null && CachedTargets.Count > 1)
         {
             var activeTargets = CachedTargets.Where(t => t.IsActive).ToList();
-            bool hasCapacity = activeTargets.Any(t => t.CurrentOccupancy < t.Capacity);
+            double openZoneScale = OccupancyRouting.OpenZoneScale(activeTargets);
+            bool hasCapacity = activeTargets.Any(t => !t.IsFull);
             double wDist = Math.Max(0.001, _cachedWeightDistance);
             double wOcc = Math.Max(0.0, _cachedWeightOccupancy);
             double dMax = Math.Max(1.0, _cachedWorldMaxDistance);
@@ -631,10 +631,9 @@ public class PotentialFieldGrid
             for (int i = 0; i < activeTargets.Count; i++)
             {
                 var t = activeTargets[i];
-                int cap = Math.Max(1, t.Capacity);
-                double occRatio = (double)t.CurrentOccupancy / cap;
+                double occRatio = OccupancyRouting.Cost(t, openZoneScale);
                 float basePot = (float)((wOcc / wDist) * dMax * occRatio);
-                if (t.CurrentOccupancy >= cap && hasCapacity) basePot += 100000f;
+                if (t.IsFull && hasCapacity) basePot += 100000f;
 
                 int minCol = Math.Clamp((int)(t.X * InvCellSize), 0, ColumnCount - 1);
                 int maxCol = Math.Clamp((int)((t.X + t.Width) * InvCellSize), 0, ColumnCount - 1);
@@ -1245,7 +1244,8 @@ public class CrowdSimulationEngine
             dMax = Math.Max(1.0, maxTargetDist > 0.0 ? maxTargetDist : Math.Max(WorldWidth, WorldHeight));
         }
 
-        bool hasAnyTargetWithCapacity = targetList.Any(t => t.CurrentOccupancy < t.Capacity);
+        double openZoneScale = OccupancyRouting.OpenZoneScale(targetList);
+        bool hasAnyTargetWithCapacity = targetList.Any(t => !t.IsFull);
 
         EvacuationTarget? bestTarget = null;
         double minCost = double.PositiveInfinity;
@@ -1262,15 +1262,13 @@ public class CrowdSimulationEngine
         {
             double walkableDist = PotentialFieldMap.GetWalkableDistance(target.Id, px, py);
             double normDist = Math.Clamp(walkableDist / dMax, 0.0, 10.0);
-
-            int capacity = Math.Max(1, target.Capacity);
-            double occRatio = (double)target.CurrentOccupancy / capacity;
+            double occRatio = target.OccupancyRatio;
 
             double distCost = wDist * normDist;
-            double occCost = wOcc * occRatio;
+            double occCost = wOcc * OccupancyRouting.Cost(target, openZoneScale);
             double cost = distCost + occCost;
 
-            bool isFull = target.CurrentOccupancy >= capacity;
+            bool isFull = target.IsFull;
             if (isFull && hasAnyTargetWithCapacity)
             {
                 cost += TargetSelector.CapacityOverflowPenalty;
@@ -1352,7 +1350,6 @@ public class CrowdSimulationEngine
         Targets.Clear();
         if (MultiTargetEnabled)
         {
-            int cap = Math.Max(50, AgentCount / 2);
             Targets.Add(new EvacuationTarget(
                 Id: "exit-north",
                 Name: "Schron Północny (Brama A)",
@@ -1360,7 +1357,7 @@ public class CrowdSimulationEngine
                 Y: height * 0.12,
                 Width: width * 0.08,
                 Height: height * 0.20,
-                Capacity: cap,
+                Capacity: 0,
                 CurrentOccupancy: 0,
                 IsActive: true));
 
@@ -1371,7 +1368,7 @@ public class CrowdSimulationEngine
                 Y: height * 0.68,
                 Width: width * 0.08,
                 Height: height * 0.20,
-                Capacity: cap,
+                Capacity: 0,
                 CurrentOccupancy: 0,
                 IsActive: true));
         }
@@ -1384,7 +1381,7 @@ public class CrowdSimulationEngine
                 Y: ExitZone.Y,
                 Width: ExitZone.Width,
                 Height: ExitZone.Height,
-                Capacity: AgentCount,
+                Capacity: 0,
                 CurrentOccupancy: 0,
                 IsActive: true));
         }

@@ -27,8 +27,11 @@
         @foreach (var target in Targets)
         {
             var pct = target.Capacity > 0 ? (int)Math.Round((double)target.CurrentOccupancy / target.Capacity * 100) : 0;
-            <p class="small">@TargetName(target): <strong>@target.CurrentOccupancy / @target.Capacity (@pct%)</strong></p>
-            <progress max="100" value="@Math.Min(100, pct)" aria-label="@TargetName(target)"></progress>
+            <p class="small">@TargetName(target): <strong>@(target.HasCapacityLimit ? $"{target.CurrentOccupancy} / {target.Capacity} ({pct}%)" : L.Shelter.PeopleCount(target.CurrentOccupancy))</strong></p>
+            @if (target.HasCapacityLimit)
+            {
+                <progress max="100" value="@Math.Min(100, pct)" aria-label="@TargetName(target)"></progress>
+            }
         }
     }
 </SurfacePanel>

@@ -72,6 +72,7 @@
     @if (_isPublishPlanOpen)
     {
         <PublishPlanModal IsOpen="true" MapItems="@_mapItems"
+                          AgentCount="@PlannedAgentCount"
                           ActiveSession="@_activeSession" WeightDistance="@_simConfig.WeightDistance"
                           WeightOccupancy="@_simConfig.WeightOccupancy" OnClose="() => _isPublishPlanOpen = false" />
     }
