@@ -69,22 +69,23 @@
         {
             <!-- Map Column -->
             <div class="col-lg-7 col-xl-8 mb-3">
+                @if (isPickingLocation)
+                {
+                    <div class="alert alert-warning py-2 px-3 small mb-2 d-flex align-items-center justify-content-between shadow-sm animate-fade-in">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-hand-index-thumb-fill text-warning fs-5"></i>
+                            <span><strong>Tryb wskazywania pozycji:</strong> Kliknij na mapie wewnątrz wyznaczonej strefy, aby ustawić lokalizację.</span>
+                        </div>
+                        <button type="button" class="btn-close btn-close-white" @onclick="() => isPickingLocation = false"></button>
+                    </div>
+                }
+
                 <div class="position-relative evac-map-container">
                     @if (loading)
                     {
                         <div class="floating-map-calc-badge" data-testid="map-loading-indicator">
                             <span class="spinner-border spinner-border-sm text-info me-2" role="status"></span>
                             <span>Wyznaczanie optymalnej trasy...</span>
-                        </div>
-                    }
-                    @if (isPickingLocation)
-                    {
-                        <div class="alert alert-warning py-2 px-3 small mb-2 d-flex align-items-center justify-content-between shadow-sm animate-fade-in" style="z-index: 1000;">
-                            <div class="d-flex align-items-center gap-2">
-                                <i class="bi bi-hand-index-thumb-fill text-warning fs-5"></i>
-                                <span><strong>Tryb wskazywania pozycji:</strong> Kliknij na mapie wewnątrz wyznaczonej strefy, aby ustawić lokalizację.</span>
-                            </div>
-                            <button type="button" class="btn-close btn-close-white" @onclick="() => isPickingLocation = false"></button>
                         </div>
                     }
 
@@ -152,10 +153,10 @@
                         <div class="text-center py-5 text-muted" data-testid="pick-location-prompt">
                             <i class="bi bi-geo-alt-fill text-info display-4 mb-3 d-block"></i>
                             <h5 class="text-white fw-bold mb-2">Wskaż swoją lokalizację na mapie</h5>
-                            <p class="text-white-50 small mb-0">Kliknij na mapie, aby wyznaczyć trasę do optymalnego punktu ewakuacji.</p>
+                            <p class="text-white-50 small mb-0">Kliknij wewnątrz strefy ewakuacji na mapie, aby wyznaczyć trasę do optymalnego punktu ewakuacji.</p>
                         </div>
                     }
-                    else if (isOutsideZone && assignment?.Target == null)
+                    else if (isOutsideZone)
                     {
                         <div class="text-center py-4 px-2" data-testid="outside-zone-block">
                             <div class="text-warning mb-2" style="font-size: 2.5rem;">
@@ -170,7 +171,7 @@
                             </button>
                         </div>
                     }
-                    else if (assignment?.Target != null)
+                    else if (HasValidLocation && assignment?.Target != null && !assignment.IsOutsideZone)
                     {
                         var target = assignment.Target;
                         var occPercent = target.Capacity > 0 ? (int)Math.Round((double)target.CurrentOccupancy / target.Capacity * 100) : 0;
@@ -178,21 +179,6 @@
                         var barClass = occPercent >= 100 ? "bg-danger" : occPercent >= 70 ? "bg-warning" : "bg-success";
                         var directionDegree = assignment.BearingDegrees ?? (GeoMath.CalculateBearingDegrees(gpsLatitude ?? 50.0617, gpsLongitude ?? 19.9373, target.Latitude ?? target.Y, target.Longitude ?? target.X));
                         var mapsUrl = GetMapsUrl(target);
-
-                        if (isOutsideZone)
-                        {
-                            <div class="alert alert-warning py-2 px-3 small mb-3 d-flex align-items-center justify-content-between shadow-sm animate-fade-in" role="alert" data-testid="outside-zone-block">
-                                <div class="d-flex align-items-center gap-2">
-                                    <i class="bi bi-shield-exclamation text-warning fs-5 flex-shrink-0"></i>
-                                    <div>
-                                        <strong>Poza strefą alarmu:</strong> Twoja pozycja jest poza obrysem alarmu, ale poniżej wyznaczono trasę do najbliższego punktu zbiórki.
-                                    </div>
-                                </div>
-                                <button type="button" class="btn btn-warning btn-sm fw-bold px-2 py-1 flex-shrink-0 ms-2" @onclick="EnableMapLocationCorrection" data-testid="outside-zone-correct-btn">
-                                    <i class="bi bi-geo-alt-fill me-1"></i> Wskaż
-                                </button>
-                            </div>
-                        }
 
                         <div class="text-center py-2 border-bottom border-secondary mb-3">
                             <div class="display-6 fw-bold text-info text-break" data-testid="target-name">@target.Name</div>
@@ -398,6 +384,10 @@
     private TargetAssignmentResponse? assignment;
     private string? currentAllocatedTargetId;
     private int _calculationSequence = 0;
+    private int _manualLocationSequence;
+    private bool HasValidLocation => gpsLatitude.HasValue && gpsLongitude.HasValue &&
+        double.IsFinite(gpsLatitude.Value) && double.IsFinite(gpsLongitude.Value) &&
+        evacZones.Any(zone => GeoMath.IsPointInPolygon(gpsLatitude.Value, gpsLongitude.Value, zone));
 
     private IJSObjectReference? citizenMapModule;
     private DotNetObjectReference<Evacuate>? dotNetRef;
@@ -418,13 +408,7 @@
 
     private string GetApiBaseUrl()
     {
-        var clientUri = new Uri(Navigation.BaseUri);
-        return clientUri.Port switch
-        {
-            5171 => $"http://{clientUri.Host}:49492",
-            7030 => $"https://{clientUri.Host}:49491",
-            _ => Navigation.BaseUri.TrimEnd('/')
-        };
+        return EvacuationApiUrlResolver.Resolve(Navigation.BaseUri);
     }
 
     private record GpsResult(
@@ -446,7 +430,7 @@
         await LoadEnvironmentAsync();
         isEnvironmentLoaded = true;
 
-        // Perform immediate assignment so citizen sees a valid shelter without delay
+        // Wait for an actual in-zone location before assigning a shelter.
         await FetchAssignment(skipApiRefresh: false);
 
         // In background, request actual GPS to refine if available
@@ -529,29 +513,6 @@
                 {
                     isSessionExpired = true;
                 }
-
-                // Initialize default coordinates based on evacuation zone or map center
-                if (!gpsLatitude.HasValue || !gpsLongitude.HasValue)
-                {
-                    if (evacZones.Count > 0 && evacZones[0].Count > 0)
-                    {
-                        gpsLatitude = Math.Round(evacZones[0].Average(p => p.Latitude), 6);
-                        gpsLongitude = Math.Round(evacZones[0].Average(p => p.Longitude), 6);
-                        gpsStatus = "Pozycja domyślna strefy (oczekiwanie na GPS...)";
-                    }
-                    else if (cfg.MapCenterLat.HasValue && cfg.MapCenterLng.HasValue)
-                    {
-                        gpsLatitude = cfg.MapCenterLat.Value;
-                        gpsLongitude = cfg.MapCenterLng.Value;
-                        gpsStatus = "Pozycja domyślna strefy (oczekiwanie na GPS...)";
-                    }
-                    else if (targets.Count > 0 && targets[0].Latitude is double tLat && targets[0].Longitude is double tLng)
-                    {
-                        gpsLatitude = tLat;
-                        gpsLongitude = tLng;
-                        gpsStatus = "Pozycja domyślna strefy (oczekiwanie na GPS...)";
-                    }
-                }
             }
         }
         catch (Exception ex)
@@ -590,12 +551,6 @@
             ));
         }
 
-        if (!gpsLatitude.HasValue || !gpsLongitude.HasValue)
-        {
-            gpsLatitude = 50.0614;
-            gpsLongitude = 19.9366;
-            gpsStatus = "Pozycja domyślna (Kraków Rynek)";
-        }
     }
 
     private async Task RefreshTargetsAsync()
@@ -626,13 +581,19 @@
 
         try
         {
+            int locationSequence = _manualLocationSequence;
             var res = await JS.InvokeAsync<GpsResult?>("getGeolocation");
+            // A manual selection made while GPS was pending takes precedence.
+            if (locationSequence != _manualLocationSequence) return;
             if (res != null && res.Success && res.Latitude.HasValue && res.Longitude.HasValue)
             {
                 int seq = ++_calculationSequence;
                 gpsLatitude = Math.Round(res.Latitude.Value, 6);
                 gpsLongitude = Math.Round(res.Longitude.Value, 6);
                 gpsAccuracy = res.Accuracy;
+                assignment = null;
+                isOutsideZone = !HasValidLocation;
+                isPickingLocation = !HasValidLocation;
                 isGpsInsecureContext = false;
                 gpsErrorMessage = null;
                 gpsStatus = $"{gpsLatitude.Value:F4}°N, {gpsLongitude.Value:F4}°E (±{Math.Round(res.Accuracy ?? 0)}m)";
@@ -708,13 +669,15 @@
     [JSInvokable]
     public async Task OnCitizenMapClicked(double lat, double lng)
     {
+        ++_manualLocationSequence;
         int seq = ++_calculationSequence;
         gpsLatitude = Math.Round(lat, 6);
         gpsLongitude = Math.Round(lng, 6);
         gpsAccuracy = 15.0;
         isGpsInsecureContext = false;
         gpsStatus = $"{gpsLatitude.Value:F4}°N, {gpsLongitude.Value:F4}°E (wybrano na mapie)";
-        isPickingLocation = false;
+        isPickingLocation = !HasValidLocation;
+        isOutsideZone = !HasValidLocation;
         zoneValidationWarning = null;
         assignment = null;
         loading = true;
@@ -727,7 +690,7 @@
     public async Task OnShelterSelected(string shelterId)
     {
         var target = targets.FirstOrDefault(t => t.Id == shelterId);
-        if (target == null || !gpsLatitude.HasValue || !gpsLongitude.HasValue) return;
+        if (target == null || !HasValidLocation) return;
 
         int seq = ++_calculationSequence;
         loading = true;
@@ -747,7 +710,7 @@
                 SessionId: SessionId,
                 CurrentTargetId: currentAllocatedTargetId,
                 IgnoreHysteresis: true,
-                StrictGeofence: false
+                StrictGeofence: true
             );
 
             TargetAssignmentResponse? assignResult = null;
@@ -776,7 +739,7 @@
                     evacuationZones: evacZones,
                     currentTargetId: currentAllocatedTargetId,
                     ignoreHysteresis: true,
-                    strictGeofence: false
+                    strictGeofence: true
                 );
             }
 
@@ -810,12 +773,20 @@
     private async Task FetchAssignment(bool skipApiRefresh, int? expectedSeq, bool isManualRelocation = false)
     {
         int seq = expectedSeq ?? ++_calculationSequence;
-        if (!gpsLatitude.HasValue || !gpsLongitude.HasValue)
+        if (!HasValidLocation)
         {
+            assignment = null;
+            isOutsideZone = gpsLatitude.HasValue && gpsLongitude.HasValue;
+            isPickingLocation = true;
+            showManualMap = true;
+            zoneValidationWarning = "Wskaż swoją pozycję wewnątrz strefy ewakuacji, aby rozpocząć nawigację.";
             loading = false;
+            await UpdateCitizenMapJsAsync();
             StateHasChanged();
             return;
         }
+        isOutsideZone = false;
+        zoneValidationWarning = null;
 
         try
         {
@@ -829,7 +800,7 @@
                 SessionId: SessionId,
                 CurrentTargetId: currentAllocatedTargetId,
                 IgnoreHysteresis: isManualRelocation,
-                StrictGeofence: false
+                StrictGeofence: true
             );
 
             TargetAssignmentResponse? assignResult = null;
@@ -859,7 +830,7 @@
                     evacuationZones: evacZones,
                     currentTargetId: currentAllocatedTargetId,
                     ignoreHysteresis: isManualRelocation,
-                    strictGeofence: false
+                    strictGeofence: true
                 );
             }
 
@@ -931,7 +902,8 @@
                     roadblocksJson,
                     routeJson,
                     zonesJson,
-                    safeZonesJson
+                    safeZonesJson,
+                    !HasValidLocation
                 );
             }
             catch
@@ -955,18 +927,15 @@
         }
     }
 
-    private string GetMapsUrl(EvacuationTarget target)
+    private string? GetMapsUrl(EvacuationTarget target)
     {
+        if (!HasValidLocation || assignment?.IsOutsideZone != false) return null;
         double destLat = target.Latitude ?? target.Y;
         double destLng = target.Longitude ?? target.X;
-        string dest = $"{destLat.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)},{destLng.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)}";
-
-        if (gpsLatitude.HasValue && gpsLongitude.HasValue)
-        {
-            string origin = $"{gpsLatitude.Value.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)},{gpsLongitude.Value.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)}";
-            return $"https://www.google.com/maps/dir/?api=1&origin={origin}&destination={dest}&travelmode=walking";
-        }
-        return $"https://www.google.com/maps/dir/?api=1&destination={dest}&travelmode=walking";
+        GeoCoordinate? origin = gpsLatitude.HasValue && gpsLongitude.HasValue
+            ? new GeoCoordinate(gpsLatitude.Value, gpsLongitude.Value)
+            : null;
+        return GoogleMapsUrlBuilder.Build(new GeoCoordinate(destLat, destLng), origin, assignment?.RoutePath);
     }
 
     public async ValueTask DisposeAsync()
