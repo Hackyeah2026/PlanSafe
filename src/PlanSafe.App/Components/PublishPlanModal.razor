@@ -13,34 +13,34 @@
             <div class="publish-heading">
                 <span class="publish-icon"><UiIcon Kind="UiIconKind.Phone" /></span>
                 <div>
-                    <h2 id="publish-plan-title">@(publishedPlan == null ? "Publish evacuation plan" : "Share evacuation plan")</h2>
-                    <p class="ui-muted">@(publishedPlan == null ? "Review the scenario and prepare a link for residents." : "One link. Access from any phone.")</p>
+                    <h2 id="publish-plan-title">@(publishedPlan == null ? L.Publish.Title : L.Publish.ShareTitle)</h2>
+                    <p class="ui-muted">@(publishedPlan == null ? L.Publish.ReviewHint : L.Publish.OpenHint)</p>
                 </div>
             </div>
-            <button type="button" class="app-button app-icon-button" data-dialog-close aria-label="Close" @onclick="HandleClose"><UiIcon Kind="UiIconKind.Close" /></button>
+            <button type="button" class="app-button app-icon-button" data-dialog-close aria-label="@L.Common.Close" @onclick="HandleClose"><UiIcon Kind="UiIconKind.Close" /></button>
         </div>
         <div class="feature-dialog-body publish-body">
-            @if (!string.IsNullOrEmpty(errorMessage))
+            @if (!string.IsNullOrEmpty(errorMessage?.Invoke()))
             {
-                <StatusMessage Tone="StatusTone.Danger">@errorMessage</StatusMessage>
+                <StatusMessage Tone="StatusTone.Danger">@(errorMessage?.Invoke())</StatusMessage>
             }
             @if (publishedPlan == null)
             {
                 <section aria-labelledby="scenario-summary">
-                    <h3 id="scenario-summary" class="publish-section-title">Your scenario</h3>
+                    <h3 id="scenario-summary" class="publish-section-title">@L.Publish.Scenario</h3>
                     <div class="publish-summary">
-                        <div><span class="text-success"><UiIcon Kind="UiIconKind.Shield" /></span><strong>@GetSafePointsCount()</strong><span>Assembly points</span></div>
-                        <div><span class="text-danger"><UiIcon Kind="UiIconKind.Blockade" /></span><strong>@GetBlockadesCount()</strong><span>Roadblocks</span></div>
-                        <div><span class="text-warning"><UiIcon Kind="UiIconKind.Warning" /></span><strong>@GetEvacZonesCount()</strong><span>Alert zones</span></div>
+                        <div><span class="text-success"><UiIcon Kind="UiIconKind.Shield" /></span><strong>@GetSafePointsCount()</strong><span>@L.Publish.AssemblyPoints</span></div>
+                        <div><span class="text-danger"><UiIcon Kind="UiIconKind.Blockade" /></span><strong>@GetBlockadesCount()</strong><span>@L.Map.Blockades</span></div>
+                        <div><span class="text-warning"><UiIcon Kind="UiIconKind.Warning" /></span><strong>@GetEvacZonesCount()</strong><span>@L.Map.EvacuationZones</span></div>
                     </div>
                 </section>
-                <div class="publish-note"><UiIcon Kind="UiIconKind.Phone" /><p>Publishing provides a QR code and a link to the evacuation map. Residents can open the plan in their browser without installing an app.</p></div>
-                <AppButton Tone="ButtonTone.Primary" Class="w-100" Disabled="isPublishing" OnClick="PublishPlanAsync" aria-label="@(isPublishing ? "Publishing plan" : "Publish and generate QR code")">
+                <div class="publish-note"><UiIcon Kind="UiIconKind.Phone" /><p>@L.Publish.Description</p></div>
+                <AppButton Tone="ButtonTone.Primary" Class="w-100" Disabled="isPublishing" OnClick="PublishPlanAsync" aria-label="@(isPublishing ? L.Publish.PublishingPlan : L.Publish.Plan)">
                     @if (isPublishing)
                     {
                         <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
                     }
-                    <span role="status">@(isPublishing ? "Publishing plan…" : "Publish and generate QR code")</span>
+                    <span role="status">@(isPublishing ? L.Publish.PublishingPlan : L.Publish.Plan)</span>
                 </AppButton>
             }
             else
@@ -51,9 +51,9 @@
         <div class="feature-dialog-footer publish-footer">
             @if (publishedPlan != null)
             {
-                <AppButton OnClick="ToggleProjectorMode" Pressed="isFullscreenProjector">@(isFullscreenProjector ? "Close projector" : "Projector mode")</AppButton>
+                <AppButton OnClick="ToggleProjectorMode" Pressed="isFullscreenProjector">@(isFullscreenProjector ? L.Publish.CloseProjector : L.Publish.Projector)</AppButton>
             }
-            <AppButton OnClick="HandleClose">Close</AppButton>
+            <AppButton OnClick="HandleClose">@L.Common.Close</AppButton>
         </div>
     </ModalDialog>
 }
@@ -68,7 +68,7 @@
 
     private bool isPublishing = false;
     private bool isFullscreenProjector = false;
-    private string? errorMessage;
+    private Func<string?>? errorMessage;
     private PublishPlanResponse? publishedPlan;
 
     private int GetSafePointsCount() => MapItems?.Count(i => i.Category == ZoneCategory.SafeLocation) ?? 0;
@@ -101,7 +101,7 @@
 
                             targets.Add(new EvacuationTarget(
                                 Id: circle.Id,
-                                Name: string.IsNullOrWhiteSpace(circle.Name) ? "Safe Assembly Point" : circle.Name,
+                                Name: string.IsNullOrWhiteSpace(circle.Name) ? L.Map.AssemblyPoint : circle.Name,
                                 X: lng,
                                 Y: lat,
                                 Width: radius * 2,
@@ -134,7 +134,7 @@
 
                             targets.Add(new EvacuationTarget(
                                 Id: poly.Id,
-                                Name: string.IsNullOrWhiteSpace(poly.Name) ? "Evacuation Shelter" : poly.Name,
+                                Name: string.IsNullOrWhiteSpace(poly.Name) ? L.Shelter.DefaultName : poly.Name,
                                 X: avgLng,
                                 Y: avgLat,
                                 Width: 30.0,
@@ -158,7 +158,7 @@
 
                             targets.Add(new EvacuationTarget(
                                 Id: point.Id,
-                                Name: string.IsNullOrWhiteSpace(point.Name) ? "Safe Assembly Point" : point.Name,
+                                Name: string.IsNullOrWhiteSpace(point.Name) ? L.Map.AssemblyPoint : point.Name,
                                 X: lng,
                                 Y: lat,
                                 Width: 20.0,
@@ -210,7 +210,7 @@
             {
                 targets.Add(new EvacuationTarget(
                     Id: "shelter-krakow-park",
-                    Name: "Main Shelter (Krakowski Park)",
+                    Name: L.Demo.MainShelter,
                     X: 19.9266,
                     Y: 50.0684,
                     Width: 20.0,
@@ -223,7 +223,7 @@
                 ));
                 targets.Add(new EvacuationTarget(
                     Id: "shelter-krakow-planty",
-                    Name: "Backup Shelter (Planty Park)",
+                    Name: L.Demo.BackupShelter,
                     X: 19.9380,
                     Y: 50.0570,
                     Width: 20.0,
@@ -264,12 +264,12 @@
             }
             else
             {
-                errorMessage = $"Failed to publish plan: HTTP {response.StatusCode}";
+                errorMessage = () => L.Publish.HttpError(response.StatusCode);
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"Could not connect to the API: {ex.Message}";
+            errorMessage = () => L.Common.ApiError(ex.Message);
         }
         finally
         {

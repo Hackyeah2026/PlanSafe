@@ -1,0 +1,9 @@
+@inject LanguageService Languages
+
+<fieldset class="appearance-settings" data-testid="language-settings">
+    <legend>@L.Appearance.Language</legend>
+    <div class="segmented-control appearance-segmented" role="group" aria-label="@L.Appearance.Language">
+        <button type="button" class="app-button" lang="pl" aria-pressed="@(Languages.Language == "pl" ? "true" : "false")" @onclick='() => Languages.SelectAsync("pl")'>Polski</button>
+        <button type="button" class="app-button" lang="en" aria-pressed="@(Languages.Language == "en" ? "true" : "false")" @onclick='() => Languages.SelectAsync("en")'>English</button>
+    </div>
+</fieldset>

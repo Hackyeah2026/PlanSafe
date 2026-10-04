@@ -84,15 +84,21 @@
   font-size: 12px;
   line-height: 1.5;
 }
-.command-detail {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid var(--ui-border);
-  font-size: 13px;
+.command-source {
+  margin: 8px 0 0;
   color: var(--ui-muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.command-source a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.command-source a:hover,
+.command-source a:focus-visible {
+  color: var(--ui-info);
 }
 .command-live {
   display: grid;

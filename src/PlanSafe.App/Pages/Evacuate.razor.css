@@ -1,7 +1,7 @@
 .evac-page {
   max-width: 1800px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 76px 24px 24px;
 }
 .evac-header {
   display: flex;
@@ -207,7 +207,7 @@
 }
 @media (max-width: 991.98px) {
   .evac-page {
-    padding: 12px;
+    padding: 76px 12px 12px;
   }
   .evac-header {
     padding: 16px;

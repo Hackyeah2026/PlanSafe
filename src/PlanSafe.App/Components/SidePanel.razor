@@ -2,44 +2,45 @@
 
 <div class="map-command-panel @(!Expanded ? "collapsed" : "")">
     <header class="command-header">
-        <h2><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10" /><path d="M12 11v6M12 7h.01" /></svg> Zone information</h2>
-        <button type="button" class="command-toggle" @onclick="OnToggle" aria-label="@(Expanded ? "Collapse zone information" : "Expand zone information")" aria-expanded="@Expanded.ToString().ToLowerInvariant()" aria-controls="map-information-content">
+        <h2><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10" /><path d="M12 11v6M12 7h.01" /></svg> @L.Map.ZoneInfo</h2>
+        <button type="button" class="command-toggle" @onclick="OnToggle" aria-label="@(Expanded ? L.Map.CollapseInfo : L.Map.ExpandInfo)" aria-expanded="@Expanded.ToString().ToLowerInvariant()" aria-controls="map-information-content">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2"><path d="@(Expanded ? "m6 9 6 6 6-6" : "m6 15 6-6 6 6")" /></svg>
         </button>
     </header>
 
     <div id="map-information-content" class="command-content">
-        <section class="command-overview" aria-label="Census population">
+        <section class="command-overview" aria-label="@L.Census.Population">
             @if (!HasEvacuationZone)
             {
                 <div class="command-empty">
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.4"><path d="m12 2 10 8-4 12H6L2 10z" /></svg>
-                    <p>No zone selected.</p>
-                    <p class="command-hint">Use Evac Zone (polygon or circle) to draw an evacuation zone on the map.</p>
+                    <p>@L.Map.NoZone</p>
+                    <p class="command-hint">@L.Drawing.StartHint</p>
                 </div>
             }
             else if (CensusLoading)
             {
-                <p class="command-label" role="status">Loading population data...</p>
-                <p class="command-caption">You can continue drawing while the census estimate loads.</p>
+                <p class="command-label" role="status">@L.Census.Loading</p>
+                <p class="command-caption">@L.Census.DrawingHint</p>
             }
             else if (CensusLoaded)
             {
-                <p class="command-label"><UiIcon Kind="UiIconKind.People" /> Estimated residents</p>
+                <p class="command-label"><UiIcon Kind="UiIconKind.People" /> @L.Census.Estimate</p>
                 <p class="command-population">@CensusPopulation.ToString("N0")</p>
-                <p class="command-caption">GUS NSP 2021. Area-weighted estimate from 125m census cells. Overlapping zones are counted once.</p>
-                <div class="command-detail"><span>Census coverage</span><span>@CensusCells.ToString("N0") cells</span></div>
+                <p class="command-source">
+                    <a href="https://portal.geo.stat.gov.pl/aktualnosci/dane-tabelaryczne-o-ludnosci-krajowej-z-nsp-2021-w-siatce-kwadratow-125m-x-125m-udostepnione-do-pobrania/" target="_blank" rel="noopener noreferrer">@L.Census.Attribution</a>
+                </p>
             }
             else
             {
-                <p class="command-label">Population unavailable</p>
-                <p class="command-caption">Census data could not be loaded for this zone.</p>
+                <p class="command-label">@L.Census.Unavailable</p>
+                <p class="command-caption">@L.Census.LoadFailed</p>
             }
             @if (IsSimulating)
             {
-                <div class="command-live" aria-label="Current simulation">
-                    <div><span>Elapsed time</span><span>@SimulationTime.ToString("F1") s</span></div>
-                    <div><span>Evacuated</span><span>@EvacuatedCount.ToString("N0") / @TotalSimulatedAgents.ToString("N0")</span></div>
+                <div class="command-live" aria-label="@L.Simulation.Current">
+                    <div><span>@L.Simulation.Elapsed</span><span>@SimulationTime.ToString("F1") s</span></div>
+                    <div><span>@L.Simulation.Evacuated</span><span>@EvacuatedCount.ToString("N0") / @TotalSimulatedAgents.ToString("N0")</span></div>
                 </div>
             }
         </section>
@@ -48,16 +49,16 @@
             <MapSessionActions BranchName="@BranchName" OnTree="OnScenarios" OnNewBranch="OnNewBranch" OnRecenter="OnRecenter" />
         </div>
 
-        <footer class="command-actions" aria-label="Simulation controls">
-            <AppButton OnClick="OnConfigureSimulation" title="Open simulation settings">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5h5m4 0h9M3 12h11m4 0h3M3 19h3m4 0h11" /><circle cx="10" cy="5" r="2" /><circle cx="16" cy="12" r="2" /><circle cx="8" cy="19" r="2" /></svg> Simulation settings
+        <footer class="command-actions" aria-label="@L.Simulation.Controls">
+            <AppButton OnClick="OnConfigureSimulation" title="@L.Simulation.OpenSettings">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5h5m4 0h9M3 12h11m4 0h3M3 19h3m4 0h11" /><circle cx="10" cy="5" r="2" /><circle cx="16" cy="12" r="2" /><circle cx="8" cy="19" r="2" /></svg> @L.Simulation.Settings
             </AppButton>
             <AppButton Tone="ButtonTone.Primary" OnClick="OnStartSimulation" Disabled="@CensusLoading">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM10 7l7 5-7 5Z" /></svg> @(IsSimulating ? "Stop simulation" : "Start simulation")
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM10 7l7 5-7 5Z" /></svg> @(IsSimulating ? L.Simulation.StopAction : L.Simulation.StartAction)
             </AppButton>
-            <AppButton OnClick="OnStartEvacuation"><UiIcon Kind="UiIconKind.Warning" /> Start evacuation</AppButton>
+            <AppButton OnClick="OnStartEvacuation"><UiIcon Kind="UiIconKind.Warning" /> @L.Evacuation.Start</AppButton>
             <AppButton Class="command-statistics" OnClick="OnOpenStatistics">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 20V12M12 20V4M19 20V9" /></svg> Statistics
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 20V12M12 20V4M19 20V9" /></svg> @L.Statistics.Label
             </AppButton>
         </footer>
     </div>
@@ -68,7 +69,6 @@
     [Parameter] public bool CensusLoaded { get; set; }
     [Parameter] public bool CensusLoading { get; set; }
     [Parameter] public int CensusPopulation { get; set; }
-    [Parameter] public int CensusCells { get; set; }
     [Parameter] public string BranchName { get; set; } = "main";
     [Parameter] public bool Expanded { get; set; }
     [Parameter] public bool IsSimulating { get; set; }

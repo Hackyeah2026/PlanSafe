@@ -16,11 +16,11 @@
                         </svg>
                     </div>
                     <div>
-                        <h2 id="branch-title" class="branch-modal-title">Create Scenario Branch</h2>
-                        <div class="branch-modal-subtitle">Branch off to test alternative evacuation variables</div>
+                        <h2 id="branch-title" class="branch-modal-title">@L.Scenario.CreateTitle</h2>
+                        <div class="branch-modal-subtitle">@L.Scenario.CreateDescription</div>
                     </div>
                 </div>
-                <button type="button" class="app-button btn-branch-modal-close" data-dialog-close @onclick="Close" aria-label="Close">
+                <button type="button" class="app-button btn-branch-modal-close" data-dialog-close @onclick="Close" aria-label="@L.Common.Close">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
                         <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -32,19 +32,19 @@
             @if (ParentSession != null)
             {
                 <div class="parent-info-banner">
-                    <div class="parent-label">Branching from:</div>
+                    <div class="parent-label">@L.Scenario.Parent</div>
                     <div class="d-flex align-items-center gap-2">
                         <span class="parent-branch-badge"><UiIcon Kind="UiIconKind.Branch" /> @ParentSession.BranchName</span>
                     </div>
                     <div class="parent-items-summary">
-                        Includes: @ParentSession.EvacZoneCount Evac Zones • @ParentSession.SafeZoneCount Safe Havens • @ParentSession.BlockadeCount Blockades
+                        @(L.Scenario.FeatureSummary(ParentSession.EvacZoneCount, ParentSession.SafeZoneCount, ParentSession.BlockadeCount))
                     </div>
                 </div>
             }
 
             <!-- Form Content -->
             <div class="feature-dialog-body branch-modal-body">
-                @if (!string.IsNullOrEmpty(_errorMessage))
+                @if (_errorMessage is not null)
                 {
                     <div class="branch-alert-error">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="me-1">
@@ -52,20 +52,20 @@
                             <line x1="12" y1="8" x2="12" y2="12"></line>
                             <line x1="12" y1="16" x2="12.01" y2="16"></line>
                         </svg>
-                        <span>@_errorMessage</span>
+                        <span>@(_errorMessage?.Invoke())</span>
                     </div>
                 }
 
                 <div class="form-group mb-3">
                     <label class="form-label-custom" for="branch-identifier">
-                        <span>Branch Identifier</span>
-                        <small class="form-hint">e.g. scenario/bridge-closure, test/florian-blockade</small>
+                        <span>@L.Scenario.BranchName</span>
+                        <small class="form-hint">@L.Scenario.NameExample</small>
                     </label>
                     <div class="input-prefix-wrapper">
                         <span class="input-prefix"><UiIcon Kind="UiIconKind.Branch" /></span>
                         <input id="branch-identifier" type="text"
                                class="app-input form-control-custom"
-                               placeholder="scenario/my-hypothesis"
+                               placeholder="@L.Scenario.NamePlaceholder"
                                @bind="_branchName"
                                @bind:event="oninput"
                                autofocus />
@@ -74,11 +74,11 @@
 
                 <div class="form-group mb-3">
                     <label class="form-label-custom" for="branch-description">
-                        <span>Hypothesis / Description <small class="text-secondary">(Optional)</small></span>
+                        <span>@L.Scenario.Description <small class="text-secondary">@L.Common.Optional</small></span>
                     </label>
                     <textarea id="branch-description" class="app-input form-control-custom form-textarea-custom"
                               rows="2"
-                              placeholder="Describe what condition or blockage is being tested in this scenario..."
+                              placeholder="@L.Scenario.DescriptionHint"
                               @bind="_description"></textarea>
                 </div>
 
@@ -87,8 +87,8 @@
                         <input type="checkbox" @bind="_copyItems" />
                         <span class="checkmark"></span>
                         <span class="check-text">
-                            <strong>Inherit parent map features</strong>
-                            <small class="d-block text-secondary">Deep-clones existing zones and blockades into the new branch for isolated editing.</small>
+                            <strong>@L.Scenario.CopyFeatures</strong>
+                            <small class="d-block text-secondary">@L.Scenario.CopyDescription</small>
                         </span>
                     </label>
                 </div>
@@ -97,13 +97,13 @@
             <!-- Footer Actions -->
             <div class="feature-dialog-footer branch-modal-footer">
                 <button type="button" class="app-button btn-modal-secondary" @onclick="Close">
-                    Cancel
+                    @L.Common.Cancel
                 </button>
                 <button type="button" class="app-button btn-modal-primary app-button--primary" @onclick="HandleCreate" disabled="@_isSubmitting">
                     @if (_isSubmitting)
                     {
                         <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                        <span>Branching...</span>
+                        <span>@L.Scenario.Creating</span>
                     }
                     else
                     {
@@ -113,7 +113,7 @@
                             <circle cx="6" cy="18" r="3"></circle>
                             <path d="M18 9a9 9 0 0 1-9 9"></path>
                         </svg>
-                        <span>Create & Checkout Branch</span>
+                        <span>@L.Scenario.CreateAndSwitch</span>
                     }
                 </button>
             </div>

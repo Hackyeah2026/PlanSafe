@@ -3,7 +3,7 @@ using PlanSafe.Contracts.Models.Session;
 
 namespace PlanSafe.App.Components;
 
-public partial class SimulationConfigModal : ComponentBase
+public partial class SimulationConfigModal
 {
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public SimulationConfig Config { get; set; } = new();

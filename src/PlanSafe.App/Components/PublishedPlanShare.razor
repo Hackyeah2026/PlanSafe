@@ -3,23 +3,23 @@
 
 <div class="plan-share @(Projector ? "plan-share--projector" : "")">
     <div class="share-heading">
-        <span class="share-status"><UiIcon Kind="UiIconKind.Shield" /> Plan ready to share</span>
-        <h3>Scan the code. Open the plan.</h3>
+        <span class="share-status"><UiIcon Kind="UiIconKind.Shield" /> @L.Publish.Ready</span>
+        <h3>@L.Publish.Scan</h3>
     </div>
-    <div class="share-qr" role="img" aria-label="Evacuation plan QR code">@((MarkupString)WrapSvgResponsive(Plan.QrCodeSvg))</div>
-    <p class="share-session ui-muted">Session code <strong>@Plan.SessionId</strong></p>
+    <div class="share-qr" role="img" aria-label="@L.Publish.QrLabel">@((MarkupString)WrapSvgResponsive(Plan.QrCodeSvg))</div>
+    <p class="share-session ui-muted">@L.Publish.CodeLabel <strong>@Plan.SessionId</strong></p>
     <div class="share-link">
-        <label for="@linkId">Evacuation plan link</label>
+        <label for="@linkId">@L.Publish.LinkLabel</label>
         <input id="@linkId" type="text" class="app-input" readonly value="@Plan.EvacuateUrl" />
         @if (Projector)
         {
             <p class="share-projector-url">@Plan.EvacuateUrl</p>
         }
         <div class="share-actions">
-            <AppButton OnClick="CopyUrlAsync">@(copied ? "Link copied" : "Copy link")</AppButton>
-            <a class="app-button app-button--primary" href="@Plan.EvacuateUrl" target="_blank" rel="noopener">Evacuate next person <UiIcon Kind="UiIconKind.ArrowRight" /></a>
+            <AppButton OnClick="CopyUrlAsync">@(copied ? L.Publish.LinkCopied : L.Publish.CopyLink)</AppButton>
+            <a class="app-button app-button--primary" href="@Plan.EvacuateUrl" target="_blank" rel="noopener">@L.Publish.NextPerson <UiIcon Kind="UiIconKind.ArrowRight" /></a>
         </div>
-        <span class="share-feedback ui-muted" role="status">@feedback</span>
+        <span class="share-feedback ui-muted" role="status">@(feedback?.Invoke())</span>
     </div>
 </div>
 
@@ -28,7 +28,7 @@
     [Parameter] public bool Projector { get; set; }
     private readonly string linkId = $"plan-link-{Guid.NewGuid():N}";
     private bool copied;
-    private string? feedback;
+    private Func<string?>? feedback;
 
     private async Task CopyUrlAsync()
     {
@@ -36,12 +36,12 @@
         {
             await JS.InvokeVoidAsync("navigator.clipboard.writeText", Plan.EvacuateUrl);
             copied = true;
-            feedback = "Link copied. You can now share it.";
+            feedback = () => L.Publish.CopySuccess;
         }
         catch (JSException)
         {
             copied = false;
-            feedback = "Could not copy the link. Select the address above and copy it manually.";
+            feedback = () => L.Publish.CopyFailed;
         }
     }
 

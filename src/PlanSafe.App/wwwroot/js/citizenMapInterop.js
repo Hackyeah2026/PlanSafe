@@ -1,3 +1,6 @@
+import { TextKeys } from "./textKeys.js";
+import { text, localizedSpan, localizeMapControls } from "./localizedText.js";
+
 // Citizen Map Interop for Mobile Evacuation Assistant
 // Reuses Leaflet instance to display citizen location, shelters, roadblocks, alarm zones, and active route.
 
@@ -44,10 +47,14 @@ export function initCitizenMap(
   // Dark-friendly OpenStreetMap tile layer
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
-    attribution: "&copy; OpenStreetMap contributors",
+    attribution:
+      '&copy; OpenStreetMap <span data-i18n="Map.Contributors">' +
+      text(TextKeys.Map.Contributors) +
+      "</span>",
   }).addTo(map);
 
   map.zoomControl.setPosition("topright");
+  localizeMapControls(container);
 
   const zonesLayer = L.layerGroup().addTo(map);
   const safeZonesLayer = L.layerGroup().addTo(map);
@@ -212,7 +219,9 @@ export function updateCitizenMap(
                 fillColor: "#10b981",
                 fillOpacity: 0.18,
               })
-                .bindTooltip("<b>Safe Zone</b>", { sticky: true })
+                .bindTooltip(localizedSpan(TextKeys.Map.SafeZone), {
+                  sticky: true,
+                })
                 .addTo(safeZonesLayer);
             }
           }
@@ -326,7 +335,7 @@ export function updateCitizenMap(
         if (isNaN(sLat) || isNaN(sLng) || sLat === 0 || sLng === 0) continue;
 
         const sId = s.id ?? s.Id ?? "";
-        const sName = s.name ?? s.Name ?? "Evacuation Shelter";
+        const sName = s.name ?? s.Name ?? text(TextKeys.Shelter.DefaultName);
         const sCap = Number(s.capacity ?? s.Capacity ?? 500);
         const sOcc = Number(
           s.currentOccupancy ??

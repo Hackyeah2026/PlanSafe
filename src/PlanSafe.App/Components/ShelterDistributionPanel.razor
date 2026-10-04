@@ -1,38 +1,39 @@
 @namespace PlanSafe.App.Components
 @using PlanSafe.Contracts.Models.Simulation
 @using System.Globalization
-<SurfacePanel Strong="true" Label="Dystrybucja i schrony">
-    <h2 class="feature-section-title">Dystrybucja &amp; Schrony</h2>
-    <div role="group" aria-label="Scenariusz" class="parameter-options">
+<SurfacePanel Strong="true" Label="@L.Shelter.Allocation">
+    <h2 class="feature-section-title">@L.Shelter.Allocation</h2>
+    <div role="group" aria-label="@L.Scenario.Label" class="parameter-options">
         <AppButton Disabled="@(!Ready)" Pressed="@(Math.Abs(WeightDistance - 1) < .05 && Math.Abs(WeightOccupancy) < .05)" OnClick="() => OnScenario.InvokeAsync((1.0, 0.0))">A (1:0)</AppButton>
         <AppButton Disabled="@(!Ready)" Pressed="@(Math.Abs(WeightDistance - .5) < .05 && Math.Abs(WeightOccupancy - .5) < .05)" OnClick="() => OnScenario.InvokeAsync((.5, .5))">B (0.5:0.5)</AppButton>
         <AppButton Disabled="@(!Ready)" Pressed="@(Math.Abs(WeightDistance - .2) < .05 && Math.Abs(WeightOccupancy - .8) < .05)" OnClick="() => OnScenario.InvokeAsync((.2, .8))">C (0.2:0.8)</AppButton>
     </div>
-    <p class="small ui-muted">Balans wag (Suma = 1.00): @((WeightDistance * 100).ToString("F0"))% / @((WeightOccupancy * 100).ToString("F0"))%</p>
-    <label for="weight-dist">Waga odległości (w_dist): @WeightDistance.ToString("F2", CultureInfo.InvariantCulture)</label>
+    <p class="small ui-muted">@(L.Shelter.WeightsValue((WeightDistance * 100).ToString("F0"), (WeightOccupancy * 100).ToString("F0")))</p>
+    <label for="weight-dist">@(L.Shelter.DistanceValue(WeightDistance.ToString("F2")))</label>
     <div class="parameter-options">
-        <IconButton Label="Zmniejsz wagę odległości" Disabled="@(!Ready || WeightDistance <= .001)" OnClick="() => OnAdjustDistance.InvokeAsync(-.05)"><UiIcon Kind="UiIconKind.Minus" /></IconButton>
-        <IconButton Label="Zwiększ wagę odległości" Disabled="@(!Ready || WeightDistance >= .999)" OnClick="() => OnAdjustDistance.InvokeAsync(.05)"><UiIcon Kind="UiIconKind.Plus" /></IconButton>
+        <IconButton Label="@L.Shelter.DecreaseDistance" Disabled="@(!Ready || WeightDistance <= .001)" OnClick="() => OnAdjustDistance.InvokeAsync(-.05)"><UiIcon Kind="UiIconKind.Minus" /></IconButton>
+        <IconButton Label="@L.Shelter.IncreaseDistance" Disabled="@(!Ready || WeightDistance >= .999)" OnClick="() => OnAdjustDistance.InvokeAsync(.05)"><UiIcon Kind="UiIconKind.Plus" /></IconButton>
     </div>
     <input id="weight-dist" data-testid="weight-dist" disabled="@(!Ready)" type="range" class="form-range" min="0" max="1" step=".01" value="@WeightDistance.ToString("F2", CultureInfo.InvariantCulture)" @oninput="OnDistanceInput" @onchange="OnDistanceInput" />
-    <label for="weight-occ">Waga obłożenia (w_occ): @WeightOccupancy.ToString("F2", CultureInfo.InvariantCulture)</label>
+    <label for="weight-occ">@(L.Shelter.OccupancyValue(WeightOccupancy.ToString("F2")))</label>
     <div class="parameter-options">
-        <IconButton Label="Zmniejsz wagę obłożenia" Disabled="@(!Ready || WeightOccupancy <= .001)" OnClick="() => OnAdjustOccupancy.InvokeAsync(-.05)"><UiIcon Kind="UiIconKind.Minus" /></IconButton>
-        <IconButton Label="Zwiększ wagę obłożenia" Disabled="@(!Ready || WeightOccupancy >= .999)" OnClick="() => OnAdjustOccupancy.InvokeAsync(.05)"><UiIcon Kind="UiIconKind.Plus" /></IconButton>
+        <IconButton Label="@L.Shelter.DecreaseOccupancy" Disabled="@(!Ready || WeightOccupancy <= .001)" OnClick="() => OnAdjustOccupancy.InvokeAsync(-.05)"><UiIcon Kind="UiIconKind.Minus" /></IconButton>
+        <IconButton Label="@L.Shelter.IncreaseOccupancy" Disabled="@(!Ready || WeightOccupancy >= .999)" OnClick="() => OnAdjustOccupancy.InvokeAsync(.05)"><UiIcon Kind="UiIconKind.Plus" /></IconButton>
     </div>
     <input id="weight-occ" data-testid="weight-occ" disabled="@(!Ready)" type="range" class="form-range" min="0" max="1" step=".01" value="@WeightOccupancy.ToString("F2", CultureInfo.InvariantCulture)" @oninput="OnOccupancyInput" @onchange="OnOccupancyInput" />
     @if (Targets.Count > 0)
     {
-        <AppButton Disabled="@(!Ready)" OnClick="OnResetShelters">Resetuj obłożenie</AppButton>
+        <AppButton Disabled="@(!Ready)" OnClick="OnResetShelters">@L.Shelter.ResetOccupancy</AppButton>
         @foreach (var target in Targets)
         {
             var pct = target.Capacity > 0 ? (int)Math.Round((double)target.CurrentOccupancy / target.Capacity * 100) : 0;
-            <p class="small">@target.Name: <strong>@target.CurrentOccupancy / @target.Capacity (@pct%)</strong></p>
-            <progress max="100" value="@Math.Min(100, pct)" aria-label="@target.Name"></progress>
+            <p class="small">@TargetName(target): <strong>@target.CurrentOccupancy / @target.Capacity (@pct%)</strong></p>
+            <progress max="100" value="@Math.Min(100, pct)" aria-label="@TargetName(target)"></progress>
         }
     }
 </SurfacePanel>
 @code {
+    [Parameter] public Func<EvacuationTarget, string> TargetName { get; set; } = target => target.Name;
     [Parameter] public bool Ready { get; set; }
     [Parameter] public IReadOnlyList<EvacuationTarget> Targets { get; set; } = Array.Empty<EvacuationTarget>();
     [Parameter] public double WeightDistance { get; set; }

@@ -3,14 +3,14 @@
 
 <ModalDialog Width="500px" IsOpen="true" Class="publish-dialog" LabelledBy="publish-title">
     <div class="feature-dialog-header">
-        <h2 id="publish-title">Share evacuation plan</h2>
-        <button type="button" class="app-button app-icon-button" data-dialog-close aria-label="Close" @onclick="OnClose"><UiIcon Kind="UiIconKind.Close" /></button>
+        <h2 id="publish-title">@L.Publish.ShareTitle</h2>
+        <button type="button" class="app-button app-icon-button" data-dialog-close aria-label="@L.Common.Close" @onclick="OnClose"><UiIcon Kind="UiIconKind.Close" /></button>
     </div>
     <div class="feature-dialog-body">
         <PublishedPlanShare Plan="Plan" />
-        <p class="publish-summary ui-muted">Shelters: @ShelterCount · Roadblocks: @ObstacleCount · Area: @WorldWidth.ToString("F0") m</p>
+        <p class="publish-summary ui-muted">@L.Publish.Summary(ShelterCount, ObstacleCount, WorldWidth.ToString("F0"))</p>
     </div>
-    <div class="feature-dialog-footer"><AppButton OnClick="OnClose">Close</AppButton></div>
+    <div class="feature-dialog-footer"><AppButton OnClick="OnClose">@L.Common.Close</AppButton></div>
 </ModalDialog>
 @code {
     [Parameter, EditorRequired] public PublishPlanResponse Plan { get; set; } = default!;

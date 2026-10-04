@@ -9,7 +9,7 @@
                     class="map-simulation-canvas @(_isSimulating ? "active" : "")"></canvas>
         </div>
 
-        @if (!string.IsNullOrEmpty(_simWarningMessage))
+        @if (_simWarningMessage is not null)
         {
             <div class="sim-warning-toast surface-panel" role="status">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -17,8 +17,8 @@
                     <line x1="12" y1="9" x2="12" y2="13"></line>
                     <line x1="12" y1="17" x2="12.01" y2="17"></line>
                 </svg>
-                <span>@_simWarningMessage</span>
-                <button type="button" class="btn-toast-close" aria-label="Dismiss simulation message" @onclick="() => _simWarningMessage = null">&times;</button>
+                <span>@(_simWarningMessage?.Invoke())</span>
+                <button type="button" class="btn-toast-close" aria-label="@L.Simulation.DismissMessage" @onclick="() => _simWarningMessage = null">&times;</button>
             </div>
         }
 
@@ -56,7 +56,7 @@
         <SidePanel HasEvacuationZone="@_mapItems.Any(item => item.Category == ZoneCategory.EvacuationZone)"
                    CensusLoaded="@CensusService.IsLoaded"
                    CensusLoading="@_isCensusLoading"
-                   CensusPopulation="@_censusPopulation" CensusCells="@_censusCells"
+                   CensusPopulation="@_censusPopulation"
                    BranchName='@(_activeSession?.BranchName ?? "main")' Expanded="@isMobilePanelOpen"
                    IsSimulating="@_isSimulating" EvacuatedCount="@_statsCollector.Stats.EvacuatedAgents"
                    TotalSimulatedAgents="@_simTotalAgents" SimulationTime="@_statsCollector.Stats.SimulationTime"

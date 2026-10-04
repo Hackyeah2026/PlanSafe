@@ -6,7 +6,7 @@ using PlanSafe.App.Components.Statistics;
 
 namespace PlanSafe.App.Components;
 
-public partial class StatisticsPopup : ComponentBase
+public partial class StatisticsPopup
 {
     [Parameter] public bool IsOpen { get; set; } = false;
     [Parameter] public bool IsLive { get; set; } = true;
@@ -38,7 +38,7 @@ public partial class StatisticsPopup : ComponentBase
         string transform = (_dragX != 0 || _dragY != 0)
             ? $" transform: translate({_dragX.ToString("0.#", CultureInfo.InvariantCulture)}px, {_dragY.ToString("0.#", CultureInfo.InvariantCulture)}px);"
             : "";
-        return $"position: fixed; top: {_posY}px; right: {_posX}px; z-index: 1200; max-height: calc(100vh - 90px);{transform}";
+        return FormattableString.Invariant($"position: fixed; top: {_posY}px; right: {_posX}px; z-index: 1200; max-height: calc(100vh - 90px);{transform}");
     }
 
     private void StartDrag(PointerEventArgs e)

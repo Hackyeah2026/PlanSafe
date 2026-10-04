@@ -1,10 +1,10 @@
 @namespace PlanSafe.App.Components
-<div class="simulation-run-controls" role="group" aria-label="Simulation controls">
-    <AppButton data-testid="toggle" Tone="@(IsRunning ? ButtonTone.Danger : ButtonTone.Success)" Disabled="@(!Ready)" OnClick="OnToggle">@(IsRunning ? "Zatrzymaj" : "Uruchom")</AppButton>
-    <AppButton Disabled="@(!Ready || IsRunning)" OnClick="OnStep">Krok</AppButton>
-    <AppButton data-testid="reset" Disabled="@(!Ready)" OnClick="OnReset">Reset Agenci</AppButton>
-    <AppButton Tone="ButtonTone.Primary" Disabled="@(!Ready || IsPublishing)" OnClick="OnPublish"><UiIcon Kind="UiIconKind.Phone" /> @(IsPublishing ? "Publikowanie..." : "Zatwierdź Plan & Kod QR")</AppButton>
-    <AppButton Pressed="ShowStats" OnClick="OnStatistics">Statistics</AppButton>
+<div class="simulation-run-controls" role="group" aria-label="@L.Simulation.Controls">
+    <AppButton data-testid="toggle" Tone="@(IsRunning ? ButtonTone.Danger : ButtonTone.Success)" Disabled="@(!Ready)" OnClick="OnToggle">@(IsRunning ? L.Simulation.Stop : L.Simulation.Run)</AppButton>
+    <AppButton Disabled="@(!Ready || IsRunning)" OnClick="OnStep">@L.Simulation.Step</AppButton>
+    <AppButton data-testid="reset" Disabled="@(!Ready)" OnClick="OnReset">@L.Simulation.ResetAgents</AppButton>
+    <AppButton Tone="ButtonTone.Primary" Disabled="@(!Ready || IsPublishing)" OnClick="OnPublish"><UiIcon Kind="UiIconKind.Phone" /> @(IsPublishing ? L.Publish.Publishing : L.Publish.Plan)</AppButton>
+    <AppButton Pressed="ShowStats" OnClick="OnStatistics">@L.Statistics.Label</AppButton>
 </div>
 @code {
     [Parameter] public bool Ready { get; set; }

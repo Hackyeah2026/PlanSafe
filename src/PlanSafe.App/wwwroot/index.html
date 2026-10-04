@@ -6,6 +6,8 @@
     <title>Plan Safe</title>
     <base href="/" />
     <script type="importmap"></script>
+    <script src="js/translations.js"></script>
+    <script src="js/localization.js"></script>
     <script src="js/appearance.js"></script>
     <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
     <link
@@ -39,10 +41,10 @@
               success: false,
               isSecureContext: false,
               code: "INSECURE_CONTEXT",
-              message:
-                "Location blocked: the connection to " +
-                window.location.origin +
-                " is unencrypted (HTTP). The W3C standard requires HTTPS or localhost.",
+              message: window.planSafeLocalization.text(
+                window.planSafeTextKeys.Location.InsecureHost,
+                window.location.origin,
+              ),
             });
             return;
           }
@@ -52,7 +54,9 @@
               success: false,
               isSecureContext: isSecure,
               code: "NOT_SUPPORTED",
-              message: "The browser does not support GPS geolocation.",
+              message: window.planSafeLocalization.text(
+                window.planSafeTextKeys.Location.Unsupported,
+              ),
             });
             return;
           }
@@ -66,7 +70,9 @@
                 longitude: pos.coords.longitude,
                 accuracy: pos.coords.accuracy,
                 code: "OK",
-                message: "GPS location retrieved.",
+                message: window.planSafeLocalization.text(
+                  window.planSafeTextKeys.Location.Acquired,
+                ),
               });
             },
             function (err) {
@@ -75,7 +81,9 @@
                   success: false,
                   isSecureContext: isSecure,
                   code: "PERMISSION_DENIED",
-                  message: "Location access denied in browser permissions.",
+                  message: window.planSafeLocalization.text(
+                    window.planSafeTextKeys.Location.PermissionHint,
+                  ),
                 });
                 return;
               }
@@ -89,18 +97,28 @@
                     longitude: pos2.coords.longitude,
                     accuracy: pos2.coords.accuracy,
                     code: "OK",
-                    message: "Location retrieved via network/Wi-Fi.",
+                    message: window.planSafeLocalization.text(
+                      window.planSafeTextKeys.Location.NetworkAcquired,
+                    ),
                   });
                 },
                 function (err2) {
                   var reason =
                     err2.code === 1
-                      ? "Location access denied."
+                      ? window.planSafeLocalization.text(
+                          window.planSafeTextKeys.Location.Denied,
+                        )
                       : err2.code === 2
-                        ? "Location unavailable (no GPS/network signal)."
+                        ? window.planSafeLocalization.text(
+                            window.planSafeTextKeys.Location.Unavailable,
+                          )
                         : err2.code === 3
-                          ? "GPS request timed out."
-                          : "GPS error.";
+                          ? window.planSafeLocalization.text(
+                              window.planSafeTextKeys.Location.Timeout,
+                            )
+                          : window.planSafeLocalization.text(
+                              window.planSafeTextKeys.Location.Error,
+                            );
                   resolve({
                     success: false,
                     isSecureContext: isSecure,
@@ -144,9 +162,13 @@
     </div>
 
     <div id="blazor-error-ui">
-      An unhandled error has occurred.
-      <a href="." class="reload">Reload</a>
-      <button type="button" class="dismiss" aria-label="Dismiss error">
+      <span data-i18n="Common.UnhandledError"></span>
+      <a href="." class="reload" data-i18n="Common.Reload"></a>
+      <button
+        type="button"
+        class="dismiss"
+        data-i18n-aria="Common.DismissError"
+      >
         <svg
           width="16"
           height="16"
@@ -161,7 +183,19 @@
         </svg>
       </button>
     </div>
-    <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
+    <script
+      src="_framework/blazor.webassembly#[.{fingerprint}].js"
+      autostart="false"
+    ></script>
+    <script>
+      Blazor.start({
+        applicationCulture:
+          window.planSafeLocalization.detect() === "pl" ? "pl-PL" : "en-GB",
+        // Both catalogues must be available when switching without a page reload.
+        configureRuntime: (builder) =>
+          builder.withConfig({ loadAllSatelliteResources: true }),
+      });
+    </script>
     <script type="module" src="js/main.js"></script>
   </body>
 </html>

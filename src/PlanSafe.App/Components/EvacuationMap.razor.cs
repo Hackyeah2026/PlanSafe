@@ -12,7 +12,7 @@ using PlanSafe.Contracts.Models.Stats;
 
 namespace PlanSafe.App.Components;
 
-public partial class EvacuationMap : ComponentBase, IAsyncDisposable
+public partial class EvacuationMap : IAsyncDisposable
 {
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private IMapInterop MapInterop { get; set; } = default!;
@@ -51,7 +51,7 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
     private readonly SimulationStatsCollector _statsCollector = new();
     private IJSObjectReference? _simModule;
     private IJSObjectReference? _simulator;
-    private string? _simWarningMessage;
+    private Func<string?>? _simWarningMessage;
 
     private string _activeCategory = "navigate"; // "navigate", "evac", "safe", "blockade"
     private string _selectedShape = "polygon"; // "polygon", "circle"
@@ -59,7 +59,6 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
     private string? _activeDrawHint;
     private int _currentPointCount = 0;
     private int _censusPopulation = 0;
-    private int _censusCells = 0;
     private bool _isCensusLoading = true;
 
     private bool _disposed = false;
@@ -208,7 +207,7 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
 
         if (_isCensusLoading)
         {
-            _simWarningMessage = "Population data is still loading. Try again shortly.";
+            _simWarningMessage = () => L.Census.Wait;
             StateHasChanged();
             return;
         }
@@ -218,14 +217,14 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
 
         if (evacZones.Count == 0)
         {
-            _simWarningMessage = "Draw at least one evacuation zone before starting the simulation.";
+            _simWarningMessage = () => L.Simulation.ZoneRequired;
             StateHasChanged();
             return;
         }
 
         if (safeLocations.Count == 0)
         {
-            _simWarningMessage = "Narysuj przynajmniej jedno Bezpieczne Miejsce (Safe Location) jako punkt docelowy ewakuacji.";
+            _simWarningMessage = () => L.Simulation.DestinationRequired;
             StateHasChanged();
             return;
         }
@@ -261,7 +260,7 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
                     case SafeCircleZoneItem circle when circle.Center is { Length: >= 2 }:
                         var (cx, cy) = ToWorld(circle.Center[0], circle.Center[1]);
                         double r = circle.Radius ?? 30.0;
-                        targets.Add(new EvacuationTarget(item.Id, string.IsNullOrWhiteSpace(item.Name) ? "Shelter" : item.Name, cx - r, cy - r, r * 2, r * 2, 1000, 0, true));
+                        targets.Add(new EvacuationTarget(item.Id, string.IsNullOrWhiteSpace(item.Name) ? L.Shelter.Label : item.Name, cx - r, cy - r, r * 2, r * 2, 1000, 0, true));
                         var circXs = new double[32];
                         var circYs = new double[32];
                         for (int k = 0; k < 32; k++)
@@ -278,18 +277,18 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
                         double pMaxX = coords.Max(c => ToWorld(c[0], c[1]).X);
                         double pMinY = coords.Min(c => ToWorld(c[0], c[1]).Y);
                         double pMaxY = coords.Max(c => ToWorld(c[0], c[1]).Y);
-                        targets.Add(new EvacuationTarget(item.Id, string.IsNullOrWhiteSpace(item.Name) ? "Shelter" : item.Name, pMinX, pMinY, Math.Max(10.0, pMaxX - pMinX), Math.Max(10.0, pMaxY - pMinY), 1000, 0, true));
+                        targets.Add(new EvacuationTarget(item.Id, string.IsNullOrWhiteSpace(item.Name) ? L.Shelter.Label : item.Name, pMinX, pMinY, Math.Max(10.0, pMaxX - pMinX), Math.Max(10.0, pMaxY - pMinY), 1000, 0, true));
                         targetShapes[item.Id] = (coords.Select(c => ToWorld(c[0], c[1]).X).ToArray(), coords.Select(c => ToWorld(c[0], c[1]).Y).ToArray());
                         break;
                     case SafePointZoneItem pt when pt.Position is { Length: >= 2 }:
                         var (px, py) = ToWorld(pt.Position[0], pt.Position[1]);
-                        targets.Add(new EvacuationTarget(item.Id, string.IsNullOrWhiteSpace(item.Name) ? "Exit" : item.Name, px - 4.0, py - 4.0, 8.0, 8.0, 1000, 0, true));
+                        targets.Add(new EvacuationTarget(item.Id, string.IsNullOrWhiteSpace(item.Name) ? L.Demo.Exit : item.Name, px - 4.0, py - 4.0, 8.0, 8.0, 1000, 0, true));
                         break;
                 }
             }
             if (targets.Count == 0)
             {
-                targets.Add(new EvacuationTarget("shelter-east", "Main Exit", worldWidth * 0.90, worldHeight * 0.45, worldWidth * 0.08, worldHeight * 0.10, 1000, 0, true));
+                targets.Add(new EvacuationTarget("shelter-east", L.Demo.MainExit, worldWidth * 0.90, worldHeight * 0.45, worldWidth * 0.08, worldHeight * 0.10, 1000, 0, true));
             }
 
             // 3. Prepare MapScenario raster and obstacles using full OSM terrain from krakow_osm.bin
@@ -485,7 +484,7 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
         catch (OperationCanceledException) when (_disposed) { }
         catch (Exception ex)
         {
-            _simWarningMessage = $"Failed to start simulation: {ex.Message}";
+            _simWarningMessage = () => L.Simulation.StartFailed(ex.Message);
             StateHasChanged();
         }
         finally
@@ -866,9 +865,8 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
     {
         if (CensusService.IsLoaded)
         {
-            var (pop, cells) = CensusService.CalculateEvacuationPopulation(_mapItems);
+            var (pop, _) = CensusService.CalculateEvacuationPopulation(_mapItems);
             _censusPopulation = pop;
-            _censusCells = cells;
         }
     }
 
