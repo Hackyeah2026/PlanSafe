@@ -78,7 +78,7 @@ public class OsmObstacleService : IOsmObstacleService
                 {
                     binData = await _httpClient.GetByteArrayAsync("data/krakow_osm.bin", cancellationToken);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     Console.WriteLine($"[OsmObstacleService] Could not fetch data/krakow_osm.bin: {ex.Message}");
                 }
@@ -193,6 +193,9 @@ public class OsmObstacleService : IOsmObstacleService
                         gates[i] = (reader.ReadSingle(), reader.ReadSingle());
                     }
 
+                    if (areas.Length == 0 && lines.Length == 0)
+                        throw new InvalidDataException("The bundled map terrain contains no obstacles.");
+
                     _areas = areas;
                     _roads = roads;
                     _lines = lines;
@@ -233,14 +236,22 @@ public class OsmObstacleService : IOsmObstacleService
                         Rings = rings.ToArray()
                     });
                 }
+                if (areas.Count == 0)
+                    throw new InvalidDataException("The fallback map terrain contains no usable obstacles.");
+
                 _areas = areas.ToArray();
                 await BuildSpatialIndexAsync(cancellationToken);
                 _isLoaded = true;
             }
+            else
+            {
+                throw new InvalidDataException("The fallback map terrain is empty.");
+            }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            Console.WriteLine($"[OsmObstacleService] Note: Could not load bundled binary obstacles: {ex.Message}");
+            throw new InvalidOperationException(
+                "Map terrain could not be loaded. Simulation cannot start without obstacle data.", ex);
         }
         finally
         {
