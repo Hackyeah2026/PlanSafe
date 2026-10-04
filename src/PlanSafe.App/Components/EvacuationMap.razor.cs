@@ -312,6 +312,7 @@ public partial class EvacuationMap : IAsyncDisposable
                 _simulationConfig.Granulation, _simulationConfig.SocialRepulsionWeight, cancellationToken: preparationToken);
             if (_disposed) return;
             _simulationEngine.WhiskerLength = _simulationConfig.WhiskerLength;
+            await _simulationEngine.ConfigureMapRoutingAsync(_simulationConfig.WeightDistance, _simulationConfig.WeightOccupancy, preparationToken);
             _statsCollector.Reset(_simulationEngine.AgentCount);
 
             // 6. Initialize JS Canvas Overlay
@@ -614,11 +615,16 @@ public partial class EvacuationMap : IAsyncDisposable
                 _simulationEngine.SetGranulation(_simulationConfig.Granulation);
                 _statsCollector.Reset(_simulationEngine.AgentCount);
             }
+            await _simulationEngine.ConfigureMapRoutingAsync(_simulationConfig.WeightDistance, _simulationConfig.WeightOccupancy);
             if (_activeEngine == "webgpu" && _simulationRenderer != null)
             {
                 if (granulationChanged)
                     await _simulationRenderer.InvokeVoidAsync("initMapGpu", MapGpuSnapshot.Capture(_simulationEngine));
-                else await _simulationRenderer.InvokeVoidAsync("setGpuWeight", _simulationConfig.SocialRepulsionWeight);
+                else
+                {
+                    await _simulationRenderer.InvokeVoidAsync("setGpuWeight", _simulationConfig.SocialRepulsionWeight);
+                    await _simulationRenderer.InvokeVoidAsync("setMapRoutingGpu", MapGpuSnapshot.Capture(_simulationEngine));
+                }
             }
         }
         await RequestRender();

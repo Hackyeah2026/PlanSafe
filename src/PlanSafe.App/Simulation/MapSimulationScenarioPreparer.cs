@@ -133,7 +133,7 @@ public static class MapSimulationScenarioPreparer
                         if (!isBorderTile) continue;
                         double tileCenterX = shapeMinimumX + (column + 0.5) * exitTileSize, tileCenterY = shapeMinimumY + (row + 0.5) * exitTileSize;
                         if (tileCenterX <= 0 || tileCenterY <= 0 || tileCenterX >= worldWidth || tileCenterY >= worldHeight) continue;
-                        mapExits.Add(new MapExit(tileCenterX, tileCenterY, exitTileSize * 0.5));
+                        mapExits.Add(new MapExit(tileCenterX, tileCenterY, exitTileSize * 0.5, TargetId: target.Id));
                         addedExitCount++;
                     }
                 }
@@ -152,7 +152,7 @@ public static class MapSimulationScenarioPreparer
                 centerX = snapped.X;
                 centerY = snapped.Y;
             }
-            mapExits.Add(new MapExit(centerX, centerY, radius));
+            mapExits.Add(new MapExit(centerX, centerY, radius, TargetId: target.Id));
             builder.SetDisk(centerX, centerY, Math.Max(2.0, rasterCellSize), isWalkable: true);
         }
         return mapExits;

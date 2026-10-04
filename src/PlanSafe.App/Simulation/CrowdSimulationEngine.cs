@@ -31,6 +31,23 @@ public class CrowdSimulationEngine
     public bool MultiTargetEnabled { get; private set; } = false;
     public double WeightDistance { get; set; } = 1.0;
     public double WeightOccupancy { get; set; } = 0.0;
+    public MapSafeZoneRouting? MapRouting { get; private set; }
+
+    public async Task ConfigureMapRoutingAsync(double distanceWeight, double occupancyWeight,
+        CancellationToken cancellationToken = default)
+    {
+        if (MapScenario is null) return;
+        WeightDistance = Math.Clamp(distanceWeight, 0, 1);
+        WeightOccupancy = Math.Clamp(occupancyWeight, 0, 1);
+        if (WeightOccupancy == 0)
+        {
+            MapRouting = null;
+            return;
+        }
+        MapRouting ??= await MapSafeZoneRouting.BuildAsync(MapScenario, PotentialFieldMap, cancellationToken);
+        MapRouting.Assign(_activeMapAgents, AgentPositionX, AgentPositionY, AgentTargetIndex,
+            _evacuatedPerExit, PotentialFieldMap, WeightDistance, WeightOccupancy, WorldWidth, WorldHeight);
+    }
     public List<EvacuationTarget> Targets { get; } = new();
     public int[] AgentTargetIndex { get; } = new int[MaxAllowedAgents];
     public int EvacuatedCount => Math.Min(AgentCount, _evacuatedCount * Math.Max(1, Granulation));
@@ -133,6 +150,8 @@ public class CrowdSimulationEngine
         foreach (var _ in prepared.PrepareMapGridSteps(scenario)) await scheduler.YieldAsync(cancellationToken);
         await prepared.PotentialFieldMap.BuildStaticFieldAsync(prepared._mapExitZones, cancellationToken);
         foreach (var _ in prepared.PrepareReachableMaskSteps()) await scheduler.YieldAsync(cancellationToken);
+        var preparedRouting = WeightOccupancy > 0
+            ? await MapSafeZoneRouting.BuildAsync(scenario, prepared.PotentialFieldMap, cancellationToken) : null;
         cancellationToken.ThrowIfCancellationRequested();
 
         var previousExits = MapScenario.Exits;
@@ -143,6 +162,8 @@ public class CrowdSimulationEngine
             int newIndex = Array.FindIndex(scenario.Exits, candidate =>
                 Math.Abs(candidate.X - exit.X - offsetX) < 0.01 &&
                 Math.Abs(candidate.Y - exit.Y - offsetY) < 0.01 && candidate.Radius == exit.Radius);
+            if (newIndex < 0 && exit.TargetId is not null)
+                newIndex = Array.FindIndex(scenario.Exits, candidate => candidate.TargetId == exit.TargetId);
             if (newIndex >= 0) counts[newIndex] += _evacuatedPerExit[oldIndex];
         }
         double whiskerLength = WhiskerLength;
@@ -167,6 +188,9 @@ public class CrowdSimulationEngine
         PotentialFieldMap.UpdateDynamicDensity(_activeMapAgents, AgentPositionX, AgentPositionY, Granulation);
         PotentialFieldMap.RefineDynamicField();
         _dynamicFieldTimer = 0;
+        MapRouting = preparedRouting;
+        MapRouting?.Assign(_activeMapAgents, AgentPositionX, AgentPositionY, AgentTargetIndex,
+            _evacuatedPerExit, PotentialFieldMap, WeightDistance, WeightOccupancy, WorldWidth, WorldHeight);
     }
 
     public CrowdSimulationEngine(double width = 200.0, double height = 200.0, int agentCount = 1000)
@@ -617,6 +641,12 @@ public class CrowdSimulationEngine
         }
 
         ResetRecoveryTracking(activeCount);
+        if (IsMapScenario)
+        {
+            Array.Clear(_evacuatedPerExit);
+            MapRouting?.Assign(activeCount, AgentPositionX, AgentPositionY, AgentTargetIndex,
+                _evacuatedPerExit, PotentialFieldMap, WeightDistance, WeightOccupancy, WorldWidth, WorldHeight);
+        }
         if (MultiTargetEnabled && Targets.Count > 1)
         {
             ReevaluateTargetAssignments();
@@ -745,7 +775,11 @@ public class CrowdSimulationEngine
         for (int agentIndex = 0; agentIndex < activeCount; agentIndex++)
         {
             // 1. Bazowy kierunek z pola potencjału
-            var (flowDirectionX, flowDirectionY) = PotentialFieldMap!.GetFlowDirection(AgentPositionX[agentIndex], AgentPositionY[agentIndex]);
+            int assignedTarget = AgentTargetIndex[agentIndex];
+            float[]? navigationField = MapRouting is not null && assignedTarget >= 0
+                ? MapRouting.DistanceFields[assignedTarget] : null;
+            var (flowDirectionX, flowDirectionY) = PotentialFieldMap!.GetFlowDirection(AgentPositionX[agentIndex], AgentPositionY[agentIndex],
+                navigationField, navigationField is not null ? MapRouting!.ExitZones[assignedTarget] : null);
 
             double currentAgentSpeed = Math.Sqrt(AgentVelocityX[agentIndex] * AgentVelocityX[agentIndex] + AgentVelocityY[agentIndex] * AgentVelocityY[agentIndex]);
             bool hasSignificantVelocity = currentAgentSpeed > 0.05;
@@ -824,8 +858,8 @@ public class CrowdSimulationEngine
 
                             double sampleBaseX = px + normalX * 0.5;
                             double sampleBaseY = py + normalY * 0.5;
-                            float pot1 = PotentialFieldMap != null ? PotentialFieldMap.SamplePotential(sampleBaseX + tan1X * 1.5, sampleBaseY + tan1Y * 1.5) : float.MaxValue;
-                            float pot2 = PotentialFieldMap != null ? PotentialFieldMap.SamplePotential(sampleBaseX - tan1X * 1.5, sampleBaseY - tan1Y * 1.5) : float.MaxValue;
+                            float pot1 = PotentialFieldMap != null ? PotentialFieldMap.SamplePotential(sampleBaseX + tan1X * 1.5, sampleBaseY + tan1Y * 1.5, navigationField) : float.MaxValue;
+                            float pot2 = PotentialFieldMap != null ? PotentialFieldMap.SamplePotential(sampleBaseX - tan1X * 1.5, sampleBaseY - tan1Y * 1.5, navigationField) : float.MaxValue;
 
                             if (pot1 < pot2)
                             {
@@ -1878,6 +1912,7 @@ public class CrowdSimulationEngine
             // gradient inside, so the catch area extends by one field cell to include all of it.
             for (int e = 0; e < exits.Length; e++)
             {
+                if (MapRouting is not null && MapRouting.ExitTargets[e] != AgentTargetIndex[agentIndex]) continue;
                 double reach = exits[e].Radius + catchMargin;
                 if (Math.Abs(px - exits[e].X) <= reach && Math.Abs(py - exits[e].Y) <= reach) { exitIndex = e; break; }
             }
