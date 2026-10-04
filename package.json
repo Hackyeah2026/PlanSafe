@@ -12,6 +12,7 @@
     "test:camera": "npm run build && node --test scripts/test-camera-transform.mjs scripts/test-heatmap.mjs",
     "test:map": "npm run build && tsc -p tsconfig.tests.json && node --test scripts/test-map-interop.ts",
     "test:gpu": "npm run test:browser",
+    "test:stationary-recovery": "npm run build && node --test scripts/test-stationary-recovery.mjs",
     "format": "prettier --write . && dotnet format whitespace PlanSafe.slnx",
     "format:check": "prettier --check . && dotnet format whitespace PlanSafe.slnx --verify-no-changes",
     "test:appearance": "npm run build && node --test scripts/test-appearance.mjs",

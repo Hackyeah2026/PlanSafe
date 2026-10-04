@@ -3,6 +3,33 @@
   inset: 0;
   overflow: hidden;
 }
+.map-module-layout.simulation-preparing,
+.map-module-layout.simulation-preparing ::deep * {
+  cursor: default !important;
+}
+.simulation-preparation-cursor {
+  display: none;
+  visibility: hidden;
+  position: fixed;
+  z-index: 10000;
+  width: 18px;
+  height: 18px;
+  box-sizing: border-box;
+  pointer-events: none;
+  border: 2px solid #fff;
+  border-top-color: var(--ui-accent);
+  border-radius: 50%;
+  box-shadow: 0 0 3px #0008;
+  animation: preparation-cursor-spin 0.65s linear infinite;
+}
+.simulation-preparing .simulation-preparation-cursor {
+  display: block;
+}
+@keyframes preparation-cursor-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 .map-area,
 .map-viewport {
   width: 100%;
