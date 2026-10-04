@@ -1,4 +1,9 @@
 const mounted = new Map<HTMLDetailsElement, () => void>();
+/**
+ * Closes a disclosure on Escape, outside pointer presses, or link navigation.
+ * @param details - Disclosure whose listeners this module will own.
+ * @remarks Repeated mounts are ignored. Call unmount before removing the element.
+ */
 export function mount(details: HTMLDetailsElement): void {
   if (mounted.has(details)) return;
   const keydown = (event: KeyboardEvent): void => {
@@ -25,6 +30,10 @@ export function mount(details: HTMLDetailsElement): void {
     details.removeEventListener("click", navigate);
   });
 }
+/**
+ * Releases the disclosure's element and document listeners.
+ * @param details - Previously mounted disclosure; missing mounts are ignored.
+ */
 export function unmount(details: HTMLDetailsElement): void {
   mounted.get(details)?.();
   mounted.delete(details);

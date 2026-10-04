@@ -6,6 +6,7 @@
     <Project Path="src/PlanSafe.Worker/PlanSafe.Worker.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/PlanSafe.Api.Tests/PlanSafe.Api.Tests.csproj" />
     <Project Path="tests/PlanSafe.Tests/PlanSafe.Tests.csproj" />
   </Folder>
 </Solution>

@@ -1,4 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+  <PropertyGroup>
+    <OverrideHtmlAssetPlaceholders>true</OverrideHtmlAssetPlaceholders>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <RunAOTCompilation>true</RunAOTCompilation>
   </PropertyGroup>
@@ -8,7 +11,10 @@
     <ProjectReference Include="../PlanSafe.Contracts/PlanSafe.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="../../data/osm/krakow_osm.bin" Link="wwwroot/data/krakow_osm.bin" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- Linked assets need their physical root for development server resolution. -->
+    <Content Include="../../data/osm/krakow_osm.bin" Link="wwwroot/data/krakow_osm.bin" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest">
+      <ContentRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../../data/osm/'))</ContentRoot>
+    </Content>
   </ItemGroup>
   <Target Name="CompileTypeScript" BeforeTargets="PrepareForBuild">
     <Exec Command="npm run build" WorkingDirectory="$(MSBuildProjectDirectory)/../.." />

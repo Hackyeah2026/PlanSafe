@@ -11,7 +11,7 @@ dotnet publish src/PlanSafe.Worker -c Release -r browser-wasm -p:RunAOTCompilati
 test -n "$(find "$stage/worker" -name '*.wasm' -print -quit)"
 mkdir "$stage/web"
 cp -a "$stage/app/wwwroot/." "$stage/web/"
-test -f "$stage/web/_framework/dotnet.js"
+test -n "$(find "$stage/web/_framework" -maxdepth 1 -regextype posix-extended -type f -regex '.*/dotnet(\.[a-z0-9]{10,64})?\.js' -print -quit)"
 test -n "$(find "$stage/web/_framework" -name '*.wasm' -print -quit)"
 tar --owner=0 --group=0 --numeric-owner -czf artifacts/release.tar.gz -C "$stage" api web
 python3 infra/mikrus/archive.py artifacts/release.tar.gz

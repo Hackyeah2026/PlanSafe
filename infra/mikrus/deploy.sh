@@ -65,8 +65,10 @@ status_code() {
     curl --silent --show-error --noproxy '*' --max-time 3 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$health_port$1"
 }
 healthy() {
-    [[ $(curl --fail --silent --noproxy '*' --max-time 3 http://127.0.0.1:5001/api/health) == OK ]] &&
-        [[ $(status_code /api/health) == 200 && $(status_code /api/unknown) == 404 && $(status_code /api) == 404 && $(status_code /) == 200 && $(status_code /_framework/dotnet.js) == 200 && $(status_code /_framework/missing.js) == 404 ]]
+    local bootstrap
+    bootstrap=$(find "$root/current/web/_framework" -maxdepth 1 -regextype posix-extended -type f -regex '.*/dotnet(\.[a-z0-9]{10,64})?\.js' -print -quit) || return 1
+    [[ -n $bootstrap && $(curl --fail --silent --noproxy '*' --max-time 3 http://127.0.0.1:5001/api/health) == OK ]] &&
+        [[ $(status_code /api/health) == 200 && $(status_code /api/unknown) == 404 && $(status_code /api) == 404 && $(status_code /) == 200 && $(status_code "/_framework/${bootstrap##*/}") == 200 && $(status_code /_framework/missing.js) == 404 ]]
 }
 wait_healthy() {
     for ((i=0; i<30; i++)); do healthy && return 0; sleep 1; done

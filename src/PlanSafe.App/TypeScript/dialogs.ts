@@ -6,6 +6,11 @@ const mounted = new WeakMap<
     outside: (event: MouseEvent) => void;
   }
 >();
+/**
+ * Opens a native modal and routes Escape and backdrop clicks to its close button.
+ * @param dialog - Connected dialog containing a `[data-dialog-close]` button.
+ * @remarks Repeated mounts are ignored. Call unmount before removing the dialog.
+ */
 export function mount(dialog: HTMLDialogElement): void {
   if (mounted.has(dialog)) return;
   const previous =
@@ -33,6 +38,11 @@ export function mount(dialog: HTMLDialogElement): void {
   mounted.set(dialog, { previous, cancel, outside });
   dialog.showModal();
 }
+/**
+ * Removes the modal listeners, closes it, and restores focus to its former owner.
+ * @param dialog - Mounted dialog, or null when its DOM element is unavailable.
+ * @remarks Missing mounts are ignored; focus returns only to a connected element.
+ */
 export function unmount(dialog: HTMLDialogElement | null): void {
   if (!dialog) return;
   const state = mounted.get(dialog);

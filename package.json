@@ -3,20 +3,32 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prepare": "[ ! -e .git ] || git config --local core.hooksPath .githooks",
+    "hooks:install": "git config --local core.hooksPath .githooks",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:parity": "node --test scripts/test-physics-parity.ts",
     "test:potential": "npm run build && node --test scripts/test-potential-parity.ts",
     "test:camera": "npm run build && node --test scripts/test-camera-transform.mjs",
-    "test:gpu": "npm run build && node --test scripts/test-gpu-runtime.mjs scripts/test-map-gpu.mjs scripts/test-map-view.mjs",
+    "test:map": "npm run build && tsc -p tsconfig.tests.json && node --test scripts/test-map-interop.ts",
+    "test:gpu": "npm run test:browser",
     "format": "prettier --write . && dotnet format whitespace PlanSafe.slnx",
     "format:check": "prettier --check . && dotnet format whitespace PlanSafe.slnx --verify-no-changes",
-    "test:appearance": "node --test scripts/test-appearance.mjs"
+    "test:appearance": "npm run build && node --test scripts/test-appearance.mjs",
+    "typecheck:browser": "npm run typecheck --workspace @plansafe/browser-tests",
+    "test:browser": "npm run build && dotnet build PlanSafe.slnx -c Debug -p:RunAOTCompilation=false -p:PublishAot=false -p:TreatWarningsAsErrors=true && npm run test --workspace @plansafe/browser-tests",
+    "test:unit": "npm run test:parity && npm run test:potential && npm run test:camera && npm run test:map && npm run test:appearance && npm run test:spawn",
+    "test:spawn": "npm run build && node --test scripts/test-map-spawn.mjs",
+    "benchmark:cpu": "node scripts/performance/benchmark.mjs cpu",
+    "benchmark:gpu": "npm run build && node scripts/performance/benchmark.mjs gpu"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
     "@webgpu/types": "^0.1.74",
     "prettier": "3.9.9",
     "typescript": "7.0.2"
-  }
+  },
+  "workspaces": [
+    "tests/PlanSafe.Browser.Tests"
+  ]
 }

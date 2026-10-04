@@ -9,7 +9,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\PlanSafe.App\PlanSafe.App.csproj" />
-    <ProjectReference Include="..\..\src\PlanSafe.Api\PlanSafe.Api.csproj" />
   </ItemGroup>
 
 </Project>

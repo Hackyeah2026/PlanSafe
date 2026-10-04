@@ -5,7 +5,7 @@ using PlanSafe.Contracts.Models.Map;
 using PlanSafe.Contracts.Models.Simulation;
 using Xunit;
 
-namespace PlanSafe.Tests;
+namespace PlanSafe.Api.Tests;
 
 public sealed class EvacuationStateServiceTests
 {

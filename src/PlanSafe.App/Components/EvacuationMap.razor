@@ -22,7 +22,7 @@
             </div>
         }
 
-        @if (_isSimulating)
+        @if (_isSimulating || _isStarting)
         {
             <SimulationControlBar
                 IsRunning="@_isRunning"

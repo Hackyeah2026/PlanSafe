@@ -41,6 +41,7 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
     private bool _isSimulating = false;
     private bool _isRunning = false;
     private bool _isStarting;
+    private CancellationTokenSource? _preparationCts;
     private string _activeEngine = "wasm";
     private Task? _simulationLoopTask;
     private int _simTotalAgents = 0;
@@ -225,6 +226,10 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
         try
         {
             _isStarting = true;
+            _preparationCts = new CancellationTokenSource();
+            var preparationToken = _preparationCts.Token;
+            StateHasChanged();
+            await Task.Delay(1, preparationToken);
             await StopSimulationLoopAsync();
 
             // 1. Calculate Geographic Bounding Box
@@ -283,7 +288,7 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
             // 3. Prepare MapScenario raster and obstacles using full OSM terrain from krakow_osm.bin
             double rasterCellSize = Math.Max(2.0, Math.Ceiling(Math.Max(worldWidth, worldHeight) / 600.0 * 2) / 2);
             var builder = new MapScenarioBuilder(worldWidth, worldHeight, cellSize: rasterCellSize);
-            await OsmService.RasterizeTerrainAsync(builder, minLat, maxLat, minLng, maxLng, (lat, lng) => ToWorld(lat, lng));
+            await OsmService.RasterizeTerrainAsync(builder, minLat, maxLat, minLng, maxLng, (lat, lng) => ToWorld(lat, lng), preparationToken);
 
             // 3b. Blockades defined by user
             foreach (var blockade in _mapItems.OfType<BlockadeZoneItem>())
@@ -400,7 +405,7 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
             var initialPositions = new List<(double X, double Y)>();
             if (_simConfig.UseGusCensus)
             {
-                var occupants = OccupantGenerator.GenerateOccupants(evacZones);
+                var occupants = await OccupantGenerator.GenerateOccupantsAsync(evacZones, cancellationToken: preparationToken);
                 foreach (var occ in occupants)
                 {
                     initialPositions.Add(ToWorld(occ.Latitude, occ.Longitude));
@@ -412,33 +417,16 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
                 int targetCount = !_simConfig.UseGusCensus && _simConfig.AgentCount > 0
                     ? _simConfig.AgentCount
                     : Math.Max(100, _censusPopulation > 0 ? _censusPopulation : 500);
-                initialPositions = GenerateUniformZonePositions(evacZones, targetCount, ToWorld);
+                initialPositions = await GenerateUniformZonePositionsAsync(evacZones, targetCount, ToWorld, preparationToken);
             }
 
             _simTotalAgents = initialPositions.Count;
 
             // 5. Initialize Unified Simulation Engine with MapScenario
-            _engine = new CrowdSimulationEngine(worldWidth, worldHeight, _simTotalAgents);
-            _engine.IsMapMode = true;
-            _engine.Granulation = _simConfig.Granulation;
-            _engine.SocialRepulsionWeight = _simConfig.SocialRepulsionWeight;
+            _engine = await CrowdSimulationEngine.CreateMapAsync(mapScenario, initialPositions,
+                _simConfig.Granulation, _simConfig.SocialRepulsionWeight, cancellationToken: preparationToken);
+            if (_disposed) return;
             _engine.WhiskerLength = _simConfig.WhiskerLength;
-            _engine.LoadMapScenario(mapScenario);
-
-            // Sanitize initial positions: ensure no agent starts trapped inside solid buildings or inaccessible courtyards
-            for (int i = 0; i < initialPositions.Count; i++)
-            {
-                var (ix, iy) = initialPositions[i];
-                if (mapScenario.IsBlockedAt(ix, iy) || !_engine.IsReachable(ix, iy))
-                {
-                    if (_engine.FindNearestReachable(ix, iy, 50.0) is { } open)
-                    {
-                        initialPositions[i] = open;
-                    }
-                }
-            }
-
-            _engine.InitializeAgentsWithPositions(initialPositions);
             _statsCollector.Reset(_engine.AgentCount);
 
             // 6. Initialize JS Canvas Overlay
@@ -478,6 +466,7 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
                 Console.WriteLine($"[PlanSafe] Map WebGPU initialization failed; using WASM: {ex.Message}");
             }
 
+            if (_disposed) return;
             // 7. Show agents on map immediately!
             await RequestRender();
 
@@ -485,6 +474,7 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
             StartSimulationLoop();
             StateHasChanged();
         }
+        catch (OperationCanceledException) when (_disposed) { }
         catch (Exception ex)
         {
             _simWarningMessage = $"Błąd uruchomienia symulacji: {ex.Message}";
@@ -493,6 +483,9 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
         finally
         {
             _isStarting = false;
+            _preparationCts?.Dispose();
+            _preparationCts = null;
+            if (!_disposed) StateHasChanged();
         }
     }
 
@@ -606,9 +599,16 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
 
     private async Task StopSimulationLoopAsync()
     {
-        _isRunning = false;
         _simCts?.Cancel();
-        if (_simulationLoopTask != null) await _simulationLoopTask;
+        try
+        {
+            if (_simulationLoopTask != null) await _simulationLoopTask;
+            if (_isRunning && _activeEngine == "webgpu") await SampleGpuTelemetry();
+        }
+        finally
+        {
+            _isRunning = false;
+        }
     }
 
     private async Task SampleGpuTelemetry()
@@ -629,7 +629,6 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
         else
         {
             await StopSimulationLoopAsync();
-            if (_activeEngine == "webgpu") await SampleGpuTelemetry();
         }
         await InvokeAsync(StateHasChanged);
     }
@@ -810,19 +809,22 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
         return (minLat - padLat, maxLat + padLat, minLng - padLng, maxLng + padLng);
     }
 
-    private static List<(double X, double Y)> GenerateUniformZonePositions(
+    private static async Task<List<(double X, double Y)>> GenerateUniformZonePositionsAsync(
         List<MapZoneItem> evacZones,
         int count,
-        Func<double, double, (double X, double Y)> toWorld)
+        Func<double, double, (double X, double Y)> toWorld,
+        CancellationToken cancellationToken)
     {
         var rng = new Random(42);
         var result = new List<(double X, double Y)>();
         int attempts = 0;
         int maxAttempts = count * 50;
+        var scheduler = new PreparationScheduler();
 
         while (result.Count < count && attempts < maxAttempts)
         {
             attempts++;
+            if (attempts % 128 == 0) await scheduler.YieldAsync(cancellationToken);
             var zone = evacZones[rng.Next(evacZones.Count)];
             if (!GeoSpatialMath.GetZoneBoundingBox(zone, out double zMinLat, out double zMinLng, out double zMaxLat, out double zMaxLng))
                 continue;
@@ -951,6 +953,7 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         _disposed = true;
+        _preparationCts?.Cancel();
         await StopSimulationLoopAsync();
         _simCts?.Dispose();
 
