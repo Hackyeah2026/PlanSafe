@@ -2,6 +2,8 @@
 // Supports desktop & mobile, zoom controls, wheel scrolling, resize observation,
 // and interactive authoring of Evacuation Zones (circle/polygon), Blockades (line), and Safe Locations (circle/polygon).
 
+import { createMapItemPopup } from "./mapPopups.js";
+
 const mapInstances = new Map();
 
 // Helper to expose global bridge for popup click actions
@@ -708,7 +710,9 @@ function renderItemLayer(state, item, interactive = true) {
 
   if (layer) {
     if (interactive) {
-      const popupContent = createPopupHtml(containerId, item);
+      const popupContent = createMapItemPopup(item, () =>
+        deleteMapItem(containerId, item.id),
+      );
       layer.bindPopup(popupContent, {
         className: "plansafe-leaflet-popup",
         maxWidth: 240,
@@ -718,44 +722,6 @@ function renderItemLayer(state, item, interactive = true) {
     itemsLayer.addLayer(layer);
     state.shapeLayers.set(item.id, layer);
   }
-}
-
-/**
- * Creates HTML string for shape popup
- */
-function createPopupHtml(containerId, item) {
-  let typeName = "Evacuation Zone";
-  let typeClass = "badge-zone";
-  if (item.type === "blockade") {
-    typeName = "Blockade";
-    typeClass = "badge-blockade";
-  } else if (
-    item.type === "safe_circle" ||
-    item.type === "safe_polygon" ||
-    item.type === "safe_point"
-  ) {
-    typeName = "Safe Location";
-    typeClass = "badge-safe";
-  }
-
-  return `
-        <div class="map-popup-card">
-            <div class="map-popup-header">
-                <span class="map-popup-badge ${typeClass}">${typeName}</span>
-                <strong class="map-popup-title">${item.name}</strong>
-            </div>
-            ${item.metricInfo ? `<div class="map-popup-meta">${item.metricInfo}</div>` : ""}
-            <div class="map-popup-actions">
-                <button type="button" class="btn-popup-delete" onclick="window.PlanSafeMap.deleteItem('${containerId}', '${item.id}')">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                    </svg>
-                    Remove
-                </button>
-            </div>
-        </div>
-    `;
 }
 
 /**

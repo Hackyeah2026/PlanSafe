@@ -10,6 +10,7 @@ using PlanSafe.Contracts.Models.Session;
 
 namespace PlanSafe.App.Services;
 
+/// <inheritdoc />
 public class MapSessionService : IMapSessionService
 {
     private const string SessionsStorageKey = "plansafe_sessions_v1";
@@ -23,7 +24,9 @@ public class MapSessionService : IMapSessionService
     private List<MapSession> _sessions = new();
     private string? _activeSessionId;
 
+    /// <inheritdoc />
     public event Action<MapSession>? ActiveSessionChanged;
+    /// <inheritdoc />
     public event Action? SessionsUpdated;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -154,18 +157,21 @@ public class MapSessionService : IMapSessionService
         }
     }
 
+    /// <inheritdoc />
     public async Task<List<MapSession>> GetAllSessionsAsync()
     {
         await EnsureInitializedAsync();
         return _sessions.OrderBy(s => s.CreatedAt).ToList();
     }
 
+    /// <inheritdoc />
     public async Task<MapSession?> GetSessionAsync(string id)
     {
         await EnsureInitializedAsync();
         return _sessions.FirstOrDefault(s => s.Id == id);
     }
 
+    /// <inheritdoc />
     public async Task<MapSession> GetActiveSessionAsync()
     {
         await EnsureInitializedAsync();
@@ -173,6 +179,7 @@ public class MapSessionService : IMapSessionService
         return active;
     }
 
+    /// <inheritdoc />
     public async Task<MapSession> SetActiveSessionAsync(string id)
     {
         await EnsureInitializedAsync();
@@ -202,6 +209,7 @@ public class MapSessionService : IMapSessionService
         return target;
     }
 
+    /// <inheritdoc />
     public async Task<MapSession> SaveSessionAsync(MapSession session)
     {
         await EnsureInitializedAsync();
@@ -237,6 +245,7 @@ public class MapSessionService : IMapSessionService
         return session;
     }
 
+    /// <inheritdoc />
     public async Task<MapSession> CreateBranchAsync(SessionBranchRequest request)
     {
         await EnsureInitializedAsync();
@@ -279,6 +288,7 @@ public class MapSessionService : IMapSessionService
         return child;
     }
 
+    /// <inheritdoc />
     public async Task<bool> DeleteSessionAsync(string id)
     {
         await EnsureInitializedAsync();
@@ -324,18 +334,21 @@ public class MapSessionService : IMapSessionService
         return true;
     }
 
+    /// <inheritdoc />
     public async Task<List<MapSessionTreeNode>> GetSessionTreeAsync()
     {
         await EnsureInitializedAsync();
         return MapSessionTree.BuildTree(_sessions, _activeSessionId);
     }
 
+    /// <inheritdoc />
     public async Task<string> ExportSessionsJsonAsync()
     {
         await EnsureInitializedAsync();
         return JsonSerializer.Serialize(_sessions, new JsonSerializerOptions { WriteIndented = true });
     }
 
+    /// <inheritdoc />
     public async Task<int> ImportSessionsJsonAsync(string json)
     {
         if (string.IsNullOrWhiteSpace(json)) return 0;

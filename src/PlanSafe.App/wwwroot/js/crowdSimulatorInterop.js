@@ -912,6 +912,8 @@ export function initSimulator(canvasRef, mapContainerId = null) {
     if (isMapMode) {
       updateLeafletProjection();
     }
+    // Resize or teardown can hide the overlay while GPU readback is in flight.
+    if (canvas.width <= 0 || canvas.height <= 0) return;
     const worldOrigin = worldToScreen(0, 0);
     const screenWorldW = worldWidth * scaleX;
     const screenWorldH = worldHeight * scaleY;
@@ -1334,6 +1336,7 @@ export function initSimulator(canvasRef, mapContainerId = null) {
           showWhiskers,
           whiskerLength,
         );
+        if (canvas.width <= 0 || canvas.height <= 0) return;
         if (isMapMode) {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
         } else {
