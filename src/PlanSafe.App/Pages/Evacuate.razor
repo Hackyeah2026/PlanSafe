@@ -690,7 +690,7 @@
     public async Task OnShelterSelected(string shelterId)
     {
         var target = targets.FirstOrDefault(t => t.Id == shelterId);
-        if (target == null || !HasValidLocation) return;
+        if (target == null || !HasValidLocation || !gpsLatitude.HasValue || !gpsLongitude.HasValue) return;
 
         int seq = ++_calculationSequence;
         loading = true;
@@ -773,7 +773,7 @@
     private async Task FetchAssignment(bool skipApiRefresh, int? expectedSeq, bool isManualRelocation = false)
     {
         int seq = expectedSeq ?? ++_calculationSequence;
-        if (!HasValidLocation)
+        if (!HasValidLocation || !gpsLatitude.HasValue || !gpsLongitude.HasValue)
         {
             assignment = null;
             isOutsideZone = gpsLatitude.HasValue && gpsLongitude.HasValue;

@@ -13,7 +13,7 @@ public class EvacuationLocationTests
 
     [Theory]
     [InlineData(null, null, true, false)]
-    [InlineData(51, 21, true, false)]
+    [InlineData(51.0, 21.0, true, false)]
     [InlineData(50.5, 19.5, false, false)]
     [InlineData(50.5, 19.5, true, true)]
     public void NavigationRequiresActualLocationInsideConfiguredZone(
