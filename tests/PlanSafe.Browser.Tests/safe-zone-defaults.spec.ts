@@ -53,7 +53,7 @@ test("safe zones have no occupancy limit or manual capacity editor", async ({
     const count = published.length;
     await page
       .getByRole("button", {
-        name: "Publish and generate QR code",
+        name: "Publish plan",
         exact: true,
       })
       .click();
