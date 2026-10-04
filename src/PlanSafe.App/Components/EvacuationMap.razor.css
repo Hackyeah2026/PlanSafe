@@ -36,10 +36,11 @@
   height: 100%;
   pointer-events: none;
   z-index: 450;
-  display: none;
+  /* Keep layout dimensions available while preparing the first frame. */
+  visibility: hidden;
 }
 .map-simulation-canvas.active {
-  display: block;
+  visibility: visible;
 }
 .sim-warning-toast {
   position: absolute;

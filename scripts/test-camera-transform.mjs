@@ -107,6 +107,49 @@ function setup(t, mapMode = false) {
   };
 }
 
+test("map startup and empty redraws leave the basemap visible", (t) => {
+  const s = setup(t, true);
+  const assertTransparent = () => {
+    assert.deepEqual(
+      s.ctx.calls.filter((call) =>
+        ["fillRect", "strokeRect", "fillText"].includes(call.method),
+      ),
+      [],
+      "Empty map frames must not paint the demo background, grid or HUD",
+    );
+    assert.ok(s.ctx.calls.some((call) => call.method === "clearRect"));
+  };
+  // Configuration redraws before agents exist, including while GPU boots.
+  assertTransparent();
+  s.ctx.calls.length = 0;
+  s.simulator.setWorldConfig({
+    originLat: 50.07,
+    originLng: 19.9,
+    minLat: 50.05,
+    maxLng: 19.92,
+  });
+  assertTransparent();
+  s.ctx.calls.length = 0;
+  s.mapHandlers.get("move")();
+  assertTransparent();
+  const frame = s.render();
+  assert.equal(frame.circles.length, 2);
+  assert.equal(frame.rectangles.length, 0);
+  assertTransparent();
+  s.ctx.calls.length = 0;
+  s.simulator.renderBinary(
+    new Float32Array(0),
+    0,
+    "agents",
+    false,
+    2.5,
+    1,
+    false,
+  );
+  s.mapHandlers.get("resize")();
+  assertTransparent();
+});
+
 function close(actual, expected) {
   assert.ok(Math.abs(actual - expected) < 1e-8, `${actual} != ${expected}`);
 }

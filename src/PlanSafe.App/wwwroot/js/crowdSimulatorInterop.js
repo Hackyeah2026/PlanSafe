@@ -477,6 +477,9 @@ export function initSimulator(canvasRef, mapContainerId = null) {
         lastGranulation,
         lastShowFlowParticles,
       );
+    } else if (isMapMode) {
+      // Before the first agent frame, keep the Leaflet map visible beneath us.
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
     } else {
       ctx.fillStyle = "#080a0f";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
