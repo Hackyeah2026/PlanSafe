@@ -50,7 +50,6 @@
   top: 16px;
   right: 16px;
   width: 320px;
-  max-height: calc(100% - 32px);
   z-index: 1000;
   display: flex;
   padding: 0;
@@ -109,7 +108,6 @@
     right: 10px;
     bottom: 24px;
     width: auto;
-    max-height: 46%;
   }
   .sim-warning-toast {
     left: 78px;

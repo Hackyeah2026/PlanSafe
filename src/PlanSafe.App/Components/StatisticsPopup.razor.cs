@@ -13,6 +13,8 @@ public partial class StatisticsPopup
     [Parameter] public SimulationLiveStats Stats { get; set; } = new();
     [Parameter] public EventCallback OnClose { get; set; }
 
+    private bool HasStatistics => Stats.TotalAgents > 0 || Stats.SpeedHistory.Count > 0 || Stats.DensityHistory.Count > 0;
+
     private string _activeTab = "cohorts";
     private string _previousTab = "cohorts";
     private bool _isMinimized = false;
