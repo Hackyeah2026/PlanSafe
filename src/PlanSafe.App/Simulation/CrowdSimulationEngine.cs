@@ -1015,6 +1015,7 @@ public class CrowdSimulationEngine
     private int _evacuatedCount;
     private double _lastEvacuationTime;
     private List<int>[]? _spawnCells;
+    private double _spawnClearance;
     private readonly Obstacle[] _nearbyObstacles = CreateObstacleBuffer(64);
     private const int SpawnAttempts = 8;
     public const double BaseAgentRadius = 0.35;
@@ -1050,7 +1051,9 @@ public class CrowdSimulationEngine
             throw new ArgumentOutOfRangeException(nameof(positions));
         var engine = new CrowdSimulationEngine(scenario, positions.Count)
         {
-            Granulation = granulation, IsMapMode = true, SocialRepulsionWeight = socialRepulsionWeight
+            Granulation = granulation,
+            IsMapMode = true,
+            SocialRepulsionWeight = socialRepulsionWeight
         };
         var scheduler = new PreparationScheduler();
         foreach (var _ in engine.PrepareMapGridSteps(scenario)) await scheduler.YieldAsync(cancellationToken);
@@ -1490,13 +1493,13 @@ public class CrowdSimulationEngine
 
             if (IsMapScenario)
             {
-                if (!IsReachable(px, py) || (MapScenario is { } scenario && scenario.IsBlockedAt(px, py)))
+                double clearance = radius + 0.6;
+                if (!IsSafeMapSpawn(px, py, clearance))
                 {
-                    if (FindNearestReachable(px, py, 50.0) is { } open)
-                    {
-                        px = open.X;
-                        py = open.Y;
-                    }
+                    var open = FindNearestReachable(px, py, 50.0, clearance)
+                        ?? throw new InvalidOperationException("No exit-connected spawn position has sufficient wall clearance.");
+                    px = open.X;
+                    py = open.Y;
                 }
             }
 
@@ -2544,6 +2547,9 @@ public class CrowdSimulationEngine
 
     /// <summary>Center of the nearest raster cell connected to an exit, within maxDistance.</summary>
     public (double X, double Y)? FindNearestReachable(double px, double py, double maxDistance = 50.0)
+        => FindNearestReachable(px, py, maxDistance, 0);
+
+    private (double X, double Y)? FindNearestReachable(double px, double py, double maxDistance, double spawnClearance)
     {
         var scenario = MapScenario;
         var mask = GetReachableMask();
@@ -2561,6 +2567,7 @@ public class CrowdSimulationEngine
             int index = r * scenario.Columns + c;
             if (!mask[index]) return;
             double cx = (c + 0.5) * cell, cy = (r + 0.5) * cell;
+            if (spawnClearance > 0 && !IsSafeMapSpawn(cx, cy, spawnClearance)) return;
             double distSq = (cx - px) * (cx - px) + (cy - py) * (cy - py);
             if (distSq < bestDistSq || (best.HasValue && distSq == bestDistSq && index < bestIndex))
             {
@@ -2589,8 +2596,43 @@ public class CrowdSimulationEngine
             if (best.HasValue && remainingDistance > 0 && remainingDistance * remainingDistance > bestDistSq) break;
         }
         if (best.HasValue) return best;
+        if (spawnClearance > 0)
+        {
+            double searchLimit = Math.Sqrt(scenario.WorldWidth * scenario.WorldWidth + scenario.WorldHeight * scenario.WorldHeight)
+                + Math.Abs(px) + Math.Abs(py);
+            return maxDistance < searchLimit
+                ? FindNearestReachable(px, py, Math.Min(searchLimit, maxDistance * 4.0), spawnClearance)
+                : null;
+        }
         if (maxDistance < 400.0) return FindNearestReachable(px, py, Math.Min(400.0, maxDistance * 4.0));
         return scenario.NearestOpenCell(px, py, maxDistance);
+    }
+
+    // Keep the whole agent outside the wall-repulsion range, including raster corners.
+    private bool IsSafeMapSpawn(double x, double y, double clearance)
+    {
+        var scenario = MapScenario!;
+        if (!double.IsFinite(x) || !double.IsFinite(y) ||
+            x < clearance || y < clearance ||
+            x > WorldWidth - clearance || y > WorldHeight - clearance || !IsReachable(x, y)) return false;
+        var grid = PotentialFieldMap;
+        int fieldCol = Math.Clamp((int)(x / grid.CellSize), 0, grid.ColumnCount - 1);
+        int fieldRow = Math.Clamp((int)(y / grid.CellSize), 0, grid.RowCount - 1);
+        if (grid.StaticPotentialFieldMatrix[fieldRow * grid.ColumnCount + fieldCol] >= float.MaxValue * 0.5f) return false;
+        double cell = scenario.CellSize;
+        int minCol = Math.Max(0, (int)((x - clearance) / cell));
+        int maxCol = Math.Min(scenario.Columns - 1, (int)((x + clearance) / cell));
+        int minRow = Math.Max(0, (int)((y - clearance) / cell));
+        int maxRow = Math.Min(scenario.Rows - 1, (int)((y + clearance) / cell));
+        for (int row = minRow; row <= maxRow; row++)
+            for (int col = minCol; col <= maxCol; col++)
+            {
+                if (!scenario.Blocked[row * scenario.Columns + col]) continue;
+                double dx = x - Math.Clamp(x, col * cell, (col + 1) * cell);
+                double dy = y - Math.Clamp(y, row * cell, (row + 1) * cell);
+                if (dx * dx + dy * dy < clearance * clearance) return false;
+            }
+        return true;
     }
 
     private void RebuildMapGrids(MapScenario scenario)
@@ -2641,8 +2683,8 @@ public class CrowdSimulationEngine
         _dynamicFieldTimer = 0.20;
     }
 
-    /// <summary>Reachable field cells inside each spawn polygon whose centers are walkable.</summary>
-    private List<int>[] BuildSpawnCells(MapScenario scenario)
+    /// <summary>Exit-connected field cells inside each spawn polygon with safe wall clearance.</summary>
+    private List<int>[] BuildSpawnCells(MapScenario scenario, double clearance)
     {
         var grid = PotentialFieldMap;
         const float maxValidPotential = float.MaxValue * 0.5f;
@@ -2663,7 +2705,7 @@ public class CrowdSimulationEngine
                     double cx = (col + 0.5) * grid.CellSize;
                     int index = row * grid.ColumnCount + col;
                     if (grid.StaticPotentialFieldMatrix[index] < maxValidPotential &&
-                        !scenario.IsBlockedAt(cx, cy) &&
+                        IsSafeMapSpawn(cx, cy, clearance) &&
                         MapScenario.IsPointInPolygon(cx, cy, zone.X, zone.Y))
                         cells.Add(index);
                 }
@@ -2677,7 +2719,12 @@ public class CrowdSimulationEngine
     {
         var scenario = MapScenario!;
         var grid = PotentialFieldMap;
-        _spawnCells ??= BuildSpawnCells(scenario);
+        double clearance = radius + 0.6;
+        if (_spawnCells is null || _spawnClearance != clearance)
+        {
+            _spawnCells = BuildSpawnCells(scenario, clearance);
+            _spawnClearance = clearance;
+        }
 
         // Largest-remainder split of agents between zones by population (equal weights if all are empty).
         var zones = scenario.SpawnZones;
@@ -2691,7 +2738,7 @@ public class CrowdSimulationEngine
                 if (_spawnCells[z].Count > 0) totalWeight += weights[z] = 1;
         }
         if (totalWeight <= 0)
-            throw new InvalidOperationException("No walkable street inside the evacuation zones is connected to an evacuation point.");
+            throw new InvalidOperationException("No street inside the evacuation zones is connected to an evacuation point with sufficient spawn clearance.");
 
         var allocation = new int[zones.Length];
         var remainders = new List<(double Remainder, int Zone)>();
@@ -2719,7 +2766,8 @@ public class CrowdSimulationEngine
                 {
                     double candidateX = (col + random.NextDouble()) * grid.CellSize;
                     double candidateY = (row + random.NextDouble()) * grid.CellSize;
-                    if (scenario.IsBlockedAt(candidateX, candidateY)) continue;
+                    if (!IsSafeMapSpawn(candidateX, candidateY, clearance) ||
+                        !MapScenario.IsPointInPolygon(candidateX, candidateY, zones[z].X, zones[z].Y)) continue;
                     x = candidateX;
                     y = candidateY;
                     break;

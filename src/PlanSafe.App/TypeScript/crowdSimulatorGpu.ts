@@ -1806,6 +1806,36 @@ export function spawnMapAgents(
 ): Float32Array {
   const { columns, rows, cellSize, spawnZones, blocked } = scenario;
   const spawnCells: number[][] = [];
+  const clearance = radius + 0.6;
+  const isSafeSpawn = (x: number, y: number): boolean => {
+    if (
+      x < clearance ||
+      y < clearance ||
+      x > scenario.worldWidth - clearance ||
+      y > scenario.worldHeight - clearance
+    )
+      return false;
+    const index = Math.floor(y / cellSize) * columns + Math.floor(x / cellSize);
+    if (!(potentialField[index] < 900000) || blocked[index] !== 0) return false;
+    const minCol = Math.max(0, Math.floor((x - clearance) / cellSize));
+    const maxCol = Math.min(
+      columns - 1,
+      Math.floor((x + clearance) / cellSize),
+    );
+    const minRow = Math.max(0, Math.floor((y - clearance) / cellSize));
+    const maxRow = Math.min(rows - 1, Math.floor((y + clearance) / cellSize));
+    for (let row = minRow; row <= maxRow; row++) {
+      for (let col = minCol; col <= maxCol; col++) {
+        if (blocked[row * columns + col] === 0) continue;
+        const dx =
+          x - Math.max(col * cellSize, Math.min(x, (col + 1) * cellSize));
+        const dy =
+          y - Math.max(row * cellSize, Math.min(y, (row + 1) * cellSize));
+        if (dx * dx + dy * dy < clearance * clearance) return false;
+      }
+    }
+    return true;
+  };
 
   for (let z = 0; z < spawnZones.length; z++) {
     const zone = spawnZones[z];
@@ -1837,11 +1867,7 @@ export function spawnMapAgents(
       for (let c = minCol; c <= maxCol; c++) {
         const cx = (c + 0.5) * cellSize;
         const idx = r * columns + c;
-        if (
-          potentialField[idx] < 900000 &&
-          blocked[idx] === 0 &&
-          isPointInPolygon(cx, cy, zone.xs, zone.ys)
-        ) {
+        if (isSafeSpawn(cx, cy) && isPointInPolygon(cx, cy, zone.xs, zone.ys)) {
           cells.push(idx);
         }
       }
@@ -1871,7 +1897,7 @@ export function spawnMapAgents(
 
   if (totalWeight <= 0) {
     throw new Error(
-      "No walkable street inside the evacuation zones is connected to an evacuation point.",
+      "No street inside the evacuation zones is connected to an evacuation point with sufficient spawn clearance.",
     );
   }
 
@@ -1916,14 +1942,9 @@ export function spawnMapAgents(
       for (let attempt = 0; attempt < 8; attempt++) {
         const candX = (c + nextRandom()) * cellSize;
         const candY = (r + nextRandom()) * cellSize;
-        const cc = Math.floor(candX / cellSize);
-        const cr = Math.floor(candY / cellSize);
         if (
-          cc >= 0 &&
-          cc < columns &&
-          cr >= 0 &&
-          cr < rows &&
-          blocked[cr * columns + cc] === 0
+          isSafeSpawn(candX, candY) &&
+          isPointInPolygon(candX, candY, spawnZones[z].xs, spawnZones[z].ys)
         ) {
           x = candX;
           y = candY;
