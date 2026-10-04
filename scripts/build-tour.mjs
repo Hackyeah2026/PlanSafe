@@ -7,7 +7,7 @@ await mkdir(target, { recursive: true });
 for (const [source, name] of [
   ["dist/driver.js.mjs", "driver.js"],
   ["dist/driver.css", "driver.css"],
-  ["LICENSE", "LICENSE"],
+  ["license", "LICENSE"],
 ]) {
   await copyFile(
     new URL(`../node_modules/driver.js/${source}`, import.meta.url),
