@@ -52,9 +52,6 @@
 .live-pill.live {
   color: var(--ui-success);
 }
-.live-pill.sample {
-  color: var(--ui-warning);
-}
 .btn-stat-action {
   min-width: 44px;
   min-height: 44px;

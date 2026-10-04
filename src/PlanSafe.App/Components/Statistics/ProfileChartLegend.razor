@@ -1,0 +1,22 @@
+@namespace PlanSafe.App.Components.Statistics
+
+<div class="profile-legend">
+    <ul class="legend-items" aria-label="@L.Statistics.ChartKey">
+        <li><span class="swatch mean" aria-hidden="true"></span>@MeanLabel</li>
+        <li><span class="swatch band" aria-hidden="true"></span>@L.Statistics.StandardDeviation</li>
+    </ul>
+    <ul class="legend-items" aria-label="@L.Statistics.ReferenceThresholds">
+        @foreach (var reference in References)
+        {
+            <li>
+                <span class="swatch reference" style="border-color: @reference.Color" aria-hidden="true"></span>
+                @reference.Label: @reference.Value.ToString("0.0")
+            </li>
+        }
+    </ul>
+</div>
+
+@code {
+    [Parameter] public string MeanLabel { get; set; } = "Average";
+    [Parameter] public (float Value, string Color, string Label)[] References { get; set; } = [];
+}

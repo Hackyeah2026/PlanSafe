@@ -32,7 +32,6 @@ public partial class EvacuationMap : IAsyncDisposable
     private bool _isCreateBranchOpen = false;
     private bool _isTreeMapOpen = false;
     private bool _isStatsOpen = false;
-    private readonly SimulationLiveStats _sampleStats = SimulationStatsCollector.CreateSampleData();
 
     // On-Map Crowd Simulation Engine State
     private ElementReference _simCanvasRef;

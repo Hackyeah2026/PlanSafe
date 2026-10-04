@@ -483,11 +483,16 @@ public sealed class LocalizedText(IStringLocalizer<UiStrings> strings)
     public sealed class StatisticsText(IStringLocalizer<UiStrings> strings)
     {
         public string AllCharts => strings["Statistics.AllCharts"].Value;
+        public string AverageDensity => strings["Statistics.AverageDensity"].Value;
+        public string AverageSpeed => strings["Statistics.AverageSpeed"].Value;
+        public string Bottleneck => strings["Statistics.Bottleneck"].Value;
+        public string ChartKey => strings["Statistics.ChartKey"].Value;
         public string CohortDescription => strings["Statistics.CohortDescription"].Value;
         public string CohortDuration => strings["Statistics.CohortDuration"].Value;
         public string CohortTitle => strings["Statistics.CohortTitle"].Value;
         public string Cohorts => strings["Statistics.Cohorts"].Value;
         public string CompletedCohorts(object arg0, object arg1) => strings["Statistics.CompletedCohorts", arg0, arg1].Value;
+        public string Critical => strings["Statistics.Critical"].Value;
         public string DensityAxis => strings["Statistics.DensityAxis"].Value;
         public string DensityBand => strings["Statistics.DensityBand"].Value;
         public string DensityDescription => strings["Statistics.DensityDescription"].Value;
@@ -497,12 +502,17 @@ public sealed class LocalizedText(IStringLocalizer<UiStrings> strings)
         public string DensityUnit => strings["Statistics.DensityUnit"].Value;
         public string Evacuated => strings["Statistics.Evacuated"].Value;
         public string EvacuatedLabel => strings["Statistics.EvacuatedLabel"].Value;
+        public string Freeflow => strings["Statistics.Freeflow"].Value;
+        public string Jam => strings["Statistics.Jam"].Value;
         public string Label => strings["Statistics.Label"].Value;
         public string MeanSpeed => strings["Statistics.MeanSpeed"].Value;
         public string MeanSpeedLabel => strings["Statistics.MeanSpeedLabel"].Value;
+        public string NoData => strings["Statistics.NoData"].Value;
         public string OpenHint => strings["Statistics.OpenHint"].Value;
         public string PeakDensityLabel => strings["Statistics.PeakDensityLabel"].Value;
         public string PopulationCohort => strings["Statistics.PopulationCohort"].Value;
+        public string Queue => strings["Statistics.Queue"].Value;
+        public string ReferenceThresholds => strings["Statistics.ReferenceThresholds"].Value;
         public string ResetPosition => strings["Statistics.ResetPosition"].Value;
         public string SimulationTime => strings["Statistics.SimulationTime"].Value;
         public string SpeedAxis => strings["Statistics.SpeedAxis"].Value;
@@ -510,6 +520,8 @@ public sealed class LocalizedText(IStringLocalizer<UiStrings> strings)
         public string SpeedLegend => strings["Statistics.SpeedLegend"].Value;
         public string SpeedProfile => strings["Statistics.SpeedProfile"].Value;
         public string SpeedTitle => strings["Statistics.SpeedTitle"].Value;
+        public string StandardDeviation => strings["Statistics.StandardDeviation"].Value;
+        public string StartHint => strings["Statistics.StartHint"].Value;
         public string TimeAxis => strings["Statistics.TimeAxis"].Value;
         public string TimeLabel => strings["Statistics.TimeLabel"].Value;
         public string Title => strings["Statistics.Title"].Value;

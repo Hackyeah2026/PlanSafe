@@ -1255,7 +1255,7 @@
     <value>ŚREDNIA / MAKSYMALNA GĘSTOŚĆ</value>
   </data>
   <data name="Statistics.DensityTitle" xml:space="preserve">
-    <value>3. Profil gęstości tłumu: μ(t) ± σ</value>
+    <value>3. Średnia gęstość tłumu w czasie</value>
   </data>
   <data name="Statistics.DensityUnit" xml:space="preserve">
     <value>osoby/m²</value>
@@ -1303,7 +1303,7 @@
     <value>Profil prędkości</value>
   </data>
   <data name="Statistics.SpeedTitle" xml:space="preserve">
-    <value>2. Profil średniej prędkości agentów: μ(t) ± σ</value>
+    <value>2. Średnia prędkość agentów w czasie</value>
   </data>
   <data name="Statistics.TimeAxis" xml:space="preserve">
     <value>Czas od alarmu [s]</value>
@@ -1313,5 +1313,41 @@
   </data>
   <data name="Statistics.Title" xml:space="preserve">
     <value>Analizy i statystyki</value>
+  </data>
+  <data name="Statistics.AverageSpeed" xml:space="preserve">
+    <value>Średnia prędkość</value>
+  </data>
+  <data name="Statistics.AverageDensity" xml:space="preserve">
+    <value>Średnia gęstość</value>
+  </data>
+  <data name="Statistics.Freeflow" xml:space="preserve">
+    <value>Swobodny przepływ</value>
+  </data>
+  <data name="Statistics.Bottleneck" xml:space="preserve">
+    <value>Wąskie gardło</value>
+  </data>
+  <data name="Statistics.Jam" xml:space="preserve">
+    <value>Zator</value>
+  </data>
+  <data name="Statistics.Queue" xml:space="preserve">
+    <value>Kolejka</value>
+  </data>
+  <data name="Statistics.Critical" xml:space="preserve">
+    <value>Krytyczna</value>
+  </data>
+  <data name="Statistics.NoData" xml:space="preserve">
+    <value>BRAK DANYCH</value>
+  </data>
+  <data name="Statistics.StartHint" xml:space="preserve">
+    <value>Uruchom symulację, aby zobaczyć statystyki.</value>
+  </data>
+  <data name="Statistics.ChartKey" xml:space="preserve">
+    <value>Legenda wykresu</value>
+  </data>
+  <data name="Statistics.StandardDeviation" xml:space="preserve">
+    <value>Średnia +/- 1 odchylenie standardowe</value>
+  </data>
+  <data name="Statistics.ReferenceThresholds" xml:space="preserve">
+    <value>Progi odniesienia</value>
   </data>
 </root>
