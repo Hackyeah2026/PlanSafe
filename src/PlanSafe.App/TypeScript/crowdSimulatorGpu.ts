@@ -1930,6 +1930,52 @@ export class GpuSimulationEngine implements ISimulationEngine {
         blockedU32[i] |= 2;
         this.mapRecoveryAvailable = true;
       }
+      // Bit 4 is a conservative exit proximity mask. Most agents are far from
+      // every exit tile, so they can skip the per-exit arrival checks entirely.
+      // Keep a cell of padding for GPU float rounding at rectangle boundaries.
+      const rasterCellSize = Math.fround(scenario.cellSize);
+      const rasterIndex = (
+        coordinate: number,
+        cells: number,
+        padding: number,
+      ) =>
+        Math.max(
+          0,
+          Math.min(
+            cells - 1,
+            Math.floor(coordinate / rasterCellSize) + padding,
+          ),
+        );
+      for (const exit of scenario.exits) {
+        const reach = Math.fround(
+          Math.fround(exit.radius) + Math.fround(this.potCellSize),
+        );
+        const firstColumn = rasterIndex(
+          Math.fround(exit.x) - reach,
+          scenario.columns,
+          -1,
+        );
+        const lastColumn = rasterIndex(
+          Math.fround(exit.x) + reach,
+          scenario.columns,
+          1,
+        );
+        const firstRow = rasterIndex(
+          Math.fround(exit.y) - reach,
+          scenario.rows,
+          -1,
+        );
+        const lastRow = rasterIndex(
+          Math.fround(exit.y) + reach,
+          scenario.rows,
+          1,
+        );
+        for (let row = firstRow; row <= lastRow; row++) {
+          for (let column = firstColumn; column <= lastColumn; column++) {
+            blockedU32[row * scenario.columns + column] |= 4;
+          }
+        }
+      }
       this.device.queue.writeBuffer(this.mapBlockedBuffer, 0, blockedU32);
       const mask = Uint32Array.from(snapshot?.blocked ?? scenario.blocked);
       const sinks: PotentialSink[] = scenario.exits.map((exit) => ({

@@ -956,7 +956,9 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         // Evacuation check: agent reached an exit
         let catchMargin = params.potCellSize;
-        for (var e = 0u; e < params.numExits; e++) {
+        let exitCell = clamp(vec2<i32>(floor(agent.pos / params.mapCellSize)), vec2<i32>(0), vec2<i32>(i32(params.mapCols) - 1, i32(params.mapRows) - 1));
+        let nearExit = (blockedRaster[u32(exitCell.y) * params.mapCols + u32(exitCell.x)] & 4u) != 0u;
+        for (var e = 0u; nearExit && e < params.numExits; e++) {
             let exit = exits[e];
             let reach = exit.z + catchMargin;
             if (abs(agent.pos.x - exit.x) <= reach && abs(agent.pos.y - exit.y) <= reach) {
