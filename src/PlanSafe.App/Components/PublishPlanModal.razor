@@ -1,0 +1,481 @@
+@namespace PlanSafe.App.Components
+@using System.Text.Json
+@using PlanSafe.Contracts.Models.Map
+@using PlanSafe.Contracts.Models.Simulation
+@using PlanSafe.Contracts.Models.Session
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+@if (IsOpen)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.85); backdrop-filter: blur(4px); z-index: 1050;">
+        <div class="modal-dialog modal-dialog-centered @(isFullscreenProjector ? "modal-fullscreen" : "")" style="@(isFullscreenProjector ? "" : "max-width: 580px;")">
+            <div class="modal-content bg-dark text-white border border-secondary shadow-lg rounded-3 overflow-hidden">
+                <!-- Modal Header -->
+                <div class="modal-header border-secondary bg-black bg-opacity-40 px-4 py-3 d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fs-4">&#x1F4F1;</span>
+                        <div>
+                            <h5 class="modal-title mb-0 fw-bold text-white">
+                                @(isFullscreenProjector ? "Centrum Dowodzenia • Mobilny Plan Ewakuacji" : "Publikacja Planu Ewakuacji")
+                            </h5>
+                            @if (publishedPlan != null)
+                            {
+                                <small class="text-success fw-semibold">&#x25CF; Aktywna sesja: <span class="font-monospace text-info">@publishedPlan.SessionId</span></small>
+                            }
+                            else
+                            {
+                                <small class="text-muted">Konfiguracja dystrybucji i kodów QR dla obywateli</small>
+                            }
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        @if (publishedPlan != null)
+                        {
+                            <button type="button" class="btn btn-sm @(isFullscreenProjector ? "btn-warning text-dark" : "btn-outline-info")" @onclick="ToggleProjectorMode" title="Przełącz tryb projektora / duży ekran">
+                                @(isFullscreenProjector ? "✕ Zamknij Projektor" : "⛶ Projektor")
+                            </button>
+                        }
+                        <button type="button" class="btn-close btn-close-white" @onclick="HandleClose" aria-label="Zamknij"></button>
+                    </div>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="modal-body px-4 py-3">
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger py-2 px-3 small mb-3">@errorMessage</div>
+                    }
+
+                    @if (publishedPlan == null)
+                    {
+                        <!-- Scenario Review & Weight Settings -->
+                        <div class="mb-3">
+                            <label class="form-label text-muted small fw-bold text-uppercase mb-2">Elementy aktywnego scenariusza:</label>
+                            <div class="row g-2 text-center">
+                                <div class="col-4">
+                                    <div class="p-2 bg-black bg-opacity-40 rounded border border-secondary">
+                                        <div class="text-muted" style="font-size: 0.7rem;">PUNKTY ZBIÓRKI</div>
+                                        <div class="fs-5 fw-bold text-success">@GetSafePointsCount()</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 bg-black bg-opacity-40 rounded border border-secondary">
+                                        <div class="text-muted" style="font-size: 0.7rem;">BLOKADY DRÓG</div>
+                                        <div class="fs-5 fw-bold text-danger">@GetBlockadesCount()</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="p-2 bg-black bg-opacity-40 rounded border border-secondary">
+                                        <div class="text-muted" style="font-size: 0.7rem;">STREFY ALARMU</div>
+                                        <div class="fs-5 fw-bold text-warning">@GetEvacZonesCount()</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Balans Wag (Dystans vs Obłożenie) -->
+                        <div class="mb-3 p-3 bg-black bg-opacity-30 rounded border border-secondary">
+                            <div class="d-flex justify-content-between align-items-center mb-1 small">
+                                <span class="text-muted fw-bold">Kryterium przydziału schronu:</span>
+                                <span>
+                                    <strong class="text-info">@((weightDistance * 100).ToString("F0"))% Dystans</strong>
+                                    <span class="text-muted"> / </span>
+                                    <strong class="text-warning">@((weightOccupancy * 100).ToString("F0"))% Obłożenie</strong>
+                                </span>
+                            </div>
+                            <input type="range" class="form-range" min="0" max="1" step="0.05" value="@weightDistance.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" @oninput="OnWeightInput" />
+                            <div class="d-flex justify-content-between text-muted" style="font-size: 0.7rem;">
+                                <span>Najbliższy schron (100% dystans)</span>
+                                <span>Równomierne obciążenie (100% obłożenie)</span>
+                            </div>
+                        </div>
+
+                        <div class="text-muted small mb-3">
+                            Po opublikowaniu wygenerowany zostanie unikalny 8-znakowy identyfikator sesji oraz wektorowy kod QR. 
+                            Obywatele po zeskanowaniu kodu telefonem otrzymają optymalną trasę i schron w mobilnym asystencie bez konieczności instalowania aplikacji.
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="button" class="btn btn-info text-dark fw-bold py-2 shadow" disabled="@isPublishing" @onclick="PublishPlanAsync">
+                                @if (isPublishing)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                    <span>Publikowanie planu...</span>
+                                }
+                                else
+                                {
+                                    <span>🚀 Opublikuj Plan i Wygeneruj Kod QR</span>
+                                }
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <!-- Published View / QR Distribution -->
+                        <div class="@(isFullscreenProjector ? "d-flex flex-column align-items-center justify-content-center text-center py-4" : "text-center")">
+                            <p class="text-muted small mb-2 @(isFullscreenProjector ? "fs-5 text-white" : "")">
+                                Zeskanuj poniższy kod QR smartfonem lub udostępnij link ewakuowanym obywatelom.
+                            </p>
+
+                            <!-- QR Code SVG Display -->
+                            <div class="d-flex justify-content-center my-3">
+                                <div class="bg-white p-3 rounded-3 shadow border border-2 border-white d-flex align-items-center justify-content-center"
+                                     style="@(isFullscreenProjector ? "width: 480px; height: 480px;" : "width: 240px; height: 240px;") box-sizing: border-box; overflow: hidden;">
+                                    <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+                                        @((MarkupString)WrapSvgResponsive(publishedPlan.QrCodeSvg))
+                                    </div>
+                                </div>
+                            </div>
+
+                            @if (isFullscreenProjector)
+                            {
+                                <div class="display-6 fw-bold text-info mb-2 font-monospace">
+                                    KOD SESJI: @publishedPlan.SessionId
+                                </div>
+                                <div class="fs-4 text-warning mb-4 font-monospace">
+                                    @publishedPlan.EvacuateUrl
+                                </div>
+                            }
+
+                            <!-- Link sharing -->
+                            <div class="text-start mb-3 mx-auto" style="@(isFullscreenProjector ? "max-width: 600px;" : "width: 100%;")">
+                                <label class="form-label small text-muted mb-1">Adres asystenta ewakuacji:</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control bg-black text-info border-secondary font-monospace small" readonly value="@publishedPlan.EvacuateUrl" />
+                                    <button type="button" class="btn btn-outline-light px-3" @onclick="CopyUrlToClipboard">
+                                        @if (copied)
+                                        {
+                                            <span>&#x2714; Skopiowano!</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Kopiuj</span>
+                                        }
+                                    </button>
+                                    <a href="@publishedPlan.EvacuateUrl" target="_blank" class="btn btn-primary px-3 fw-bold d-inline-flex align-items-center gap-1">
+                                        <span>Otwórz</span>
+                                        <span>&rarr;</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="modal-footer border-secondary bg-black bg-opacity-20 px-4 py-2 d-flex justify-content-between">
+                    @if (publishedPlan != null)
+                    {
+                        <button type="button" class="btn btn-outline-warning btn-sm" @onclick="ResetPublishedPlan">
+                            Nowy plan / Zmień parametry
+                        </button>
+                    }
+                    else
+                    {
+                        <span></span>
+                    }
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="HandleClose">Zamknij</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public List<MapZoneItem>? MapItems { get; set; }
+    [Parameter] public MapSession? ActiveSession { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private double weightDistance = 0.5;
+    private double weightOccupancy = 0.5;
+    private bool isPublishing = false;
+    private bool copied = false;
+    private bool isFullscreenProjector = false;
+    private string? errorMessage;
+    private PublishPlanResponse? publishedPlan;
+
+    protected override void OnParametersSet()
+    {
+        if (ActiveSession?.SimulationConfig != null)
+        {
+            weightDistance = Math.Clamp(ActiveSession.SimulationConfig.WeightDistance, 0.0, 1.0);
+            weightOccupancy = Math.Clamp(ActiveSession.SimulationConfig.WeightOccupancy, 0.0, 1.0);
+        }
+    }
+
+    private int GetSafePointsCount() => MapItems?.Count(i => i.Category == ZoneCategory.SafeLocation) ?? 0;
+    private int GetBlockadesCount() => MapItems?.Count(i => i.Category == ZoneCategory.Blockade) ?? 0;
+    private int GetEvacZonesCount() => MapItems?.Count(i => i.Category == ZoneCategory.EvacuationZone) ?? 0;
+
+    private void OnWeightInput(ChangeEventArgs e)
+    {
+        if (e.Value is string s && double.TryParse(s, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double val))
+        {
+            weightDistance = Math.Clamp(Math.Round(val, 2), 0.0, 1.0);
+            weightOccupancy = Math.Round(1.0 - weightDistance, 2);
+            if (ActiveSession?.SimulationConfig != null)
+            {
+                ActiveSession.SimulationConfig.WeightDistance = weightDistance;
+                ActiveSession.SimulationConfig.WeightOccupancy = weightOccupancy;
+            }
+        }
+    }
+
+    private async Task PublishPlanAsync()
+    {
+        isPublishing = true;
+        errorMessage = null;
+
+        try
+        {
+            var targets = new List<EvacuationTarget>();
+            var roadblocks = new List<List<GeoCoordinate>>();
+            var evacZones = new List<List<GeoCoordinate>>();
+            var safeZones = new List<List<GeoCoordinate>>();
+
+            if (MapItems != null)
+            {
+                foreach (var item in MapItems)
+                {
+                    if (item.Category == ZoneCategory.SafeLocation)
+                    {
+                        if (item is CircleMapZoneItem circle && (circle.CenterCoordinate.HasValue || circle.Center is { Length: >= 2 }))
+                        {
+                            double lat = circle.CenterCoordinate?.Latitude ?? circle.Center![0];
+                            double lng = circle.CenterCoordinate?.Longitude ?? circle.Center![1];
+                            double radius = circle.Radius.GetValueOrDefault(50.0);
+
+                            targets.Add(new EvacuationTarget(
+                                Id: circle.Id,
+                                Name: string.IsNullOrWhiteSpace(circle.Name) ? "Punkt Bezpieczny" : circle.Name,
+                                X: lng,
+                                Y: lat,
+                                Width: radius * 2,
+                                Height: radius * 2,
+                                Capacity: 500,
+                                CurrentOccupancy: 0,
+                                IsActive: true,
+                                Latitude: lat,
+                                Longitude: lng
+                            ));
+
+                            // 12-point circle polygon for citizen map rendering
+                            var circlePts = new List<GeoCoordinate>();
+                            for (int i = 0; i < 12; i++)
+                            {
+                                double angle = (i * 30.0) * Math.PI / 180.0;
+                                double dLat = (radius / 111320.0) * Math.Cos(angle);
+                                double dLng = (radius / (111320.0 * Math.Cos(lat * Math.PI / 180.0))) * Math.Sin(angle);
+                                circlePts.Add(new GeoCoordinate(lat + dLat, lng + dLng));
+                            }
+                            safeZones.Add(circlePts);
+                        }
+                        else if (item is PolygonMapZoneItem poly && (poly.Vertices.Count() >= 3 || (poly.Coordinates != null && poly.Coordinates.Count >= 3)))
+                        {
+                            var verts = poly.Vertices.Any()
+                                ? poly.Vertices.ToList()
+                                : poly.Coordinates!.Select(c => new GeoCoordinate(c[0], c[1])).ToList();
+                            double avgLat = verts.Average(c => c.Latitude);
+                            double avgLng = verts.Average(c => c.Longitude);
+
+                            targets.Add(new EvacuationTarget(
+                                Id: poly.Id,
+                                Name: string.IsNullOrWhiteSpace(poly.Name) ? "Schron Ewakuacyjny" : poly.Name,
+                                X: avgLng,
+                                Y: avgLat,
+                                Width: 30.0,
+                                Height: 30.0,
+                                Capacity: 500,
+                                CurrentOccupancy: 0,
+                                IsActive: true,
+                                Latitude: avgLat,
+                                Longitude: avgLng
+                            ));
+
+                            if (verts.Count >= 3)
+                            {
+                                safeZones.Add(verts);
+                            }
+                        }
+                        else if (item is PointMapZoneItem point && (point.PositionCoordinate.HasValue || point.Position is { Length: >= 2 }))
+                        {
+                            double lat = point.PositionCoordinate?.Latitude ?? point.Position![0];
+                            double lng = point.PositionCoordinate?.Longitude ?? point.Position![1];
+
+                            targets.Add(new EvacuationTarget(
+                                Id: point.Id,
+                                Name: string.IsNullOrWhiteSpace(point.Name) ? "Punkt Bezpieczny" : point.Name,
+                                X: lng,
+                                Y: lat,
+                                Width: 20.0,
+                                Height: 20.0,
+                                Capacity: 500,
+                                CurrentOccupancy: 0,
+                                IsActive: true,
+                                Latitude: lat,
+                                Longitude: lng
+                            ));
+                        }
+                    }
+                    else if (item.Category == ZoneCategory.Blockade)
+                    {
+                        if (item is LineMapZoneItem line && line.StartCoordinate.HasValue && line.EndCoordinate.HasValue)
+                        {
+                            roadblocks.Add(new List<GeoCoordinate> { line.StartCoordinate.Value, line.EndCoordinate.Value });
+                        }
+                    }
+                    else if (item.Category == ZoneCategory.EvacuationZone)
+                    {
+                        if (item is PolygonMapZoneItem polyZone && polyZone.Vertices.Count() >= 3)
+                        {
+                            evacZones.Add(polyZone.Vertices.ToList());
+                        }
+                        else if (item is CircleMapZoneItem circleZone && circleZone.CenterCoordinate.HasValue)
+                        {
+                            double cLat = circleZone.CenterCoordinate.Value.Latitude;
+                            double cLng = circleZone.CenterCoordinate.Value.Longitude;
+                            double radius = circleZone.Radius.GetValueOrDefault(100.0);
+
+                            // Convert circle to 12-point polygon for geofencing
+                            var pts = new List<GeoCoordinate>();
+                            for (int i = 0; i < 12; i++)
+                            {
+                                double angle = (i * 30.0) * Math.PI / 180.0;
+                                double dLat = (radius / 111320.0) * Math.Cos(angle);
+                                double dLng = (radius / (111320.0 * Math.Cos(cLat * Math.PI / 180.0))) * Math.Sin(angle);
+                                pts.Add(new GeoCoordinate(cLat + dLat, cLng + dLng));
+                            }
+                            evacZones.Add(pts);
+                        }
+                    }
+                }
+            }
+
+            // Fallback default targets if map has no safe locations defined yet
+            if (targets.Count == 0)
+            {
+                targets.Add(new EvacuationTarget(
+                    Id: "shelter-krakow-park",
+                    Name: "Schron Główny (Park Krakowski)",
+                    X: 19.9266,
+                    Y: 50.0684,
+                    Width: 20.0,
+                    Height: 20.0,
+                    Capacity: 600,
+                    CurrentOccupancy: 0,
+                    IsActive: true,
+                    Latitude: 50.0684,
+                    Longitude: 19.9266
+                ));
+                targets.Add(new EvacuationTarget(
+                    Id: "shelter-krakow-planty",
+                    Name: "Schron Zapasowy (Planty)",
+                    X: 19.9380,
+                    Y: 50.0570,
+                    Width: 20.0,
+                    Height: 20.0,
+                    Capacity: 450,
+                    CurrentOccupancy: 0,
+                    IsActive: true,
+                    Latitude: 50.0570,
+                    Longitude: 19.9380
+                ));
+            }
+
+            double? centerLat = ActiveSession?.MapCenter is { Length: >= 2 } ? ActiveSession.MapCenter[0] : 50.0614;
+            double? centerLng = ActiveSession?.MapCenter is { Length: >= 2 } ? ActiveSession.MapCenter[1] : 19.9366;
+            int? zoom = ActiveSession?.ZoomLevel > 0 ? ActiveSession.ZoomLevel : 14;
+
+            string clientBaseUrl = Navigation.BaseUri.TrimEnd('/');
+            var clientUri = new Uri(Navigation.BaseUri);
+            int apiPort = clientUri.Port == 5050 ? 5051 : (clientUri.Port > 0 ? clientUri.Port + 1 : 5051);
+            string apiBaseUrl = $"{clientUri.Scheme}://{clientUri.Host}:{apiPort}";
+
+            var request = new PublishPlanRequest(
+                Targets: targets,
+                Obstacles: null,
+                Roadblocks: roadblocks,
+                EvacuationZones: evacZones,
+                BaseUrl: clientBaseUrl,
+                WeightDistance: weightDistance,
+                WeightOccupancy: weightOccupancy,
+                MapCenterLat: centerLat,
+                MapCenterLng: centerLng,
+                ZoomLevel: zoom,
+                SafeZones: safeZones
+            );
+
+            var response = await Http.PostAsJsonAsync($"{apiBaseUrl}/api/evacuate/publish-plan", request);
+            if (response.IsSuccessStatusCode)
+            {
+                publishedPlan = await response.Content.ReadFromJsonAsync<PublishPlanResponse>();
+            }
+            else
+            {
+                errorMessage = $"Błąd publikowania planu: HTTP {response.StatusCode}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Nie udało się połączyć z API: {ex.Message}";
+        }
+        finally
+        {
+            isPublishing = false;
+        }
+    }
+
+    private async Task CopyUrlToClipboard()
+    {
+        if (publishedPlan != null)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("navigator.clipboard.writeText", publishedPlan.EvacuateUrl);
+                copied = true;
+                StateHasChanged();
+                await Task.Delay(2000);
+                copied = false;
+                StateHasChanged();
+            }
+            catch
+            {
+                // Clipboard copy fallback
+            }
+        }
+    }
+
+    private void ToggleProjectorMode()
+    {
+        isFullscreenProjector = !isFullscreenProjector;
+    }
+
+    private void ResetPublishedPlan()
+    {
+        publishedPlan = null;
+        isFullscreenProjector = false;
+        errorMessage = null;
+    }
+
+    private async Task HandleClose()
+    {
+        isFullscreenProjector = false;
+        if (OnClose.HasDelegate)
+        {
+            await OnClose.InvokeAsync();
+        }
+    }
+
+    private static string WrapSvgResponsive(string? svg)
+    {
+        if (string.IsNullOrWhiteSpace(svg)) return string.Empty;
+        if (svg.StartsWith("<svg", StringComparison.OrdinalIgnoreCase))
+        {
+            return "<svg style=\"width: 100%; height: 100%; max-width: 100%; max-height: 100%; display: block;\" " + svg[4..];
+        }
+        return svg;
+    }
+}

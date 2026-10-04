@@ -366,12 +366,19 @@
             CensusPopulation="@_censusPopulation"
             CensusCells="@_censusCells"
             OnStartSimulation="HandleStartSimulation"
+            OnStartEvacuation="() => _isPublishPlanOpen = true"
             OnConfigureSimulation="() => _isTreeMapOpen = true"
             OnOpenStatistics="() => _isStatsOpen = true"
             OnClose="ToggleMobilePanel" />
     </aside>
 
     <!-- Scenario Modals -->
+    <PublishPlanModal 
+        IsOpen="@_isPublishPlanOpen" 
+        MapItems="@_mapItems" 
+        ActiveSession="@_activeSession" 
+        OnClose="() => _isPublishPlanOpen = false" />
+
     <CreateBranchModal 
         IsOpen="@_isCreateBranchOpen" 
         ParentSession="@_branchParentSession" 
@@ -405,6 +412,7 @@
     private bool _isCreateBranchOpen = false;
     private bool _isTreeMapOpen = false;
     private bool _isStatsOpen = false;
+    private bool _isPublishPlanOpen = false;
     private readonly PlanSafe.Contracts.Models.Stats.SimulationLiveStats _sampleStats = PlanSafe.App.Simulation.SimulationStatsCollector.CreateSampleData();
 
     private string _activeCategory = "navigate"; // "navigate", "evac", "safe", "blockade"

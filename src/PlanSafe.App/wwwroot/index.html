@@ -6,6 +6,7 @@
     <title>Plan Safe</title>
     <base href="/" />
     <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="lib/leaflet/leaflet.css" />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
@@ -13,6 +14,105 @@
     <link href="manifest.webmanifest" rel="manifest" />
     <script src="lib/leaflet/leaflet.js"></script>
     <script>
+      // Geolocation helper for citizen mobile view
+      window.getGeolocation = function () {
+        return new Promise(function (resolve) {
+          var isLocalhost =
+            window.location.hostname === "localhost" ||
+            window.location.hostname === "127.0.0.1" ||
+            window.location.hostname === "::1";
+          var isHttps = window.location.protocol === "https:";
+          var isSecure = (typeof window.isSecureContext !== "undefined")
+            ? window.isSecureContext
+            : (isHttps || isLocalhost);
+
+          if (!isSecure && !isLocalhost) {
+            resolve({
+              success: false,
+              isSecureContext: false,
+              code: "INSECURE_CONTEXT",
+              message:
+                "Lokalizacja zablokowana: połączenie z " +
+                window.location.origin +
+                " jest nieszyfrowane (HTTP). Standard W3C wymaga HTTPS lub localhost."
+            });
+            return;
+          }
+
+          if (!navigator.geolocation) {
+            resolve({
+              success: false,
+              isSecureContext: isSecure,
+              code: "NOT_SUPPORTED",
+              message: "Przeglądarka nie obsługuje geolokalizacji GPS."
+            });
+            return;
+          }
+
+          navigator.geolocation.getCurrentPosition(
+            function (pos) {
+              resolve({
+                success: true,
+                isSecureContext: isSecure,
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+                accuracy: pos.coords.accuracy,
+                code: "OK",
+                message: "Pobrano pozycję GPS."
+              });
+            },
+            function (err) {
+              if (err.code === 1) {
+                resolve({
+                  success: false,
+                  isSecureContext: isSecure,
+                  code: "PERMISSION_DENIED",
+                  message: "Odmowa dostępu do lokalizacji w uprawnieniach przeglądarki."
+                });
+                return;
+              }
+
+              navigator.geolocation.getCurrentPosition(
+                function (pos2) {
+                  resolve({
+                    success: true,
+                    isSecureContext: isSecure,
+                    latitude: pos2.coords.latitude,
+                    longitude: pos2.coords.longitude,
+                    accuracy: pos2.coords.accuracy,
+                    code: "OK",
+                    message: "Pobrano pozycję przez sieć/Wi-Fi."
+                  });
+                },
+                function (err2) {
+                  var reason =
+                    err2.code === 1
+                      ? "Odmowa dostępu do lokalizacji."
+                      : err2.code === 2
+                        ? "Pozycja niedostępna (brak sygnału GPS/sieci)."
+                        : err2.code === 3
+                          ? "Przekroczono limit czasu oczekiwania na GPS."
+                          : err2.message || "Błąd GPS.";
+                  resolve({
+                    success: false,
+                    isSecureContext: isSecure,
+                    code:
+                      err2.code === 1
+                        ? "PERMISSION_DENIED"
+                        : err2.code === 2
+                          ? "POSITION_UNAVAILABLE"
+                          : "TIMEOUT",
+                    message: reason
+                  });
+                },
+                { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+              );
+            },
+            { enableHighAccuracy: true, timeout: 6000, maximumAge: 30000 }
+          );
+        });
+      };
+
       if ("serviceWorker" in navigator) {
         navigator.serviceWorker.getRegistrations().then((regs) => {
           for (const reg of regs) reg.unregister();

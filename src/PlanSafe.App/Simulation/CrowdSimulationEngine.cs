@@ -1111,7 +1111,7 @@ public class CrowdSimulationEngine
                 Distance: 0.0,
                 OccupancyRatio: 0.0,
                 Instructions: "Brak dostępnych punktów ewakuacji.",
-                CalculatedCost: double.PositiveInfinity,
+                CalculatedCost: 0.0,
                 IsSimulationEngineBased: true);
         }
 

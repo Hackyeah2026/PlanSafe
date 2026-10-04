@@ -26,6 +26,12 @@ public class SimulationConfig
     [JsonPropertyName("timeScale")]
     public float TimeScale { get; set; } = 1.0f;
 
+    [JsonPropertyName("weightDistance")]
+    public double WeightDistance { get; set; } = 0.5;
+
+    [JsonPropertyName("weightOccupancy")]
+    public double WeightOccupancy { get; set; } = 0.5;
+
     public SimulationConfig Clone()
     {
         return new SimulationConfig
@@ -35,7 +41,9 @@ public class SimulationConfig
             AgentRadius = AgentRadius,
             EvacuationSpeed = EvacuationSpeed,
             DynamicDensityPenalty = DynamicDensityPenalty,
-            TimeScale = TimeScale
+            TimeScale = TimeScale,
+            WeightDistance = WeightDistance,
+            WeightOccupancy = WeightOccupancy
         };
     }
 }
