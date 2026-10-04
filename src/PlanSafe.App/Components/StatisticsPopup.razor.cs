@@ -6,12 +6,14 @@ using PlanSafe.App.Components.Statistics;
 
 namespace PlanSafe.App.Components;
 
-public partial class StatisticsPopup : ComponentBase
+public partial class StatisticsPopup
 {
     [Parameter] public bool IsOpen { get; set; } = false;
     [Parameter] public bool IsLive { get; set; } = true;
     [Parameter] public SimulationLiveStats Stats { get; set; } = new();
     [Parameter] public EventCallback OnClose { get; set; }
+
+    private bool HasStatistics => Stats.TotalAgents > 0 || Stats.SpeedHistory.Count > 0 || Stats.DensityHistory.Count > 0;
 
     private string _activeTab = "cohorts";
     private string _previousTab = "cohorts";
@@ -38,7 +40,7 @@ public partial class StatisticsPopup : ComponentBase
         string transform = (_dragX != 0 || _dragY != 0)
             ? $" transform: translate({_dragX.ToString("0.#", CultureInfo.InvariantCulture)}px, {_dragY.ToString("0.#", CultureInfo.InvariantCulture)}px);"
             : "";
-        return $"position: fixed; top: {_posY}px; right: {_posX}px; z-index: 1200; max-height: calc(100vh - 90px);{transform}";
+        return FormattableString.Invariant($"position: fixed; top: {_posY}px; right: {_posX}px; z-index: 1200; max-height: calc(100vh - 90px);{transform}");
     }
 
     private void StartDrag(PointerEventArgs e)

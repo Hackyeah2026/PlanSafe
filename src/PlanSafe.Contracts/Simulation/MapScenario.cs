@@ -27,7 +27,7 @@ public sealed record MapSpawnZone(double[] X, double[] Y, int People);
 /// </summary>
 public sealed class MapScenario
 {
-    public const int FormatVersion = 2;
+    public const int FormatVersion = 3;
     public const int MaximumDimension = 4096;
     private static readonly byte[] Magic = "EFMAP"u8.ToArray();
 
@@ -41,7 +41,8 @@ public sealed class MapScenario
         int rows,
         bool[] blocked,
         MapExit[] exits,
-        MapSpawnZone[] spawnZones)
+        MapSpawnZone[] spawnZones,
+        bool[]? streetMask = null)
     {
         if (!double.IsFinite(originLatitude) || !double.IsFinite(originLongitude) ||
             !double.IsFinite(metersPerDegreeLatitude) || metersPerDegreeLatitude <= 0 ||
@@ -55,6 +56,8 @@ public sealed class MapScenario
         ArgumentNullException.ThrowIfNull(exits);
         ArgumentNullException.ThrowIfNull(spawnZones);
         if (blocked.Length != columns * rows) throw new ArgumentException("Map raster has an invalid length.", nameof(blocked));
+        if (streetMask is not null && streetMask.Length != blocked.Length)
+            throw new ArgumentException("Street raster has an invalid length.", nameof(streetMask));
         if (exits.Length == 0) throw new ArgumentException("At least one exit is required.", nameof(exits));
         if (spawnZones.Length == 0) throw new ArgumentException("At least one spawn zone is required.", nameof(spawnZones));
 
@@ -83,6 +86,7 @@ public sealed class MapScenario
         Blocked = blocked;
         Exits = exits;
         SpawnZones = spawnZones;
+        StreetMask = streetMask;
     }
 
     public double OriginLatitude { get; }
@@ -95,8 +99,39 @@ public sealed class MapScenario
     public bool[] Blocked { get; }
     public MapExit[] Exits { get; }
     public MapSpawnZone[] SpawnZones { get; }
+    /// <summary>Mapped surface streets and footways; null for older maps without street metadata.</summary>
+    public bool[]? StreetMask { get; }
     public double WorldWidth => Columns * CellSize;
     public double WorldHeight => Rows * CellSize;
+
+    /// <summary>Checks the full movement segment, including thin walls between two open endpoints.</summary>
+    public bool CrossesBlockedCell(double fromX, double fromY, double toX, double toY)
+    {
+        int minCol = Math.Max(0, (int)Math.Floor(Math.Min(fromX, toX) / CellSize));
+        int maxCol = Math.Min(Columns - 1, (int)Math.Floor(Math.Max(fromX, toX) / CellSize));
+        int minRow = Math.Max(0, (int)Math.Floor(Math.Min(fromY, toY) / CellSize));
+        int maxRow = Math.Min(Rows - 1, (int)Math.Floor(Math.Max(fromY, toY) / CellSize));
+        double dx = toX - fromX, dy = toY - fromY;
+        for (int row = minRow; row <= maxRow; row++)
+            for (int col = minCol; col <= maxCol; col++)
+            {
+                if (!Blocked[row * Columns + col]) continue;
+                double enter = 0, leave = 1;
+                if (Clip(fromX, dx, col * CellSize, (col + 1) * CellSize, ref enter, ref leave) &&
+                    Clip(fromY, dy, row * CellSize, (row + 1) * CellSize, ref enter, ref leave) &&
+                    enter <= leave && leave > 0 && enter < 1) return true;
+            }
+        return false;
+
+        static bool Clip(double from, double delta, double lo, double hi, ref double enter, ref double leave)
+        {
+            if (Math.Abs(delta) < 0.000001) return from >= lo && from <= hi;
+            double a = (lo - from) / delta, b = (hi - from) / delta;
+            enter = Math.Max(enter, Math.Min(a, b));
+            leave = Math.Min(leave, Math.Max(a, b));
+            return enter <= leave;
+        }
+    }
     public int TotalPeople => SpawnZones.Sum(zone => zone.People);
 
     /// <summary>Anything outside the raster counts as blocked.</summary>
@@ -145,7 +180,7 @@ public sealed class MapScenario
         using (var writer = new BinaryWriter(stream))
         {
             writer.Write(Magic);
-            writer.Write(FormatVersion);
+            writer.Write(StreetMask is null ? 2 : FormatVersion);
             writer.Write(OriginLatitude);
             writer.Write(OriginLongitude);
             writer.Write(MetersPerDegreeLatitude);
@@ -190,6 +225,22 @@ public sealed class MapScenario
                     writer.Write(zone.Y[i]);
                 }
             }
+            if (StreetMask is not null)
+            {
+                runs.Clear();
+                current = false;
+                length = 0;
+                foreach (bool cell in StreetMask)
+                {
+                    if (cell == current) { length++; continue; }
+                    runs.Add(length);
+                    current = cell;
+                    length = 1;
+                }
+                runs.Add(length);
+                writer.Write(runs.Count);
+                foreach (int run in runs) writer.Write(run);
+            }
         }
         return stream.ToArray();
     }
@@ -203,7 +254,7 @@ public sealed class MapScenario
             if (!reader.ReadBytes(Magic.Length).AsSpan().SequenceEqual(Magic))
                 throw new ArgumentException("Unsupported map scenario format.", nameof(data));
             int version = reader.ReadInt32();
-            if (version is not (1 or 2))
+            if (version is not (1 or 2 or 3))
                 throw new ArgumentException("Unsupported map scenario format.", nameof(data));
             double originLatitude = reader.ReadDouble();
             double originLongitude = reader.ReadDouble();
@@ -268,8 +319,26 @@ public sealed class MapScenario
                 zones[i] = new MapSpawnZone(xs, ys, people);
             }
 
+            bool[]? streets = null;
+            if (version >= 3)
+            {
+                streets = new bool[blocked.Length];
+                runCount = reader.ReadInt32();
+                if (runCount < 1 || runCount > streets.Length + 1) throw new ArgumentException("Invalid street raster encoding.", nameof(data));
+                offset = 0;
+                value = false;
+                for (int i = 0; i < runCount; i++)
+                {
+                    int run = reader.ReadInt32();
+                    if (run < 0 || run > streets.Length - offset) throw new ArgumentException("Invalid street raster encoding.", nameof(data));
+                    if (value) streets.AsSpan(offset, run).Fill(true);
+                    offset += run;
+                    value = !value;
+                }
+                if (offset != streets.Length) throw new ArgumentException("Invalid street raster encoding.", nameof(data));
+            }
             return new MapScenario(originLatitude, originLongitude, metersPerDegreeLatitude, metersPerDegreeLongitude,
-                cellSize, columns, rows, blocked, exits, zones);
+                cellSize, columns, rows, blocked, exits, zones, streets);
         }
         catch (EndOfStreamException exception)
         {
@@ -297,6 +366,7 @@ public sealed class MapScenario
 public sealed class MapScenarioBuilder
 {
     private readonly bool[] walkable;
+    private bool[]? streetMask;
 
     public MapScenarioBuilder(double width, double height, double cellSize)
     {
@@ -314,6 +384,12 @@ public sealed class MapScenarioBuilder
     public int Rows { get; }
 
     public bool IsWalkable(int column, int row) => walkable[row * Columns + column];
+
+    public void SetStreetMask(bool[] mask)
+    {
+        if (mask.Length != walkable.Length) throw new ArgumentException("Street raster has an invalid length.", nameof(mask));
+        streetMask = mask;
+    }
 
     /// <summary>
     /// Marks every cell whose center lies within halfWidth of the polyline; with onlyWhere, only cells
@@ -423,7 +499,7 @@ public sealed class MapScenarioBuilder
         var blocked = new bool[walkable.Length];
         for (int i = 0; i < walkable.Length; i++) blocked[i] = !walkable[i];
         return new MapScenario(originLatitude, originLongitude, metersPerDegreeLatitude, metersPerDegreeLongitude,
-            CellSize, Columns, Rows, blocked, exits, spawnZones);
+            CellSize, Columns, Rows, blocked, exits, spawnZones, streetMask);
     }
 
     private void SetSegment(double ax, double ay, double bx, double by, double halfWidth, bool isWalkable, bool[]? onlyWhere)

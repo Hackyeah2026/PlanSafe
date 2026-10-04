@@ -55,26 +55,33 @@ interface Window {
 
   window.planSafeAppearance = {
     mount(host) {
+      const TextKeys = window.planSafeTextKeys;
       if (hosts.has(host)) return;
       const fieldset = document.createElement("fieldset");
       fieldset.className = "appearance-settings";
       const legend = document.createElement("legend");
-      legend.textContent = "Theme";
+      window.planSafeLocalization?.bind(legend, TextKeys.Appearance.Theme);
+      if (!window.planSafeLocalization) legend.textContent = "Theme";
       fieldset.append(legend);
       const group = document.createElement("div");
       group.className = "segmented-control appearance-segmented";
       group.setAttribute("role", "group");
-      group.setAttribute("aria-label", "Theme");
-      for (const [value, label] of [
-        ["light", "Light"],
-        ["", "System"],
-        ["dark", "Dark"],
-      ]) {
+      group.dataset.i18nAria = TextKeys.Appearance.Theme;
+      group.setAttribute(
+        "aria-label",
+        window.planSafeLocalization?.text(TextKeys.Appearance.Theme) ?? "Theme",
+      );
+      for (const [value, label, fallback] of [
+        ["light", TextKeys.Appearance.Light, "Light"],
+        ["", TextKeys.Appearance.System, "System"],
+        ["dark", TextKeys.Appearance.Dark, "Dark"],
+      ] as const) {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "app-button";
         button.dataset.theme = value;
-        button.textContent = label;
+        window.planSafeLocalization?.bind(button, label);
+        if (!window.planSafeLocalization) button.textContent = fallback;
         group.append(button);
       }
       fieldset.append(group);
@@ -102,6 +109,7 @@ interface Window {
       apply();
     },
     unmount(host) {
+      const TextKeys = window.planSafeTextKeys;
       const click = hosts.get(host);
       if (!click) return;
       host.removeEventListener("click", click);

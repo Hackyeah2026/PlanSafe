@@ -1,0 +1,21 @@
+<div class="map-command-panel @(!Expanded ? "collapsed" : "")">
+    <header class="command-header">
+        <h2 aria-live="polite">@Icon @Title</h2>
+        <button type="button" class="command-toggle" @onclick="OnToggle" aria-label="@(Expanded ? CollapseLabel : ExpandLabel)"
+                aria-expanded="@Expanded.ToString().ToLowerInvariant()" aria-controls="@ContentId">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2"><path d="@(Expanded ? "m6 9 6 6 6-6" : "m6 15 6-6 6 6")" /></svg>
+        </button>
+    </header>
+    <div id="@ContentId" class="command-content">@ChildContent</div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string ContentId { get; set; } = "";
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter, EditorRequired] public string ExpandLabel { get; set; } = "";
+    [Parameter, EditorRequired] public string CollapseLabel { get; set; } = "";
+    [Parameter] public bool Expanded { get; set; }
+    [Parameter] public EventCallback OnToggle { get; set; }
+    [Parameter] public RenderFragment? Icon { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

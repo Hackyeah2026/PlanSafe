@@ -46,7 +46,7 @@ public sealed class MapPathfinder
                 Target: null,
                 Distance: 0.0,
                 OccupancyRatio: 0.0,
-                Instructions: "Brak dostępnych punktów ewakuacji w scenariuszu mapy.",
+                Instructions: "No evacuation points available in the map scenario.",
                 CalculatedCost: double.PositiveInfinity,
                 IsSimulationEngineBased: true);
         }
@@ -89,7 +89,8 @@ public sealed class MapPathfinder
         double wDist = Math.Max(0.0, weightDistance);
         double wOcc = Math.Max(0.0, weightOccupancy);
 
-        bool hasCapacity = candidateTargets.Any(t => t.CurrentOccupancy < t.Capacity);
+        double openZoneScale = OccupancyRouting.OpenZoneScale(candidateTargets);
+        bool hasCapacity = candidateTargets.Any(t => !t.IsFull);
         EvacuationTarget? bestTarget = null;
         int bestExitIndex = -1;
         double minCost = double.PositiveInfinity;
@@ -120,7 +121,6 @@ public sealed class MapPathfinder
             double effectiveDist = unreachable ? 999999.0 : (walkableDist + snapOffset);
             double normDist = Math.Clamp(effectiveDist / _dMax, 0.0, 10.0);
 
-            int cap = Math.Max(1, target.Capacity);
 
             // Self-occupancy discount: if the citizen is already allocated to this target,
             // discount their own reservation (-1) so it does not penalize their current target.
@@ -132,15 +132,15 @@ public sealed class MapPathfinder
                 evaluatedOccupancy -= 1;
             }
 
-            double occRatio = (double)evaluatedOccupancy / cap;
+            double occRatio = target.HasCapacityLimit ? (double)evaluatedOccupancy / target.Capacity : 0.0;
 
             double distCost = wDist * normDist;
-            double occCost = wOcc * occRatio;
+            double occCost = wOcc * OccupancyRouting.Cost(target, openZoneScale, evaluatedOccupancy);
             // Distance tie-breaker when occupancies are identical or wDist is 0
-            double tieBreaker = 0.0001 * normDist;
+            double tieBreaker = 0.0001 * normDist / openZoneScale;
             double cost = distCost + occCost + tieBreaker;
 
-            bool isFull = evaluatedOccupancy >= cap;
+            bool isFull = target.HasCapacityLimit && evaluatedOccupancy >= target.Capacity;
             if (isFull && hasCapacity)
             {
                 cost += TargetSelector.CapacityOverflowPenalty;
@@ -254,7 +254,7 @@ public sealed class MapPathfinder
             }
         }
 
-        string instructions = $"Skieruj się do punktu: {bestTarget.Name} (odległość piesza: {Math.Round(bestDistance):F0} m).";
+        string instructions = $"Head to the evacuation point: {bestTarget.Name} (walking distance: {Math.Round(bestDistance):F0} m).";
 
         return new TargetAssignmentResponse(
             Target: bestTarget,

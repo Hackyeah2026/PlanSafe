@@ -1,6 +1,9 @@
+import { TextKeys } from "./textKeys.js";
 // Leaflet OpenStreetMap Interop Module for PlanSafe / CrowdSim
 // Supports desktop & mobile, zoom controls, wheel scrolling, resize observation,
 // and interactive authoring of Evacuation Zones (circle/polygon), Blockades (line), and Safe Locations (circle/polygon).
+
+import { text, localizedSpan, localizeMapControls } from "./localizedText.js";
 
 import { createMapItemPopup } from "./mapPopups.js";
 
@@ -60,10 +63,13 @@ export function initMap(containerId, options = {}, dotNetRef = null) {
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
+      '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> <span data-i18n="Map.Contributors">' +
+      text(TextKeys.Map.Contributors) +
+      "</span>",
   }).addTo(map);
 
   map.zoomControl.setPosition("topleft");
+  localizeMapControls(container);
 
   // Create LayerGroup for user-defined zones, blockades, and safe points
   const itemsLayer = L.layerGroup().addTo(map);
@@ -94,6 +100,7 @@ export function initMap(containerId, options = {}, dotNetRef = null) {
     drawMode: "none", // 'none' | 'evac_circle' | 'evac_polygon' | 'safe_circle' | 'safe_polygon' | 'blockade'
     drawState: null,
     shapeLayers: new Map(), // itemId -> Leaflet Layer
+    disposePreparationCursor: setupPreparationCursor(container),
   };
 
   mapInstances.set(containerId, state);
@@ -110,6 +117,35 @@ export function initMap(containerId, options = {}, dotNetRef = null) {
   });
 
   return true;
+}
+
+// CSS animates the spinner independently of pointer updates and WASM work.
+function setupPreparationCursor(container) {
+  const workspace = container.closest(".map-module-layout");
+  const spinner = workspace?.querySelector(".simulation-preparation-cursor");
+  if (!spinner) return null;
+  const move = (event) => {
+    if (event.pointerType === "touch") {
+      spinner.style.visibility = "hidden";
+      return;
+    }
+    spinner.style.left = `${Math.min(window.innerWidth - 22, event.clientX + 14)}px`;
+    spinner.style.top = `${Math.min(window.innerHeight - 22, event.clientY + 14)}px`;
+    spinner.style.visibility = "visible";
+  };
+  const leave = () => {
+    spinner.style.visibility = "hidden";
+  };
+  // Capture also covers Leaflet and child controls that stop propagation.
+  workspace.addEventListener("pointermove", move, true);
+  workspace.addEventListener("pointerdown", move, true);
+  workspace.addEventListener("pointerleave", leave);
+  return () => {
+    workspace.removeEventListener("pointermove", move, true);
+    workspace.removeEventListener("pointerdown", move, true);
+    workspace.removeEventListener("pointerleave", leave);
+    leave();
+  };
 }
 
 /**
@@ -200,7 +236,7 @@ function handleMapClick(state, e) {
       notifyBlazorModeChanged(
         state,
         "blockade",
-        "Click to set end of blockade",
+        TextKeys.Drawing.BlockadeEnd,
         1,
       );
     } else if (state.drawState.step === 1) {
@@ -256,12 +292,7 @@ function handleMapClick(state, e) {
         fillColor: fillColor,
         itemType: itemType,
       };
-      notifyBlazorModeChanged(
-        state,
-        drawMode,
-        "Move cursor to set radius, click to confirm",
-        1,
-      );
+      notifyBlazorModeChanged(state, drawMode, TextKeys.Drawing.RadiusHint, 1);
     } else if (state.drawState.step === 1) {
       // Second click: perimeter
       const center = state.drawState.center;
@@ -363,12 +394,7 @@ function handleMapClick(state, e) {
           finishPolygon(containerId);
         }
       });
-      notifyBlazorModeChanged(
-        state,
-        drawMode,
-        "Point 1 placed. Click to place 2nd point",
-        1,
-      );
+      notifyBlazorModeChanged(state, drawMode, TextKeys.Drawing.FirstPoint, 1);
     } else if (count === 2) {
       // Render line connecting point 1 and 2
       if (!state.drawState.tempPolyline) {
@@ -380,12 +406,7 @@ function handleMapClick(state, e) {
       } else {
         state.drawState.tempPolyline.setLatLngs(state.drawState.points);
       }
-      notifyBlazorModeChanged(
-        state,
-        drawMode,
-        "Point 2 placed. Click 3rd point to confirm polygon immediately",
-        2,
-      );
+      notifyBlazorModeChanged(state, drawMode, TextKeys.Drawing.SecondPoint, 2);
     } else if (count === 3) {
       // 3rd point immediately creates and confirms polygon!
       if (state.drawState.tempPolyline) {
@@ -408,7 +429,7 @@ function handleMapClick(state, e) {
       notifyBlazorModeChanged(
         state,
         drawMode,
-        "Polygon confirmed! Click more points to expand, or click [Done] when finished",
+        TextKeys.Drawing.PolygonAdded,
         3,
       );
     } else {
@@ -431,7 +452,7 @@ function handleMapClick(state, e) {
       notifyBlazorModeChanged(
         state,
         drawMode,
-        `Polygon confirmed (${count} vertices). Click more points or [Done] to complete`,
+        TextKeys.Drawing.PolygonVertices,
         count,
       );
     }
@@ -517,7 +538,7 @@ export function finishPolygon(containerId) {
   } else {
     const points = state.drawState.points;
     if (!points || points.length < 3) {
-      alert("A polygon zone requires at least 3 points.");
+      alert(text(TextKeys.Drawing.PolygonMinimum));
       return;
     }
 
@@ -612,15 +633,11 @@ export function setDrawMode(containerId, mode) {
   }
 
   let hint = null;
-  if (mode === "evac_circle")
-    hint = "Click map to place center of Evacuation Zone";
-  else if (mode === "evac_polygon")
-    hint = "Click points on map to build Evac Polygon (immediate preview)";
-  else if (mode === "safe_circle")
-    hint = "Click map to place center of Safe Zone";
-  else if (mode === "safe_polygon")
-    hint = "Click points on map to build Safe Polygon (immediate preview)";
-  else if (mode === "blockade") hint = "Click map to set start of Blockade";
+  if (mode === "evac_circle") hint = TextKeys.Drawing.EvacuationCenter;
+  else if (mode === "evac_polygon") hint = TextKeys.Drawing.EvacuationPolygon;
+  else if (mode === "safe_circle") hint = TextKeys.Drawing.SafeCenter;
+  else if (mode === "safe_polygon") hint = TextKeys.Drawing.SafePolygon;
+  else if (mode === "blockade") hint = TextKeys.Drawing.BlockadeStart;
 
   notifyBlazorModeChanged(state, mode, hint, 0);
 }
@@ -843,7 +860,7 @@ function getNextName(state, type) {
     const count =
       items.filter((i) => i.type === "circle_zone" || i.type === "polygon_zone")
         .length + 1;
-    return `Evac Zone ${count}`;
+    return text(TextKeys.Map.EvacuationZoneName, count);
   }
   if (
     type === "safe_circle" ||
@@ -857,11 +874,11 @@ function getNextName(state, type) {
           i.type === "safe_polygon" ||
           i.type === "safe_point",
       ).length + 1;
-    return `Safe Zone ${count}`;
+    return text(TextKeys.Map.SafeZoneName, count);
   }
   if (type === "blockade") {
     const count = items.filter((i) => i.type === "blockade").length + 1;
-    return `Blockade ${count}`;
+    return text(TextKeys.Map.BlockadeName, count);
   }
   return `Item ${items.length + 1}`;
 }
@@ -959,6 +976,7 @@ export function disposeMap(containerId) {
   const entry = mapInstances.get(containerId);
   if (entry) {
     entry.dotNetRef = null;
+    entry.disposePreparationCursor?.();
     if (entry._keydownHandler) {
       window.removeEventListener("keydown", entry._keydownHandler);
     }
@@ -996,10 +1014,9 @@ export function renderGusGrid(containerId, cells) {
       fillOpacity: Math.min(0.55, Math.max(0.08, c.pop / 150.0)),
       interactive: true,
     });
-    rect.bindTooltip(
-      `<strong>GUS 125m Grid</strong><br>Population: ${c.pop} residents`,
-      { sticky: true },
-    );
+    rect.bindTooltip(localizedSpan(TextKeys.Census.GridResidents, c.pop), {
+      sticky: true,
+    });
     entry.gusGridLayer.addLayer(rect);
   }
 }

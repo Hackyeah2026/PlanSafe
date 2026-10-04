@@ -15,6 +15,7 @@ public class PotentialFieldParityTests
     {
         var cases = new[]
         {
+            MakeCase("unlimited-zones", 200, 200, 2, 1, 0, 1, unlimited: true),
             MakeCase("two-shelters", 200, 200, 2, 1, 0.5, 0.5),
             MakeCase("uncongested", 200, 200, 2, 1, 1, 0, crowded: false),
             MakeCase("macro-density", 60, 40, 2, 16, 0.2, 0.8),
@@ -35,7 +36,7 @@ public class PotentialFieldParityTests
     private static object MakeCase(string name, double width, double height, double cellSize,
         int granulation, double weightDistance, double weightOccupancy, bool crowded = true,
         bool thin = false, bool full = false, bool inactive = false, bool single = false,
-        bool maze = false, bool atExits = false)
+        bool maze = false, bool atExits = false, bool unlimited = false)
     {
         var obstacles = new[]
         {
@@ -47,6 +48,7 @@ public class PotentialFieldParityTests
             new EvacuationTarget("north", "North", width * 0.9, height * 0.12, width * 0.08, height * 0.2, 300, full ? 300 : 35),
             new EvacuationTarget("south", "South", width * 0.9, height * 0.68, width * 0.08, height * 0.2, 300, 15, !inactive)
         };
+        if (unlimited) targets = targets.Select(t => t with { Capacity = 0 }).ToArray();
         if (single) targets = targets.Take(1).ToArray();
         if (maze)
         {

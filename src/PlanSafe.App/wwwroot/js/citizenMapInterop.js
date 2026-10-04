@@ -1,3 +1,6 @@
+import { TextKeys } from "./textKeys.js";
+import { text, localizedSpan, localizeMapControls } from "./localizedText.js";
+
 // Citizen Map Interop for Mobile Evacuation Assistant
 // Reuses Leaflet instance to display citizen location, shelters, roadblocks, alarm zones, and active route.
 
@@ -12,6 +15,7 @@ const citizenMaps = new Map();
  * @param {number} centerLng - Initial longitude in degrees.
  * @param {number} zoom - Initial Leaflet zoom level.
  * @param {{invokeMethodAsync(method: string, ...args: unknown[]): Promise<unknown>} | null} dotNetRef - Citizen click and shelter selection callbacks.
+ * @param {boolean} readOnly - Show only a non-interactive base map.
  * @returns {boolean} Whether the container was found and initialized.
  */
 export function initCitizenMap(
@@ -20,6 +24,7 @@ export function initCitizenMap(
   centerLng = 19.9366,
   zoom = 15,
   dotNetRef = null,
+  readOnly = false,
 ) {
   const container = document.getElementById(containerId);
   if (!container) {
@@ -31,23 +36,36 @@ export function initCitizenMap(
     disposeCitizenMap(containerId);
   }
 
+  const reduceMotion = window.matchMedia(
+    "(prefers-reduced-motion: reduce)",
+  ).matches;
   const map = L.map(container, {
     center: [centerLat, centerLng],
     zoom: zoom,
-    zoomControl: true,
-    scrollWheelZoom: true,
-    touchZoom: true,
-    dragging: true,
-    tap: true,
+    zoomControl: !readOnly,
+    scrollWheelZoom: !readOnly,
+    touchZoom: !readOnly,
+    dragging: !readOnly,
+    doubleClickZoom: !readOnly,
+    boxZoom: !readOnly,
+    keyboard: !readOnly,
+    tap: !readOnly,
+    zoomAnimation: !reduceMotion,
+    fadeAnimation: !reduceMotion,
+    markerZoomAnimation: !reduceMotion,
   });
 
   // Dark-friendly OpenStreetMap tile layer
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
-    attribution: "&copy; OpenStreetMap contributors",
+    attribution:
+      '&copy; OpenStreetMap <span data-i18n="Map.Contributors">' +
+      text(TextKeys.Map.Contributors) +
+      "</span>",
   }).addTo(map);
 
-  map.zoomControl.setPosition("topright");
+  if (!readOnly) map.zoomControl.setPosition("topleft");
+  localizeMapControls(container);
 
   const zonesLayer = L.layerGroup().addTo(map);
   const safeZonesLayer = L.layerGroup().addTo(map);
@@ -58,7 +76,7 @@ export function initCitizenMap(
 
   // Click handler to allow manual citizen repositioning
   map.on("click", (e) => {
-    if (dotNetRef) {
+    if (!readOnly && dotNetRef) {
       dotNetRef.invokeMethodAsync(
         "OnCitizenMapClicked",
         e.latlng.lat,
@@ -70,7 +88,8 @@ export function initCitizenMap(
   let resizeObserver = null;
   if (window.ResizeObserver) {
     resizeObserver = new ResizeObserver(() => {
-      map.invalidateSize();
+      if (!citizenMaps.has(containerId)) return;
+      map.invalidateSize({ pan: false });
     });
     resizeObserver.observe(container);
   }
@@ -88,10 +107,6 @@ export function initCitizenMap(
     citizenLayer: citizenLayer,
     hasInitialFit: false,
   });
-
-  setTimeout(() => {
-    map.invalidateSize();
-  }, 150);
 
   return true;
 }
@@ -212,7 +227,9 @@ export function updateCitizenMap(
                 fillColor: "#10b981",
                 fillOpacity: 0.18,
               })
-                .bindTooltip("<b>Strefa Bezpieczna</b>", { sticky: true })
+                .bindTooltip(localizedSpan(TextKeys.Map.SafeZone), {
+                  sticky: true,
+                })
                 .addTo(safeZonesLayer);
             }
           }
@@ -326,7 +343,7 @@ export function updateCitizenMap(
         if (isNaN(sLat) || isNaN(sLng) || sLat === 0 || sLng === 0) continue;
 
         const sId = s.id ?? s.Id ?? "";
-        const sName = s.name ?? s.Name ?? "Schron Ewakuacyjny";
+        const sName = s.name ?? s.Name ?? text(TextKeys.Shelter.DefaultName);
         const sCap = Number(s.capacity ?? s.Capacity ?? 500);
         const sOcc = Number(
           s.currentOccupancy ??
@@ -350,16 +367,24 @@ export function updateCitizenMap(
               ? "#f59e0b"
               : "#10b981";
         const icon = L.divIcon({
-          html: createShelterIcon(sName, occPct, color, isSelected),
+          html: createShelterIcon(
+            sName,
+            sCap > 0 ? occPct : null,
+            color,
+            isSelected,
+          ),
           className: "custom-shelter-marker",
-          iconSize: [34, 46],
-          iconAnchor: [17, 23],
+          iconSize: [34, 34],
+          iconAnchor: [17, 17],
         });
 
         const marker = L.marker([sLat, sLng], { icon: icon }).addTo(
           sheltersLayer,
         );
-        marker.bindPopup(createShelterPopup(sName, sOcc, sCap, occPct));
+        marker.bindPopup(createShelterPopup(sName, sOcc, sCap, occPct), {
+          className: "plansafe-leaflet-popup",
+          maxWidth: 240,
+        });
 
         if (state.dotNetRef) {
           marker.on("click", () => {
@@ -386,30 +411,20 @@ export function updateCitizenMap(
   // 5. Update Citizen Location Marker
   citizenLayer.clearLayers();
   if (Number.isFinite(citizenLat) && Number.isFinite(citizenLng)) {
-    // Radar pulse marker
-    const citizenHtml = `
-            <div style="position: relative; width: 24px; height: 24px; transform: translate(-50%, -50%);">
-                <div style="position: absolute; width: 24px; height: 24px; border-radius: 50%; background: rgba(56, 189, 248, 0.3); animation: citizen-radar-pulse 1.8s infinite ease-out;"></div>
-                <div style="position: absolute; top: 4px; left: 4px; width: 16px; height: 16px; border-radius: 50%; background: #0284c7; border: 2px solid #ffffff; box-shadow: 0 0 8px rgba(2, 132, 199, 0.8);"></div>
-            </div>
-            <style>
-                @keyframes citizen-radar-pulse {
-                    0% { transform: scale(0.6); opacity: 0.9; }
-                    100% { transform: scale(2.6); opacity: 0; }
-                }
-            </style>
-        `;
+    const citizenHtml = '<div class="citizen-position"></div>';
 
     const citizenIcon = L.divIcon({
       html: citizenHtml,
       className: "custom-citizen-marker",
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
     });
 
     L.marker([citizenLat, citizenLng], {
       icon: citizenIcon,
       zIndexOffset: 1000,
+      keyboard: false,
+      interactive: false,
     }).addTo(citizenLayer);
 
     if (accuracyMeters && accuracyMeters > 0 && accuracyMeters < 500) {
@@ -423,38 +438,66 @@ export function updateCitizenMap(
     }
   }
 
-  // Focus one evacuation zone until a real in-zone location is selected.
-  // Only refit on transition, so polling does not interrupt map interaction.
-  if (needsLocation && (!state.hasInitialFit || !state.needsLocation)) {
-    const zone = zonesLayer.getLayers()[0];
-    if (zone) {
-      try {
-        map.fitBounds(zone.getBounds(), { padding: [24, 24], maxZoom: 19 });
-        state.hasInitialFit = true;
-      } catch {
-        state.hasInitialFit = false;
-      }
-    }
-  } else if (!needsLocation && (!state.hasInitialFit || state.needsLocation)) {
+  // Fit once on entry. Location updates and polling preserve the chosen viewport.
+  if (!state.hasInitialFit) {
     state.hasInitialFit = fitCitizenBounds(containerId);
   }
-  state.needsLocation = needsLocation;
+}
+
+/** Keep fitted locations inside the part of the map left visible by the panel. */
+function citizenFitPadding(map) {
+  const container = map.getContainer();
+  const workspace = container.closest(".evac-workspace");
+  const bounds = container.getBoundingClientRect();
+  const panel = workspace
+    ?.querySelector(".evac-panel")
+    ?.getBoundingClientRect();
+  const tools = workspace
+    ?.querySelector(".evac-map-tools")
+    ?.getBoundingClientRect();
+  let right = 96;
+  let bottom = 56;
+  if (panel) {
+    if (panel.width > bounds.width * 0.65)
+      bottom = bounds.bottom - panel.top + 56;
+    else right = bounds.right - panel.left + 96;
+  }
+  return {
+    paddingTopLeft: [
+      96,
+      Math.min(
+        (tools?.bottom ?? bounds.top + 64) - bounds.top + 36,
+        bounds.height * 0.3,
+      ),
+    ],
+    paddingBottomRight: [
+      Math.min(right, bounds.width * 0.6),
+      Math.min(bottom, bounds.height * 0.7),
+    ],
+  };
 }
 
 /**
- * Fits map viewport bounds to enclose citizen, all shelters, safe zones, and route.
+ * Fits map viewport bounds to enclose citizen, all shelters, evacuation/safe zones, and route.
  * @returns {boolean} Whether valid bounds were successfully fitted.
  */
 export function fitCitizenBounds(containerId) {
   const state = citizenMaps.get(containerId);
   if (!state) return false;
-  const { map, sheltersLayer, citizenLayer, safeZonesLayer, routeLayer } =
-    state;
+  const {
+    map,
+    sheltersLayer,
+    citizenLayer,
+    zonesLayer,
+    safeZonesLayer,
+    routeLayer,
+  } = state;
 
   try {
     const bounds = L.latLngBounds([]);
     for (const group of [
       sheltersLayer,
+      zonesLayer,
       citizenLayer,
       safeZonesLayer,
       routeLayer,
@@ -465,8 +508,9 @@ export function fitCitizenBounds(containerId) {
     }
     if (!bounds.isValid()) return false;
     map.fitBounds(bounds, {
-      padding: [45, 45],
+      ...citizenFitPadding(map),
       maxZoom: 16,
+      animate: false,
     });
     return true;
   } catch (e) {
@@ -494,7 +538,7 @@ export function panToCitizen(containerId, lat, lng, zoom = null) {
 export function invalidateCitizenMapSize(containerId) {
   const state = citizenMaps.get(containerId);
   if (state) {
-    state.map.invalidateSize();
+    state.map.invalidateSize({ pan: false });
   }
 }
 

@@ -12,6 +12,7 @@ export type GpuTestEngine = Pick<
 > & {
   device: GPUDevice;
   agentsBuffer: GPUBuffer;
+  recoveryBuffer: GPUBuffer;
   paramsBuffer: GPUBuffer;
   exitsBuffer: GPUBuffer;
   staticPotentialBuffer: GPUBuffer;

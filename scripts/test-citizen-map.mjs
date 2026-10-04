@@ -4,12 +4,26 @@ import {
   initCitizenMap,
   updateCitizenMap,
   disposeCitizenMap,
+  fitCitizenBounds,
 } from "../src/PlanSafe.App/wwwroot/js/citizenMapInterop.js";
 
-test("missing or outside location focuses the first zone without refitting on every update", () => {
+test("initial view and Fit map share bounds without refitting on every update", () => {
   const fits = [];
   const fitOptions = [];
+  const container = {
+    querySelector: () => null,
+    closest: () => null,
+    getBoundingClientRect: () => ({
+      top: 0,
+      left: 0,
+      right: 800,
+      bottom: 500,
+      width: 800,
+      height: 500,
+    }),
+  };
   const map = {
+    getContainer: () => container,
     zoomControl: { setPosition() {} },
     on() {},
     invalidateSize() {},
@@ -31,8 +45,8 @@ test("missing or outside location focuses the first zone without refitting on ev
       return this.items;
     },
   });
-  globalThis.document = { getElementById: () => ({}) };
-  globalThis.window = {};
+  globalThis.document = { getElementById: () => container };
+  globalThis.window = { matchMedia: () => ({ matches: false }) };
   globalThis.L = {
     map: () => map,
     tileLayer: () => ({ addTo() {} }),
@@ -44,7 +58,15 @@ test("missing or outside location focuses the first zone without refitting on ev
       },
       getBounds: () => points,
     }),
-    featureGroup: () => ({ getBounds: () => ({ isValid: () => true }) }),
+    latLngBounds: () => ({
+      items: [],
+      extend(points) {
+        this.items.push(points);
+      },
+      isValid() {
+        return this.items.length > 0;
+      },
+    }),
   };
   const zones = [
     [
@@ -75,13 +97,17 @@ test("missing or outside location focuses the first zone without refitting on ev
   try {
     initCitizenMap("test");
     update(true);
-    assert.deepEqual(fits, [zones[0]]);
-    assert.deepEqual(fitOptions[0], { padding: [24, 24], maxZoom: 19 });
+    assert.deepEqual(fits[0].items, zones);
+    assert.equal(fitOptions[0].maxZoom, 16);
+    assert.equal(fitOptions[0].animate, false);
     update(true);
     assert.equal(fits.length, 1);
+    fitCitizenBounds("test");
+    assert.deepEqual(fits[1].items, fits[0].items);
+    assert.deepEqual(fitOptions[1], fitOptions[0]);
     update(false);
     update(true);
-    assert.deepEqual(fits.at(-1), zones[0]);
+    assert.deepEqual(fits.at(-1).items, zones);
     assert.equal(fits.length, 2);
   } finally {
     disposeCitizenMap("test");

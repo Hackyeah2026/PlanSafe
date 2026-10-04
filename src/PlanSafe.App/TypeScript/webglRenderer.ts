@@ -1,4 +1,5 @@
 import { ICrowdRenderer, RenderOptions } from "./renderer.js";
+import { agentRenderMinRadius } from "./agentRenderSize.js";
 
 // --- GLSL ES 3.00 Shaders ---
 
@@ -15,6 +16,7 @@ layout(location = 6) in float a_active;   // 1.0 = active, 0.0 = evacuated
 
 uniform vec2 u_scale;
 uniform vec2 u_canvasSize;
+uniform float u_minRadius;
 
 out vec2 v_quad;
 out float v_speed;
@@ -33,7 +35,7 @@ void main() {
     v_heading = a_heading;
 
     float avgScale = 0.5 * (u_scale.x + u_scale.y);
-    float pixelRadius = max(2.5, a_radius * avgScale);
+    float pixelRadius = max(u_minRadius, a_radius * avgScale);
     float quadRadius = pixelRadius * 1.6 + 2.0;
 
     v_pixelRadius = pixelRadius;
@@ -87,16 +89,17 @@ void main() {
     float dist = length(p);
 
     // 1. Antialiased circular body
-    float circleAlpha = 1.0 - smoothstep(v_pixelRadius - 0.75, v_pixelRadius + 0.25, dist);
+    float coverage = min(1.0, v_pixelRadius * v_pixelRadius);
+    float circleAlpha = (1.0 - smoothstep(v_pixelRadius - 0.5, v_pixelRadius + 0.5, dist)) * coverage;
 
     // Subtle dark border at perimeter of agent body for high contrast in dense crowds
-    float borderFactor = smoothstep(v_pixelRadius - 1.2, v_pixelRadius, dist);
+    float borderFactor = v_pixelRadius >= 2.0 ? smoothstep(v_pixelRadius - 1.2, v_pixelRadius, dist) : 0.0;
     vec3 bodyCol = mix(getSpeedColor(v_speed), vec3(0.08, 0.08, 0.12), borderFactor * 0.45);
 
     // 2. Directional heading needle pointing strictly along path of least resistance to exit
     float lineAlpha = 0.0;
     float hLen = length(v_heading);
-    if (hLen > 0.05) {
+    if (hLen > 0.05 && v_pixelRadius >= 2.0) {
         vec2 hDir = v_heading / hLen;
         vec2 lineEnd = hDir * (v_pixelRadius * 1.5);
         float lineDist = distToSegment(p, vec2(0.0), lineEnd);
@@ -283,6 +286,7 @@ export class CrowdWebGLRenderer implements ICrowdRenderer {
   private agentProgram: WebGLProgram;
   private agentUniformScale: WebGLUniformLocation | null;
   private agentUniformCanvasSize: WebGLUniformLocation | null;
+  private agentUniformMinRadius: WebGLUniformLocation | null;
   private agentVao: WebGLVertexArrayObject;
   private quadVbo: WebGLBuffer;
   private instanceVbo: WebGLBuffer;
@@ -347,6 +351,10 @@ export class CrowdWebGLRenderer implements ICrowdRenderer {
     this.agentUniformCanvasSize = gl.getUniformLocation(
       this.agentProgram,
       "u_canvasSize",
+    );
+    this.agentUniformMinRadius = gl.getUniformLocation(
+      this.agentProgram,
+      "u_minRadius",
     );
 
     const agentVao = gl.createVertexArray();
@@ -922,6 +930,10 @@ export class CrowdWebGLRenderer implements ICrowdRenderer {
     gl.useProgram(this.agentProgram);
     gl.uniform2f(this.agentUniformScale, scaleX, scaleY);
     gl.uniform2f(this.agentUniformCanvasSize, cw, ch);
+    gl.uniform1f(
+      this.agentUniformMinRadius,
+      agentRenderMinRadius(scaleX, scaleY, 2.5),
+    );
 
     gl.bindVertexArray(this.agentVao);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceVbo);

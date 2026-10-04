@@ -1,3 +1,6 @@
+import { TextKeys, type TextKey } from "./textKeys.js";
+import { bindText, localizedSpan } from "./localizedText.js";
+
 /** Display fields from a map item; names and metrics are always rendered as text. */
 export interface MapPopupItem {
   readonly type: string;
@@ -28,26 +31,38 @@ export function createMapItemPopup(
 ): HTMLElement {
   const popup = element("div", "map-popup-card");
   const header = element("div", "map-popup-header");
-  let typeName = "Evacuation Zone";
+  let typeName: TextKey = TextKeys.Map.EvacuationZone;
   let typeClass = "badge-zone";
   if (item.type === "blockade") {
-    typeName = "Blockade";
+    typeName = TextKeys.Map.Blockade;
     typeClass = "badge-blockade";
   } else if (
     item.type === "safe_circle" ||
     item.type === "safe_polygon" ||
     item.type === "safe_point"
   ) {
-    typeName = "Safe Location";
+    typeName = TextKeys.Map.SafeLocation;
     typeClass = "badge-safe";
   }
   header.append(
-    element("span", `map-popup-badge ${typeClass}`, typeName),
+    bindText(element("span", `map-popup-badge ${typeClass}`), typeName),
     element("strong", "map-popup-title", item.name ?? ""),
   );
   popup.append(header);
-  if (item.metricInfo)
-    popup.append(element("div", "map-popup-meta", item.metricInfo));
+  if (item.metricInfo) {
+    const metric = element("div", "map-popup-meta");
+    const length = /^(Length|Radius): (.+) m$/.exec(item.metricInfo);
+    const vertices = /^(\d+) vertices$/.exec(item.metricInfo);
+    if (length)
+      bindText(
+        metric,
+        length[1] === "Length" ? TextKeys.Map.Length : TextKeys.Map.Radius,
+        length[2],
+      );
+    else if (vertices) bindText(metric, TextKeys.Map.Vertices, vertices[1]);
+    else metric.textContent = item.metricInfo;
+    popup.append(metric);
+  }
 
   const actions = element("div", "map-popup-actions");
   const remove = element("button", "btn-popup-delete");
@@ -56,7 +71,8 @@ export function createMapItemPopup(
   remove.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <polyline points="3 6 5 6 21 6"></polyline>
     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-  </svg> Remove`;
+  </svg>`;
+  remove.append(localizedSpan(TextKeys.Common.Remove));
   remove.addEventListener("click", onDelete);
   actions.append(remove);
   popup.append(actions);
@@ -75,17 +91,22 @@ export function createShelterPopup(
   name: string,
   occupancy: number,
   capacity: number,
-  occupancyPercent: number,
+  occupancyPercent: number | null,
 ): HTMLElement {
   const popup = element("div", "");
-  const hint = element("small", "", "Kliknij, aby wybrać ten schron");
-  hint.style.color = "#0ea5e9";
+  const hint = bindText(element("small", ""), TextKeys.Shelter.SelectHint);
+  hint.style.color = "var(--ui-info)";
   popup.append(
     element("strong", "", name),
     document.createElement("br"),
-    document.createTextNode(
-      `Obłożenie: ${occupancy} / ${capacity} (${occupancyPercent}%)`,
-    ),
+    capacity > 0
+      ? localizedSpan(
+          TextKeys.Shelter.OccupancySummary,
+          occupancy,
+          capacity,
+          occupancyPercent,
+        )
+      : localizedSpan(TextKeys.Shelter.PeopleCount, occupancy),
     document.createElement("br"),
     hint,
   );
@@ -102,23 +123,28 @@ export function createShelterPopup(
  */
 export function createShelterIcon(
   name: string,
-  occupancyPercent: number,
+  occupancyPercent: number | null,
   color: string,
   isSelected: boolean,
 ): HTMLElement {
   const icon = element("div", "");
   icon.style.cssText =
-    "transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; pointer-events: auto; cursor: pointer;";
+    "display: flex; flex-direction: column; align-items: center; pointer-events: auto; cursor: pointer;";
   const badge = element("div", "", isSelected ? "★" : "⌂");
   badge.style.cssText =
-    "width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 15px;" +
+    "box-sizing: border-box; flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 15px;" +
     (isSelected
       ? "box-shadow: 0 0 0 6px rgba(14, 165, 233, 0.45), 0 0 20px rgba(14, 165, 233, 0.8); border: 2.5px solid #ffffff;"
       : "box-shadow: 0 2px 8px rgba(0,0,0,0.5); border: 1.5px solid rgba(255,255,255,0.85);");
   badge.style.backgroundColor = color;
-  const label = element("div", "", `${name} (${occupancyPercent}%)`);
+  const label = element(
+    "div",
+    "",
+    occupancyPercent === null ? name : `${name} (${occupancyPercent}%)`,
+  );
+  label.title = name;
   label.style.cssText =
-    "background-color: rgba(15, 23, 42, 0.88); color: #ffffff; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-top: 3px; white-space: nowrap; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 2px 6px rgba(0,0,0,0.4);";
+    "background: var(--ui-strong); color: var(--ui-text); padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-top: 3px; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; border: 1px solid var(--ui-border); box-shadow: var(--ui-shadow);";
   icon.append(badge, label);
   return icon;
 }

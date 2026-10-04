@@ -11,6 +11,8 @@ import {
   solvePotentialField,
 } from "../src/PlanSafe.App/wwwroot/js/potentialField.js";
 
+import { GpuSimulationEngine } from "../src/PlanSafe.App/wwwroot/js/crowdSimulatorGpu.js";
+
 const root = fileURLToPath(new URL("../", import.meta.url));
 const temp = mkdtempSync(join(tmpdir(), "plansafe-fields-"));
 const referencePath = join(temp, "reference.json");
@@ -49,24 +51,15 @@ for (const ref of references) {
       ref.obstacles,
     );
     assert.deepEqual(Array.from(blocked), ref.blocked);
-    const hasCapacity = ref.targets.some(
-      (t) => t.isActive && t.currentOccupancy < t.capacity,
-    );
-    const sinks = ref.targets
-      .filter((t) => t.isActive)
-      .map((t) => ({
-        zone: [t.x, t.y, t.width, t.height],
-        potential: Math.fround(
-          ((Math.max(0, ref.weightOccupancy) /
-            Math.max(0.001, ref.weightDistance)) *
-            ref.width *
-            t.currentOccupancy) /
-            Math.max(1, t.capacity) +
-            (t.currentOccupancy >= Math.max(1, t.capacity) && hasCapacity
-              ? 100000
-              : 0),
-        ),
-      }));
+    const engine: any = new GpuSimulationEngine();
+    engine.worldWidth = ref.width;
+    engine.worldHeight = ref.height;
+    engine.applyEnvironment({
+      targets: ref.targets,
+      weightDistance: ref.weightDistance,
+      weightOccupancy: ref.weightOccupancy,
+    });
+    const sinks = engine.sinks;
     const seeds = seedPotentialField(
       ref.cols,
       ref.rows,

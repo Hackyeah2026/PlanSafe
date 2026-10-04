@@ -5,6 +5,11 @@ declare global {
   interface Window {
     mapPerformance: { maxHeartbeatMs: number; draws: number };
     mapHeartbeat: number;
+    mapStartup: {
+      opaqueFills: number;
+      revealedWithoutFrame: boolean;
+      frames: number;
+    };
     PlanSafeMap?: {
       getMap(id: string):
         | {
@@ -182,6 +187,71 @@ for (const mode of [
       await page
         .getByRole("button", { name: "Expand zone information", exact: true })
         .click();
+    await page.evaluate(() => {
+      const canvas = document.querySelector<HTMLCanvasElement>(
+        ".map-simulation-canvas",
+      )!;
+      window.mapStartup = {
+        opaqueFills: 0,
+        revealedWithoutFrame: false,
+        frames: 0,
+      };
+      const context = CanvasRenderingContext2D.prototype as unknown as Record<
+        "fillRect" | "fill" | "drawImage",
+        (this: CanvasRenderingContext2D, ...args: unknown[]) => unknown
+      >;
+      for (const name of ["fillRect", "fill", "drawImage"] as const) {
+        const original = context[name];
+        context[name] = function (...args) {
+          if (this.canvas === canvas) {
+            if (name === "fillRect") window.mapStartup.opaqueFills++;
+            else window.mapStartup.frames++;
+          }
+          return original.apply(this, args);
+        };
+      }
+      new MutationObserver(() => {
+        if (
+          canvas.classList.contains("active") &&
+          window.mapStartup.frames === 0
+        )
+          window.mapStartup.revealedWithoutFrame = true;
+      }).observe(canvas, { attributes: true, attributeFilter: ["class"] });
+    });
+    const assertPreparedOverlay = async () => {
+      const state = await page.evaluate(() => {
+        const canvas = document.querySelector<HTMLCanvasElement>(
+          ".map-simulation-canvas",
+        )!;
+        return {
+          visibility: getComputedStyle(canvas).visibility,
+          width: canvas.clientWidth,
+          height: canvas.clientHeight,
+        };
+      });
+      assert.equal(state.visibility, "hidden");
+      assert.ok(state.width > 0 && state.height > 0);
+    };
+    const assertStartup = async () => {
+      const state = await page.evaluate(() => window.mapStartup);
+      assert.equal(state.opaqueFills, 0);
+      assert.equal(state.revealedWithoutFrame, false);
+      assert.ok(state.frames > 0);
+    };
+    // Stretch GPU initialization so an early overlay reveal cannot escape
+    // the observer merely because this machine initializes it quickly.
+    await page.evaluate(async () => {
+      const module = "/js/crowdSimulatorGpu.js";
+      const { GpuSimulationEngine } = (await import(
+        module
+      )) as typeof import("../../src/PlanSafe.App/TypeScript/crowdSimulatorGpu.js");
+      const boot = GpuSimulationEngine.prototype.boot;
+      GpuSimulationEngine.prototype.boot = async function (...args) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        return boot.apply(this, args);
+      };
+    });
+    await assertPreparedOverlay();
     await start.click();
     const badge = page.getByTestId("map-simulation-engine");
     const ready = () =>
@@ -195,6 +265,7 @@ for (const mode of [
         { timeout: 60000 },
       );
     await ready();
+    await assertStartup();
     const expectedEngine =
       mode === "default" || mode === "mobile" || mode === "performance"
         ? "webgpu"
@@ -248,14 +319,14 @@ for (const mode of [
           document.querySelector(".sim-time-text")?.textContent ?? "0",
         ) > 0.2,
     );
-    await page.getByRole("button", { name: "Pauza", exact: true }).click();
+    await page.getByRole("button", { name: "Pause", exact: true }).click();
     await expect(
       page.getByRole("button", { name: "Start", exact: true }),
     ).toBeVisible();
     const time = await page.locator(".sim-time-text").textContent();
     await page.waitForTimeout(200);
     assert.equal(await page.locator(".sim-time-text").textContent(), time);
-    await page.getByRole("button", { name: "Krok", exact: true }).click();
+    await page.getByRole("button", { name: "Step", exact: true }).click();
     await page.getByRole("button", { name: "Reset", exact: true }).click();
     await page.waitForFunction(
       () => document.querySelector(".sim-time-text")?.textContent === "0.0s",
@@ -264,9 +335,9 @@ for (const mode of [
       (await page.locator(".sim-evac-counter").textContent()) ?? "",
       /\/ 37/,
     );
-    await page.getByRole("button", { name: "Gęstość", exact: true }).click();
-    await page.getByRole("button", { name: "Prędkość", exact: true }).click();
-    await page.getByRole("button", { name: "Agenci", exact: true }).click();
+    await page.getByRole("button", { name: "Density", exact: true }).click();
+    await page.getByRole("button", { name: "Speed", exact: true }).click();
+    await page.getByRole("button", { name: "Agents", exact: true }).click();
     await page.evaluate(() => {
       const map = window.PlanSafeMap!.getMap(
         document.querySelector(".map-viewport")!.id,
@@ -276,15 +347,24 @@ for (const mode of [
       map.panBy([50, 30], { animate: false });
     });
     await page
-      .getByRole("button", { name: "Zamknij symulację", exact: true })
+      .getByRole("button", { name: "Close simulation", exact: true })
       .click();
     await badge.waitFor({ state: "detached" });
     if (!(await start.isVisible()))
       await page
         .getByRole("button", { name: "Expand zone information", exact: true })
         .click();
+    await assertPreparedOverlay();
+    await page.evaluate(() => {
+      window.mapStartup = {
+        opaqueFills: 0,
+        revealedWithoutFrame: false,
+        frames: 0,
+      };
+    });
     await start.click();
     await ready();
+    await assertStartup();
     assert.equal(await badge.getAttribute("data-engine"), expectedEngine);
 
     assert.deepEqual(errors, []);

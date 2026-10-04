@@ -7,6 +7,7 @@ public static class EvacuationApiUrlResolver
         var clientUri = new Uri(clientBaseUrl);
         var endpoint = clientUri.Port switch
         {
+            5000 => (Scheme: "http", Port: 5001),
             5050 => (Scheme: "http", Port: 5051),
             5171 => (Scheme: "http", Port: 49492),
             7030 => (Scheme: "https", Port: 49491),

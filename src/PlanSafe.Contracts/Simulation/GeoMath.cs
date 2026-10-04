@@ -97,6 +97,62 @@ public static class GeoMath
     }
 
     /// <summary>
+    /// Returns the polygon centroid, or an interior midpoint when a concave polygon excludes it.
+    /// Returns null for polygons without a usable interior.
+    /// </summary>
+    public static GeoCoordinate? GetInteriorCenter(IReadOnlyList<GeoCoordinate> polygon)
+    {
+        if (polygon.Count < 3 || polygon.Any(p => !double.IsFinite(p.Latitude) || !double.IsFinite(p.Longitude)))
+            return null;
+
+        // Translate coordinates before accumulating area to avoid cancellation for small zones.
+        var origin = polygon[0];
+        double twiceArea = 0, latSum = 0, lngSum = 0;
+        for (int i = 0, j = polygon.Count - 1; i < polygon.Count; j = i++)
+        {
+            double ax = polygon[j].Longitude - origin.Longitude;
+            double ay = polygon[j].Latitude - origin.Latitude;
+            double bx = polygon[i].Longitude - origin.Longitude;
+            double by = polygon[i].Latitude - origin.Latitude;
+            double cross = ax * by - bx * ay;
+            twiceArea += cross;
+            lngSum += (ax + bx) * cross;
+            latSum += (ay + by) * cross;
+        }
+        if (twiceArea == 0) return null;
+        double lat = origin.Latitude + latSum / (3 * twiceArea);
+        double lng = origin.Longitude + lngSum / (3 * twiceArea);
+        if (IsPointInPolygon(lat, lng, polygon)) return new GeoCoordinate(lat, lng);
+
+        lat = (polygon.Min(p => p.Latitude) + polygon.Max(p => p.Latitude)) / 2;
+
+        // Pair scan-line intersections to find interior spans at the central latitude.
+        var intersections = new List<double>();
+        for (int i = 0, j = polygon.Count - 1; i < polygon.Count; j = i++)
+        {
+            var a = polygon[j];
+            var b = polygon[i];
+            if ((a.Latitude > lat) != (b.Latitude > lat))
+                intersections.Add(a.Longitude + (lat - a.Latitude) *
+                    (b.Longitude - a.Longitude) / (b.Latitude - a.Latitude));
+        }
+        intersections.Sort();
+        GeoCoordinate? center = null;
+        double widest = 0;
+        for (int i = 0; i + 1 < intersections.Count; i += 2)
+        {
+            double width = intersections[i + 1] - intersections[i];
+            double midpoint = (intersections[i] + intersections[i + 1]) / 2;
+            if (width > widest && IsPointInPolygon(lat, midpoint, polygon))
+            {
+                widest = width;
+                center = new GeoCoordinate(lat, midpoint);
+            }
+        }
+        return center;
+    }
+
+    /// <summary>
     /// Tests whether point (lat, lng) is within circular buffer of radius in meters.
     /// </summary>
     public static bool IsPointInCircle(double lat, double lng, double centerLat, double centerLng, double radiusMeters)

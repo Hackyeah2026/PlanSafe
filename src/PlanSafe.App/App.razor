@@ -1,6 +1,17 @@
-<Router AppAssembly="@typeof(App).Assembly" NotFoundPage="typeof(Pages.NotFound)">
-    <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)" />
-        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
-    </Found>
-</Router>
+@inject LanguageService Languages
+@implements IDisposable
+
+<CascadingValue Name="UiCulture" Value="Languages.Language">
+    <Router AppAssembly="@typeof(App).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+        <Found Context="routeData">
+            <RouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)" />
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+    </Router>
+</CascadingValue>
+
+@code {
+    protected override void OnInitialized() => Languages.Changed += OnLanguageChanged;
+    private void OnLanguageChanged() => _ = InvokeAsync(StateHasChanged);
+    public void Dispose() => Languages.Changed -= OnLanguageChanged;
+}

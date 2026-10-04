@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using PlanSafe.App;
+using PlanSafe.App.Localization;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -13,4 +14,9 @@ builder.Services.AddScoped<PlanSafe.App.Services.Gus.IGusCensusService, PlanSafe
 builder.Services.AddScoped<PlanSafe.App.Services.Gus.IGusOccupantGenerator, PlanSafe.App.Services.Gus.GusOccupantGenerator>();
 builder.Services.AddScoped<PlanSafe.App.Services.Osm.IOsmObstacleService, PlanSafe.App.Services.Osm.OsmObstacleService>();
 
-await builder.Build().RunAsync();
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+builder.Services.AddScoped<LanguageService>();
+
+var host = builder.Build();
+await host.Services.GetRequiredService<LanguageService>().InitializeAsync();
+await host.RunAsync();

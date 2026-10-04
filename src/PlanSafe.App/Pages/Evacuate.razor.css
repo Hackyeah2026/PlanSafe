@@ -1,0 +1,178 @@
+.evac-workspace {
+  position: relative;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 320px;
+  background: var(--ui-base);
+  isolation: isolate;
+}
+.evac-map,
+.citizen-map {
+  position: absolute;
+  inset: 0;
+}
+.evac-map-tools {
+  position: absolute;
+  top: calc(max(16px, env(safe-area-inset-top)) + 64px);
+  left: max(16px, env(safe-area-inset-left));
+  z-index: 1000;
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+}
+.map-legend {
+  position: relative;
+}
+.evac-map-tools ::deep .app-button {
+  padding: 8px;
+}
+.map-legend summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 8px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.legend-content {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 12px);
+  width: 190px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  font-size: 0.8125rem;
+}
+.legend-content > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+.shelter {
+  background: var(--ui-success);
+}
+.full {
+  background: var(--ui-danger);
+}
+.position {
+  background: var(--ui-info);
+}
+.zone {
+  border: 2px dashed var(--ui-warning);
+  border-radius: 2px;
+}
+.evac-panel {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  width: 360px;
+  max-height: calc(
+    100% - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)
+  );
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  z-index: 1000;
+}
+.evac-panel {
+  overflow: hidden;
+}
+.evac-panel-content {
+  padding: 4px 16px 16px;
+}
+.evac-location-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ui-border);
+  font-size: 0.8125rem;
+  color: var(--ui-muted);
+}
+.evac-location-summary > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.evac-location-summary ::deep svg {
+  color: var(--ui-success);
+}
+.evac-location-summary ::deep .app-button {
+  font-size: 0.8125rem;
+}
+.evac-initial-state {
+  position: absolute;
+  top: 88px;
+  left: 16px;
+  right: 16px;
+  max-width: 480px;
+  margin: auto;
+}
+.evac-blocking-state {
+  z-index: 1000;
+  position: absolute;
+  inset: 72px 16px;
+  display: grid;
+  align-content: center;
+  max-width: 480px;
+  margin: auto;
+  overflow-y: auto;
+}
+.evac-blocking-state h1 {
+  font-size: 1.25rem;
+  margin-bottom: 16px;
+}
+.evac-workspace ::deep .app-button {
+  min-height: 44px;
+}
+
+@media (max-width: 767.98px) {
+  .evac-map-tools {
+    top: calc(max(10px, env(safe-area-inset-top)) + 64px);
+    left: max(10px, env(safe-area-inset-left));
+  }
+  .map-legend {
+    position: static;
+  }
+  .legend-content {
+    left: 0;
+    max-width: calc(
+      100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right)
+    );
+  }
+  .evac-panel {
+    top: auto;
+    left: max(10px, env(safe-area-inset-left));
+    right: max(10px, env(safe-area-inset-right));
+    bottom: max(24px, env(safe-area-inset-bottom));
+    width: auto;
+    max-height: 46dvh;
+  }
+}
+
+@media (max-height: 540px) and (min-width: 600px) {
+  .evac-panel {
+    top: 10px;
+    right: max(10px, env(safe-area-inset-right));
+    bottom: auto;
+    left: auto;
+    width: 320px;
+    max-height: calc(100dvh - 36px);
+  }
+}
+
+@media (max-height: 540px) and (min-width: 600px) and (max-width: 767.98px) {
+  .evac-panel {
+    right: calc(max(10px, env(safe-area-inset-right)) + 60px);
+  }
+}

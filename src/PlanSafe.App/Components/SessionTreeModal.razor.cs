@@ -5,7 +5,7 @@ using PlanSafe.App.Services;
 
 namespace PlanSafe.App.Components;
 
-public partial class SessionTreeModal : ComponentBase
+public partial class SessionTreeModal
 {
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private IMapSessionService SessionService { get; set; } = default!;
@@ -176,13 +176,13 @@ public partial class SessionTreeModal : ComponentBase
     {
         if (Math.Abs(x1 - x2) < 1.0)
         {
-            return $"M {x1:F1} {y1:F1} L {x2:F1} {y2:F1}";
+            return FormattableString.Invariant($"M {x1:F1} {y1:F1} L {x2:F1} {y2:F1}");
         }
 
         double forkStartY = Math.Max(y1, y2 - 22.0);
         double midY = (forkStartY + y2) / 2.0;
 
-        return $"M {x1:F1} {y1:F1} L {x1:F1} {forkStartY:F1} C {x1:F1} {midY:F1}, {x2:F1} {midY:F1}, {x2:F1} {y2:F1}";
+        return FormattableString.Invariant($"M {x1:F1} {y1:F1} L {x1:F1} {forkStartY:F1} C {x1:F1} {midY:F1}, {x2:F1} {midY:F1}, {x2:F1} {y2:F1}");
     }
 
     private async Task HandleCheckout(MapSession session)
@@ -213,7 +213,7 @@ public partial class SessionTreeModal : ComponentBase
 
     private async Task HandleDelete(MapSession session)
     {
-        bool confirmed = await JS.InvokeAsync<bool>("confirm", $"Are you sure you want to delete branch '{session.BranchName}'?");
+        bool confirmed = await JS.InvokeAsync<bool>("confirm", L.Scenario.DeleteConfirm(session.BranchName));
         if (confirmed)
         {
             await SessionService.DeleteSessionAsync(session.Id);
@@ -225,15 +225,15 @@ public partial class SessionTreeModal : ComponentBase
     {
         var json = await SessionService.ExportSessionsJsonAsync();
         await JS.InvokeVoidAsync("navigator.clipboard.writeText", json);
-        await JS.InvokeVoidAsync("alert", "Session tree JSON copied to clipboard!");
+        await JS.InvokeVoidAsync("alert", L.Scenario.TreeCopied);
     }
 
-    private static string GetRelativeTime(DateTime dt)
+    private string GetRelativeTime(DateTime dt)
     {
         var diff = DateTime.UtcNow - dt;
-        if (diff.TotalMinutes < 1) return "just now";
-        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
-        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalMinutes < 1) return L.Common.JustNow;
+        if (diff.TotalMinutes < 60) return L.Common.MinutesAgo((int)diff.TotalMinutes);
+        if (diff.TotalHours < 24) return L.Common.HoursAgo((int)diff.TotalHours);
         return dt.ToString("MMM d");
     }
 

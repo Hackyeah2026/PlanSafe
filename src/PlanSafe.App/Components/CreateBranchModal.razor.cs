@@ -3,7 +3,7 @@ using PlanSafe.Contracts.Models.Session;
 
 namespace PlanSafe.App.Components;
 
-public partial class CreateBranchModal : ComponentBase
+public partial class CreateBranchModal
 {
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public MapSession? ParentSession { get; set; }
@@ -14,7 +14,7 @@ public partial class CreateBranchModal : ComponentBase
     private string? _description;
     private bool _copyItems = true;
     private bool _isSubmitting = false;
-    private string? _errorMessage;
+    private Func<string?>? _errorMessage;
 
     protected override void OnParametersSet()
     {
@@ -34,7 +34,7 @@ public partial class CreateBranchModal : ComponentBase
 
         if (string.IsNullOrWhiteSpace(_branchName))
         {
-            _errorMessage = "Please specify a branch identifier (e.g. scenario/new-blockade).";
+            _errorMessage = () => L.Scenario.NameRequired;
             return;
         }
 
@@ -59,7 +59,7 @@ public partial class CreateBranchModal : ComponentBase
         }
         catch (Exception ex)
         {
-            _errorMessage = ex.Message;
+            _errorMessage = () => ex.Message;
         }
         finally
         {
