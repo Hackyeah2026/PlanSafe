@@ -1,0 +1,11 @@
+<AppButton Class="app-icon-button" Disabled="Disabled" Pressed="Pressed" OnClick="OnClick" aria-label="@Label" title="@Label">
+    <span aria-hidden="true">@ChildContent</span>
+</AppButton>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool? Pressed { get; set; }
+    [Parameter] public EventCallback<MouseEventArgs> OnClick { get; set; }
+    [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
+}

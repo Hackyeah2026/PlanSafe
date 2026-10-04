@@ -1,0 +1,104 @@
+.sim-control-bar-wrapper {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  width: max-content;
+  max-width: calc(100% - 32px);
+}
+.sim-control-capsule {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.sim-status-group,
+.sim-status-title,
+.sim-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sim-status-info {
+  line-height: 1.4;
+}
+.sim-status-title {
+  flex-wrap: wrap;
+}
+.sim-engine-tag {
+  color: var(--ui-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.sim-mode-tag {
+  color: var(--ui-info);
+  font-size: 11px;
+}
+.sim-time-text {
+  color: var(--ui-text);
+}
+.sim-evac-counter {
+  color: var(--ui-muted);
+  font-size: 11px;
+}
+.status-pulse {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ui-warning);
+}
+.status-pulse.pulse-active {
+  background: var(--ui-success);
+}
+.capsule-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--ui-border);
+}
+.sim-control-capsule .app-button {
+  padding: 6px 8px;
+  font-size: 12px;
+}
+.sim-mode-toggle-group {
+  flex: none;
+}
+@media (max-width: 767.98px) {
+  .sim-control-bar-wrapper {
+    left: 10px;
+    right: 10px;
+    bottom: 92px;
+    transform: none;
+    max-width: none;
+    width: auto;
+  }
+  .sim-control-capsule {
+    justify-content: center;
+    gap: 4px;
+    padding: 6px;
+  }
+  .sim-status-group {
+    width: 100%;
+    justify-content: center;
+  }
+  .sim-status-info {
+    display: flex;
+    gap: 8px;
+  }
+  .capsule-divider {
+    display: none;
+  }
+  .sim-control-capsule .app-button span {
+    display: none;
+  }
+  .sim-control-capsule .btn-capsule-speed span {
+    display: inline;
+  }
+  .sim-control-capsule .app-button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

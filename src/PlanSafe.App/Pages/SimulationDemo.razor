@@ -1,0 +1,112 @@
+@page "/simulation-demo"
+@page "/evacuate"
+@page "/simulation"
+
+<PageTitle>Simulation Demo - PlanSafe</PageTitle>
+
+<div class="ui-workspace simulation-workspace">
+<SurfacePanel Label="Metryczny symulator tłumu">
+    <div class="row mb-3 align-items-center">
+        <div class="col-md-6">
+            <h3 class="card-title mb-1">Simulation Demo</h3>
+            <p class="ui-muted small mb-0">Rzeczywisty układ współrzędnych (metry) &bull; Pole Potencjału + Siły Społeczne &bull; Weidmann &amp; Seyfried</p>
+        </div>
+        <div class="col-md-6 text-md-end mt-2 mt-md-0">
+            <SimulationRunControls Ready="ready" IsRunning="isRunning" IsPublishing="isPublishing" ShowStats="_showStats"
+                                   OnToggle="ToggleSimulation" OnStep="StepSimulation" OnReset="ResetSimulation"
+                                   OnPublish="PublishCurrentPlan" OnStatistics="ToggleStats" />
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            @if (!string.IsNullOrEmpty(publishError))
+            {
+                <StatusMessage Tone="StatusTone.Warning" Class="small mb-2">@publishError</StatusMessage>
+            }
+
+            <div class="position-relative">
+                <canvas @ref="canvas" id="simulation-canvas" data-testid="simulation-canvas" width="800" height="500" class="w-100 border border-secondary rounded bg-black" style="display: block; touch-action: none;"></canvas>
+
+                <!-- Nakładka przycisków kamery (Pan & Zoom) -->
+                <div class="position-absolute top-0 end-0 p-2 d-flex flex-column gap-1" style="z-index: 10;">
+                    <IconButton Label="Przybliż (Zoom In)" Disabled="@(!ready)" OnClick="ZoomIn"><UiIcon Kind="UiIconKind.Plus" /></IconButton>
+                    <IconButton Label="Oddal (Zoom Out)" Disabled="@(!ready)" OnClick="ZoomOut"><UiIcon Kind="UiIconKind.Minus" /></IconButton>
+                    <IconButton Label="Wyśrodkuj widok" Disabled="@(!ready)" OnClick="ResetCamera"><UiIcon Kind="UiIconKind.Reset" /></IconButton>
+                </div>
+
+                <div class="position-absolute bottom-0 end-0 p-2 text-muted small pe-3" style="pointer-events: none; font-size: 0.75rem;">
+                    Przeciągaj myszką (Pan) &bull; Kółko myszy (Zoom) &bull; Dwuklik (Reset widoku)
+                </div>
+            </div>
+
+            <!-- Podsumowanie Obiektów Mapy -->
+            <SurfacePanel Strong="true" Label="Obiekty na mapie" Class="mt-2 small">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="fw-bold ui-muted">Obiekty na mapie: @obstacles.Count blokad, @targets.Count punktów zbiórki</span>
+                </div>
+                <div class="d-flex flex-wrap gap-1">
+                    @foreach (var obs in obstacles)
+                    {
+                        <span class="badge bg-danger bg-opacity-75 d-inline-flex align-items-center gap-1">
+                            <span>Blokada (@obs.X.ToString("F0"), @obs.Y.ToString("F0"))</span>
+                        </span>
+                    }
+                    @foreach (var tgt in targets)
+                    {
+                        <span class="badge bg-success bg-opacity-75 d-inline-flex align-items-center gap-1">
+                            <span>@tgt.Name (@tgt.X.ToString("F0"), @tgt.Y.ToString("F0"))</span>
+                        </span>
+                    }
+                </div>
+            </SurfacePanel>
+        </div>
+
+        <div class="col-lg-4">
+            <SimulationParameters Ready="ready" IsRunning="isRunning" WebGpuSupported="isWebGpuSupported" WorldWidth="worldWidth" WorldHeight="worldHeight"
+                                  ActiveEngine="@activeEngine" ActualSpeed="ActualSpeed" OnPreset="width => SetWorldPreset(width, width == 60 ? 40 : width)" OnEngine="SetEngine"
+                                  @bind-TimeScale="timeScale" @bind-Unlimited="unlimited" @bind-RenderFps="renderFps"
+                                  @bind-AgentCount="agentCount" @bind-AgentCount:after="ApplyCount"
+                                  @bind-Granulation="granulation" @bind-Granulation:after="ApplyGranulation"
+                                  @bind-Repulsion="socialRepulsionWeight" @bind-Repulsion:after="ApplyWeight"
+                                  @bind-RenderMode="renderMode" @bind-RenderMode:after="RequestRender"
+                                  @bind-ShowWhiskers="showWhiskers" @bind-ShowWhiskers:after="RequestRender"
+                                  @bind-ShowDiagnostics="showDiagnostics" RenderFramesPerSecond="renderFramesPerSecond" SimulationStepsPerSecond="simulationStepsPerSecond" />
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" id="showFlowParticlesCheck" disabled="@(!ready)" @bind="showFlowParticles" @bind:after="RequestRender" />
+                <label class="form-check-label small" for="showFlowParticlesCheck">Cząsteczki przepływu (Wektor pola / Flow Particles)</label>
+            </div>
+            <ShelterDistributionPanel Ready="ready" Targets="targets" WeightDistance="weightDistance" WeightOccupancy="weightOccupancy"
+                                      OnScenario="weights => SetScenario(weights.Distance, weights.Occupancy)"
+                                      OnAdjustDistance="AdjustWeightDist" OnAdjustOccupancy="AdjustWeightOcc"
+                                      OnDistanceInput="OnWeightDistInput" OnOccupancyInput="OnWeightOccInput" OnResetShelters="ResetShelters" />
+            <SurfacePanel Strong="true" Label="Status symulacji">
+
+                <hr class="border-secondary my-2" />
+                <div class="small ui-muted">
+                    <StatusMessage data-testid="status" Tone="@(SimulationComplete ? StatusTone.Info : isRunning ? StatusTone.Success : StatusTone.Warning)">
+                        Status: <strong>@(SimulationComplete ? "Zakończona" : isRunning ? "Uruchomiona" : "Zatrzymana")</strong>
+                    </StatusMessage>
+                    <div>Aktywni agenci: @_statsCollector.Stats.ActiveAgents (Ewakuowani: @_statsCollector.Stats.EvacuatedAgents)</div>
+                    <div>Symulowane kropki: @(activeEngine == "webgpu" ? _gpuActiveDots : (_engine?.ActiveAgentCount ?? SimulatedAgentCount))</div>
+                    <div>Fizyka tłumu: Diagram Weidmanna (gęstość-prędkość) &bull; Asymetria lider-następca</div>
+                    <div>Jednostki metryczne: Promień agenta ~@(granulation > 1 ? (0.35 * (1.0 + 0.20 * Math.Sqrt(granulation - 1))).ToString("F2", System.Globalization.CultureInfo.InvariantCulture) : "0.35")m &bull; Prędkość ~1.4 m/s (5.0 km/h)</div>
+                    <div>Warstwa mapowa: Współrzędne w metrach [0, @worldWidth.ToString("F0")] &times; [0, @worldHeight.ToString("F0")]</div>
+                </div>
+            </SurfacePanel>
+        </div>
+    </div>
+</SurfacePanel>
+
+    <!-- Floating Live Statistics Popup -->
+    <StatisticsPopup 
+        IsOpen="_showStats" 
+        OnClose="() => _showStats = false" 
+        Stats="_statsCollector.Stats" 
+        IsLive="true" />
+
+@if (showPublishModal && publishedPlan != null)
+{
+    <PublishPlanDialog Plan="publishedPlan" ShelterCount="targets.Count" ObstacleCount="obstacles.Count" WorldWidth="worldWidth" OnClose="ClosePublishModal" />
+}
+</div>

@@ -1,0 +1,72 @@
+@namespace PlanSafe.App.Components
+@using System.Globalization
+<SurfacePanel Strong="true" Label="Parametry symulacji">
+    <h2 class="feature-section-title">Parametry Symulacji</h2>
+    <p class="small ui-muted">Obszar Świata: @WorldWidth.ToString("F0") m × @WorldHeight.ToString("F0") m</p>
+    <div role="group" aria-label="Obszar świata" class="parameter-options">
+        @foreach (var width in new[] { 1000, 500, 200, 60 })
+        {
+            <AppButton Pressed="@(WorldWidth == width)" Disabled="@(!Ready)" OnClick="() => OnPreset.InvokeAsync(width)">@width m</AppButton>
+        }
+    </div>
+    <div role="group" aria-label="Silnik obliczeniowy" class="parameter-options">
+        <AppButton Pressed='@(ActiveEngine == "webgpu")' Disabled="@(!Ready || IsRunning || !WebGpuSupported)" OnClick='() => OnEngine.InvokeAsync("webgpu")'>WebGPU (GPU)</AppButton>
+        <AppButton Pressed='@(ActiveEngine == "wasm")' Disabled="@(!Ready || IsRunning)" OnClick='() => OnEngine.InvokeAsync("wasm")'>Wasm CPU</AppButton>
+    </div>
+    @if (!WebGpuSupported && ActiveEngine == "wasm") { <p class="small ui-muted">WebGPU niedostępne w tej przeglądarce</p> }
+    <label for="time-scale">Tempo symulacji <span data-testid="target-speed">Cel: @(Unlimited ? "Bez limitu" : $"{TimeScale:F1}×")</span></label>
+    <p data-testid="actual-speed" class="small ui-muted">Rzeczywiste tempo: @ActualSpeed.ToString("F1", CultureInfo.InvariantCulture)× (@ActiveEngine)</p>
+    <input id="time-scale" data-testid="time-scale" disabled="@(!Ready || Unlimited)" type="range" class="form-range" min="1" max="50" step="1" @bind="TimeScale" @bind:after="() => TimeScaleChanged.InvokeAsync(TimeScale)" />
+    <label class="parameter-check"><input id="unlimited" data-testid="unlimited" type="checkbox" disabled="@(!Ready)" @bind="Unlimited" @bind:after="() => UnlimitedChanged.InvokeAsync(Unlimited)" /> Bez limitu</label>
+    <label for="render-fps-cap">Limit FPS podglądu</label>
+    <select id="render-fps-cap" data-testid="render-fps-cap" class="app-input w-100" disabled="@(!Ready)" @bind="RenderFps" @bind:after="() => RenderFpsChanged.InvokeAsync(RenderFps)">
+        <option value="15">15 FPS</option><option value="30">30 FPS</option><option value="60">60 FPS</option><option value="display">Częstotliwość ekranu</option>
+    </select>
+    <label for="agent-count">Liczba Agentów: @AgentCount</label>
+    <input id="agent-count" data-testid="agent-count" disabled="@(!Ready)" type="range" class="form-range" min="50" max="50000" step="50" @bind="AgentCount" @bind:after="() => AgentCountChanged.InvokeAsync(AgentCount)" />
+    <label for="granulation">Granulacja: @Granulation agentów / kropkę</label>
+    <input id="granulation" data-testid="granulation" disabled="@(!Ready)" type="range" class="form-range" min="1" max="25" step="1" @bind="Granulation" @bind:after="() => GranulationChanged.InvokeAsync(Granulation)" />
+    <label for="social-repulsion-weight">Siła Odpychania Tłumu: @Repulsion.ToString("F1", CultureInfo.InvariantCulture)</label>
+    <input id="social-repulsion-weight" data-testid="repulsion-weight" disabled="@(!Ready)" type="range" class="form-range" min="0" max="10" step="0.5" @bind="Repulsion" @bind:after="() => RepulsionChanged.InvokeAsync(Repulsion)" />
+    <label for="render-mode">Tryb Wyświetlania</label>
+    <select id="render-mode" data-testid="render-mode" disabled="@(!Ready)" class="app-input w-100" @bind="RenderMode" @bind:after="() => RenderModeChanged.InvokeAsync(RenderMode)">
+        <option value="agents">Agenci (Pozycje jednostek)</option><option value="heatmap">Mapa Ciepła (Prędkość przepływu)</option><option value="density">Mapa Ciepła (Gęstość tłumu)</option>
+    </select>
+    <label class="parameter-check"><input id="showWhiskersCheck" type="checkbox" disabled="@(!Ready)" @bind="ShowWhiskers" @bind:after="() => ShowWhiskersChanged.InvokeAsync(ShowWhiskers)" /> Pokaż wąsy sensoryczne (Whiskers)</label>
+    <label class="parameter-check"><input id="show-diagnostics" data-testid="diagnostics" type="checkbox" @bind="ShowDiagnostics" @bind:after="() => ShowDiagnosticsChanged.InvokeAsync(ShowDiagnostics)" /> Pokaż diagnostykę</label>
+    @if (ShowDiagnostics)
+    {
+        <div class="status-message small"><div data-testid="render-fps">Render FPS: @RenderFramesPerSecond.ToString("F1", CultureInfo.InvariantCulture)</div><div data-testid="steps-per-second">Simulation steps/s: @SimulationStepsPerSecond.ToString("F1", CultureInfo.InvariantCulture)</div></div>
+    }
+</SurfacePanel>
+@code {
+    [Parameter] public bool Ready { get; set; }
+    [Parameter] public bool IsRunning { get; set; }
+    [Parameter] public bool WebGpuSupported { get; set; }
+    [Parameter] public double WorldWidth { get; set; }
+    [Parameter] public double WorldHeight { get; set; }
+    [Parameter] public string ActiveEngine { get; set; } = "wasm";
+    [Parameter] public double ActualSpeed { get; set; }
+    [Parameter] public double RenderFramesPerSecond { get; set; }
+    [Parameter] public double SimulationStepsPerSecond { get; set; }
+    [Parameter] public EventCallback<int> OnPreset { get; set; }
+    [Parameter] public EventCallback<string> OnEngine { get; set; }
+    [Parameter] public double TimeScale { get; set; }
+    [Parameter] public EventCallback<double> TimeScaleChanged { get; set; }
+    [Parameter] public bool Unlimited { get; set; }
+    [Parameter] public EventCallback<bool> UnlimitedChanged { get; set; }
+    [Parameter] public string RenderFps { get; set; } = "30";
+    [Parameter] public EventCallback<string> RenderFpsChanged { get; set; }
+    [Parameter] public int AgentCount { get; set; }
+    [Parameter] public EventCallback<int> AgentCountChanged { get; set; }
+    [Parameter] public int Granulation { get; set; }
+    [Parameter] public EventCallback<int> GranulationChanged { get; set; }
+    [Parameter] public double Repulsion { get; set; }
+    [Parameter] public EventCallback<double> RepulsionChanged { get; set; }
+    [Parameter] public string RenderMode { get; set; } = "agents";
+    [Parameter] public EventCallback<string> RenderModeChanged { get; set; }
+    [Parameter] public bool ShowWhiskers { get; set; }
+    [Parameter] public EventCallback<bool> ShowWhiskersChanged { get; set; }
+    [Parameter] public bool ShowDiagnostics { get; set; }
+    [Parameter] public EventCallback<bool> ShowDiagnosticsChanged { get; set; }
+}

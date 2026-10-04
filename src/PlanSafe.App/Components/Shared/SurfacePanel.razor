@@ -1,0 +1,8 @@
+<section class="surface-panel @(Strong ? "surface-panel--strong" : "") @Class" aria-label="@Label">@ChildContent</section>
+
+@code {
+    [Parameter] public bool Strong { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
+}

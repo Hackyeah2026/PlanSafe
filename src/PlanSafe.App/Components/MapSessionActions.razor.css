@@ -1,0 +1,39 @@
+.map-session-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.map-session-actions ::deep .app-button {
+  min-height: 36px;
+  min-width: 36px;
+  padding: 6px 10px;
+  border-color: transparent;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ui-muted);
+}
+.map-session-actions ::deep .app-button:hover:not(:disabled) {
+  background: var(--ui-fill);
+  color: var(--ui-text);
+  box-shadow: none;
+}
+.map-session-actions ::deep .session-current {
+  justify-content: flex-start;
+  flex: 1;
+  min-width: 0;
+}
+.map-session-actions ::deep span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.map-session-actions ::deep svg {
+  flex: none;
+}
+@media (max-width: 767.98px) {
+  .map-session-actions ::deep .app-button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
