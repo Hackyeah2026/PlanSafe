@@ -158,10 +158,8 @@ test(
       await page.goto(`http://127.0.0.1:${(server.address() as any).port}`);
       const results = await page.evaluate(async (refs) => {
         const { GpuSimulationEngine } = await import("/crowdSimulatorGpu.js");
-        const source = await (await fetch("/crowdSimulatorGpu.js")).text();
-        const physicsWgsl = source.match(
-          /const stepPhysicsShader = `([\s\S]*?)`;/,
-        )[1];
+        const { stepPhysicsShader: physicsWgsl } =
+          await import("/gpuPhysicsShader.js");
         const flowShader =
           physicsWgsl.split("@compute")[0] +
           `

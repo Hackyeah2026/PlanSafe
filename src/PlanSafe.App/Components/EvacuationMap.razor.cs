@@ -22,8 +22,8 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
     [Inject] private PlanSafe.App.Services.Osm.IOsmObstacleService OsmService { get; set; } = default!;
 
     private string MapContainerId { get; set; } = $"map-{Guid.NewGuid():N}";
-    private bool isMobilePanelOpen = false;
-    private bool isMapInitialized = false;
+    private bool _isMobilePanelOpen = false;
+    private bool _isMapInitialized = false;
     private DotNetObjectReference<EvacuationMap>? _dotNetRef;
 
     private List<MapZoneItem> _mapItems = new();
@@ -35,23 +35,23 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
     private readonly SimulationLiveStats _sampleStats = SimulationStatsCollector.CreateSampleData();
 
     // On-Map Crowd Simulation Engine State
-    private ElementReference _simCanvasRef;
+    private ElementReference _simulationCanvas;
     private string SimCanvasId { get; set; } = $"sim-canvas-{Guid.NewGuid():N}";
     private bool _isConfigOpen = false;
     private bool _isSimulating = false;
     private bool _isRunning = false;
     private bool _isStarting;
-    private CancellationTokenSource? _preparationCts;
+    private CancellationTokenSource? _preparationCancellation;
     private string _activeEngine = "wasm";
     private Task? _simulationLoopTask;
-    private int _simTotalAgents = 0;
-    private SimulationConfig _simConfig = new();
-    private CrowdSimulationEngine? _engine;
-    private CancellationTokenSource? _simCts;
+    private int _totalSimulationAgents = 0;
+    private SimulationConfig _simulationConfig = new();
+    private CrowdSimulationEngine? _simulationEngine;
+    private CancellationTokenSource? _simulationCancellation;
     private readonly SimulationStatsCollector _statsCollector = new();
-    private IJSObjectReference? _simModule;
-    private IJSObjectReference? _simulator;
-    private string? _simWarningMessage;
+    private IJSObjectReference? _simulationModule;
+    private IJSObjectReference? _simulationRenderer;
+    private string? _simulationWarningMessage;
 
     private string _activeCategory = "navigate"; // "navigate", "evac", "safe", "blockade"
     private string _selectedShape = "polygon"; // "polygon", "circle"
@@ -66,14 +66,14 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && !isMapInitialized && !_disposed)
+        if (firstRender && !_isMapInitialized && !_disposed)
         {
-            isMapInitialized = true;
+            _isMapInitialized = true;
             _activeSession = await SessionService.GetActiveSessionAsync();
             if (_disposed) return;
 
             _branchParentSession = _activeSession;
-            _simConfig = _activeSession.SimulationConfig?.Clone() ?? new SimulationConfig();
+            _simulationConfig = _activeSession.SimulationConfig?.Clone() ?? new SimulationConfig();
 
             double lat = _activeSession.MapCenter is { Length: >= 2 } ? _activeSession.MapCenter[0] : 50.0614;
             double lng = _activeSession.MapCenter is { Length: >= 2 } ? _activeSession.MapCenter[1] : 19.9366;
@@ -118,9 +118,9 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
             _isCensusLoading = false;
 
             RecalculateCensusData();
-            if (_simConfig.UseGusCensus && _censusPopulation > 0)
+            if (_simulationConfig.UseGusCensus && _censusPopulation > 0)
             {
-                _simConfig.AgentCount = _censusPopulation;
+                _simulationConfig.AgentCount = _censusPopulation;
             }
             StateHasChanged();
         }
@@ -197,28 +197,28 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
             return;
         }
 
-        _simWarningMessage = null;
+        _simulationWarningMessage = null;
 
         if (_isCensusLoading)
         {
-            _simWarningMessage = "Population data is still loading. Try again shortly.";
+            _simulationWarningMessage = "Population data is still loading. Try again shortly.";
             StateHasChanged();
             return;
         }
 
-        var evacZones = _mapItems.Where(i => i.Category == ZoneCategory.EvacuationZone).ToList();
+        var evacuationZones = _mapItems.Where(i => i.Category == ZoneCategory.EvacuationZone).ToList();
         var safeLocations = _mapItems.Where(i => i.Category == ZoneCategory.SafeLocation).ToList();
 
-        if (evacZones.Count == 0)
+        if (evacuationZones.Count == 0)
         {
-            _simWarningMessage = "Narysuj przynajmniej jedną Strefę Ewakuacji (Evac Zone) przed startem symulacji.";
+            _simulationWarningMessage = "Narysuj przynajmniej jedną Strefę Ewakuacji (Evac Zone) przed startem symulacji.";
             StateHasChanged();
             return;
         }
 
         if (safeLocations.Count == 0)
         {
-            _simWarningMessage = "Narysuj przynajmniej jedno Bezpieczne Miejsce (Safe Location) jako punkt docelowy ewakuacji.";
+            _simulationWarningMessage = "Narysuj przynajmniej jedno Bezpieczne Miejsce (Safe Location) jako punkt docelowy ewakuacji.";
             StateHasChanged();
             return;
         }
@@ -226,226 +226,64 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
         try
         {
             _isStarting = true;
-            _preparationCts = new CancellationTokenSource();
-            var preparationToken = _preparationCts.Token;
+            _preparationCancellation = new CancellationTokenSource();
+            var preparationToken = _preparationCancellation.Token;
             StateHasChanged();
             await Task.Delay(1, preparationToken);
             await StopSimulationLoopAsync();
 
-            // 1. Calculate Geographic Bounding Box
-            var (minLat, maxLat, minLng, maxLng) = ComputeGeographicBoundingBox(_mapItems, _activeSession);
-            double midLat = (minLat + maxLat) / 2.0;
-            double metersPerDegreeLat = 111320.0;
-            double metersPerDegreeLng = metersPerDegreeLat * Math.Cos(midLat * Math.PI / 180.0);
-            double worldWidth = Math.Max(50.0, (maxLng - minLng) * metersPerDegreeLng);
-            double worldHeight = Math.Max(50.0, (maxLat - minLat) * metersPerDegreeLat);
-
-            (double X, double Y) ToWorld(double lat, double lng) =>
-                ((lng - minLng) * metersPerDegreeLng,
-                 (maxLat - lat) * metersPerDegreeLat);
-
-            // 2. Prepare Safe Locations (Targets)
-            var targets = new List<EvacuationTarget>();
-            var targetShapes = new Dictionary<string, (double[] Xs, double[] Ys)>();
-            foreach (var item in safeLocations)
-            {
-                switch (item)
-                {
-                    case SafeCircleZoneItem circle when circle.Center is { Length: >= 2 }:
-                        var (cx, cy) = ToWorld(circle.Center[0], circle.Center[1]);
-                        double r = circle.Radius ?? 30.0;
-                        targets.Add(new EvacuationTarget(item.Id, string.IsNullOrWhiteSpace(item.Name) ? "Schron" : item.Name, cx - r, cy - r, r * 2, r * 2, 1000, 0, true));
-                        var circXs = new double[32];
-                        var circYs = new double[32];
-                        for (int k = 0; k < 32; k++)
-                        {
-                            double ang = k * 2.0 * Math.PI / 32.0;
-                            circXs[k] = cx + r * Math.Cos(ang);
-                            circYs[k] = cy + r * Math.Sin(ang);
-                        }
-                        targetShapes[item.Id] = (circXs, circYs);
-                        break;
-                    case SafePolygonZoneItem poly when poly.Coordinates is { Count: >= 3 }:
-                        var coords = poly.Coordinates.Where(c => c is { Length: >= 2 }).ToList();
-                        double pMinX = coords.Min(c => ToWorld(c[0], c[1]).X);
-                        double pMaxX = coords.Max(c => ToWorld(c[0], c[1]).X);
-                        double pMinY = coords.Min(c => ToWorld(c[0], c[1]).Y);
-                        double pMaxY = coords.Max(c => ToWorld(c[0], c[1]).Y);
-                        targets.Add(new EvacuationTarget(item.Id, string.IsNullOrWhiteSpace(item.Name) ? "Schron" : item.Name, pMinX, pMinY, Math.Max(10.0, pMaxX - pMinX), Math.Max(10.0, pMaxY - pMinY), 1000, 0, true));
-                        targetShapes[item.Id] = (coords.Select(c => ToWorld(c[0], c[1]).X).ToArray(), coords.Select(c => ToWorld(c[0], c[1]).Y).ToArray());
-                        break;
-                    case SafePointZoneItem pt when pt.Position is { Length: >= 2 }:
-                        var (px, py) = ToWorld(pt.Position[0], pt.Position[1]);
-                        targets.Add(new EvacuationTarget(item.Id, string.IsNullOrWhiteSpace(item.Name) ? "Wyjście" : item.Name, px - 4.0, py - 4.0, 8.0, 8.0, 1000, 0, true));
-                        break;
-                }
-            }
-            if (targets.Count == 0)
-            {
-                targets.Add(new EvacuationTarget("shelter-east", "Wyjście Główne", worldWidth * 0.90, worldHeight * 0.45, worldWidth * 0.08, worldHeight * 0.10, 1000, 0, true));
-            }
-
-            // 3. Prepare MapScenario raster and obstacles using full OSM terrain from krakow_osm.bin
-            double rasterCellSize = Math.Max(2.0, Math.Ceiling(Math.Max(worldWidth, worldHeight) / 600.0 * 2) / 2);
-            var builder = new MapScenarioBuilder(worldWidth, worldHeight, cellSize: rasterCellSize);
-            await OsmService.RasterizeTerrainAsync(builder, minLat, maxLat, minLng, maxLng, (lat, lng) => ToWorld(lat, lng), preparationToken);
-
-            // 3b. Blockades defined by user
-            foreach (var blockade in _mapItems.OfType<BlockadeZoneItem>())
-            {
-                if (blockade.StartPoint is { Length: >= 2 } sp && blockade.EndPoint is { Length: >= 2 } ep)
-                {
-                    var p1 = ToWorld(sp[0], sp[1]);
-                    var p2 = ToWorld(ep[0], ep[1]);
-                    builder.SetCorridor([p1.X, p2.X], [p1.Y, p2.Y], halfWidth: Math.Max(1.5, rasterCellSize), isWalkable: false);
-                }
-            }
-
-            // 3c. Safe locations (exits): snap the centre onto nearby walkable ground and
-            // open only a small disk there, so the exit never cuts a hole through surrounding buildings.
-            var mapExits = new List<MapExit>();
-            foreach (var t in targets)
-            {
-                // Polygon / circle zones: cover the real shape with small square exit tiles. Only border
-                // tiles are needed (people enter from outside), which keeps the exit count small. The
-                // engine's single-square exit model therefore follows the drawn outline closely instead
-                // of catching agents inside a large bounding square far outside the zone.
-                if (targetShapes.TryGetValue(t.Id, out var shape))
-                {
-                    double tile = Math.Max(2.0 * rasterCellSize, 4.0);
-                    double sMinX = Math.Max(0, shape.Xs.Min()), sMaxX = Math.Min(worldWidth, shape.Xs.Max());
-                    double sMinY = Math.Max(0, shape.Ys.Min()), sMaxY = Math.Min(worldHeight, shape.Ys.Max());
-                    while (((sMaxX - sMinX) / tile) * ((sMaxY - sMinY) / tile) > 40000) tile *= 1.5;
-                    int nx = Math.Max(1, (int)Math.Ceiling((sMaxX - sMinX) / tile));
-                    int ny = Math.Max(1, (int)Math.Ceiling((sMaxY - sMinY) / tile));
-                    var inside = new bool[nx, ny];
-                    for (int i = 0; i < nx; i++)
-                        for (int j = 0; j < ny; j++)
-                            inside[i, j] = MapScenario.IsPointInPolygon(sMinX + (i + 0.5) * tile, sMinY + (j + 0.5) * tile, shape.Xs, shape.Ys);
-                    int added = 0;
-                    for (int i = 0; i < nx; i++)
-                    {
-                        for (int j = 0; j < ny; j++)
-                        {
-                            if (!inside[i, j]) continue;
-                            bool border = i == 0 || j == 0 || i == nx - 1 || j == ny - 1 ||
-                                          !inside[i - 1, j] || !inside[i + 1, j] || !inside[i, j - 1] || !inside[i, j + 1];
-                            if (!border) continue;
-                            double tx = sMinX + (i + 0.5) * tile, ty = sMinY + (j + 0.5) * tile;
-                            if (tx <= 0 || ty <= 0 || tx >= worldWidth || ty >= worldHeight) continue;
-                            mapExits.Add(new MapExit(tx, ty, tile * 0.5));
-                            added++;
-                        }
-                    }
-                    if (added > 0) continue;
-                }
-
-                // Point zones (or degenerate shapes): one small exit snapped onto walkable ground,
-                // opening only a small disk so it never cuts a hole through surrounding buildings.
-                double cx = t.X + t.Width * 0.5;
-                double cy = t.Y + t.Height * 0.5;
-                double r = Math.Max(4.0, Math.Min(t.Width, t.Height) * 0.5);
-                int col = Math.Clamp((int)(cx / rasterCellSize), 0, builder.Columns - 1);
-                int row = Math.Clamp((int)(cy / rasterCellSize), 0, builder.Rows - 1);
-                if (!builder.IsWalkable(col, row) && builder.FindNearestWalkable(cx, cy, Math.Max(30.0, r)) is { } snapped)
-                {
-                    cx = snapped.X;
-                    cy = snapped.Y;
-                }
-                mapExits.Add(new MapExit(cx, cy, r));
-                builder.SetDisk(cx, cy, Math.Max(2.0, rasterCellSize), isWalkable: true);
-            }
-
-            // 3d. Map spawn zones
-            var mapSpawnZones = new List<MapSpawnZone>();
-            foreach (var zone in evacZones)
-            {
-                int people = 100;
-                switch (zone)
-                {
-                    case PolygonMapZoneItem poly when poly.Coordinates is { Count: >= 3 }:
-                        var pts = poly.Coordinates.Where(c => c is { Length: >= 2 }).ToList();
-                        var xs = pts.Select(c => ToWorld(c[0], c[1]).X).ToArray();
-                        var ys = pts.Select(c => ToWorld(c[0], c[1]).Y).ToArray();
-                        mapSpawnZones.Add(new MapSpawnZone(xs, ys, people));
-                        break;
-                    case CircleMapZoneItem circle when circle.Center is { Length: >= 2 }:
-                        var (cx, cy) = ToWorld(circle.Center[0], circle.Center[1]);
-                        double r = circle.Radius ?? 30.0;
-                        var cXs = new double[16];
-                        var cYs = new double[16];
-                        for (int k = 0; k < 16; k++)
-                        {
-                            double ang = k * 2.0 * Math.PI / 16.0;
-                            cXs[k] = cx + r * Math.Cos(ang);
-                            cYs[k] = cy + r * Math.Sin(ang);
-                        }
-                        mapSpawnZones.Add(new MapSpawnZone(cXs, cYs, people));
-                        break;
-                    case PointMapZoneItem pt when pt.Position is { Length: >= 2 }:
-                        var (px, py) = ToWorld(pt.Position[0], pt.Position[1]);
-                        mapSpawnZones.Add(new MapSpawnZone([px - 5, px + 5, px + 5, px - 5], [py - 5, py - 5, py + 5, py + 5], people));
-                        break;
-                }
-            }
-            if (mapSpawnZones.Count == 0)
-            {
-                mapSpawnZones.Add(new MapSpawnZone([0, worldWidth, worldWidth, 0], [0, 0, worldHeight, worldHeight], 100));
-            }
-
-            var mapScenario = builder.Build(
-                maxLat,
-                minLng,
-                metersPerDegreeLat,
-                metersPerDegreeLng,
-                mapExits.ToArray(),
-                mapSpawnZones.ToArray());
+            var mapBounds = new MapSimulationBounds(_mapItems, _activeSession);
+            var preparedMap = await MapSimulationScenarioPreparer.PrepareAsync(
+                mapBounds, _mapItems, evacuationZones, safeLocations, OsmService, preparationToken);
+            var mapScenario = preparedMap.Scenario;
+            var targets = preparedMap.Targets;
+            var toWorld = mapBounds.ToWorld;
 
             // 4. Generate Occupant Agents inside Evacuation Zones
             var initialPositions = new List<(double X, double Y)>();
-            if (_simConfig.UseGusCensus)
+            if (_simulationConfig.UseGusCensus)
             {
-                var occupants = await OccupantGenerator.GenerateOccupantsAsync(evacZones, cancellationToken: preparationToken);
-                foreach (var occ in occupants)
+                var occupants = await OccupantGenerator.GenerateOccupantsAsync(evacuationZones, cancellationToken: preparationToken);
+                foreach (var occupant in occupants)
                 {
-                    initialPositions.Add(ToWorld(occ.Latitude, occ.Longitude));
+                    initialPositions.Add(toWorld(occupant.Latitude, occupant.Longitude));
                 }
             }
 
-            if (initialPositions.Count == 0 || !_simConfig.UseGusCensus)
+            if (initialPositions.Count == 0 || !_simulationConfig.UseGusCensus)
             {
-                int targetCount = !_simConfig.UseGusCensus && _simConfig.AgentCount > 0
-                    ? _simConfig.AgentCount
+                int targetCount = !_simulationConfig.UseGusCensus && _simulationConfig.AgentCount > 0
+                    ? _simulationConfig.AgentCount
                     : Math.Max(100, _censusPopulation > 0 ? _censusPopulation : 500);
-                initialPositions = await GenerateUniformZonePositionsAsync(evacZones, targetCount, ToWorld, preparationToken);
+                initialPositions = await EvacuationZoneSampler.GenerateAsync(evacuationZones, targetCount, toWorld, preparationToken);
             }
 
-            _simTotalAgents = initialPositions.Count;
+            _totalSimulationAgents = initialPositions.Count;
 
             // 5. Initialize Unified Simulation Engine with MapScenario
-            _engine = await CrowdSimulationEngine.CreateMapAsync(mapScenario, initialPositions,
-                _simConfig.Granulation, _simConfig.SocialRepulsionWeight, cancellationToken: preparationToken);
+            _simulationEngine = await CrowdSimulationEngine.CreateMapAsync(mapScenario, initialPositions,
+                _simulationConfig.Granulation, _simulationConfig.SocialRepulsionWeight, cancellationToken: preparationToken);
             if (_disposed) return;
-            _engine.WhiskerLength = _simConfig.WhiskerLength;
-            _statsCollector.Reset(_engine.AgentCount);
+            _simulationEngine.WhiskerLength = _simulationConfig.WhiskerLength;
+            _statsCollector.Reset(_simulationEngine.AgentCount);
 
             // 6. Initialize JS Canvas Overlay
-            _simModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/crowdSimulatorInterop.js");
-            _simulator ??= await _simModule.InvokeAsync<IJSObjectReference>("initMapSimulator", _simCanvasRef, MapContainerId);
+            _simulationModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/crowdSimulatorInterop.js");
+            _simulationRenderer ??= await _simulationModule.InvokeAsync<IJSObjectReference>("initMapSimulator", _simulationCanvas, MapContainerId);
 
-            await _simulator.InvokeVoidAsync("setWorldConfig", new
+            await _simulationRenderer.InvokeVoidAsync("setWorldConfig", new
             {
-                worldWidth = worldWidth,
-                worldHeight = worldHeight,
-                originLat = maxLat,
-                originLng = minLng,
-                minLat = minLat,
-                maxLng = maxLng,
+                worldWidth = mapBounds.WorldWidth,
+                worldHeight = mapBounds.WorldHeight,
+                originLat = mapBounds.MaximumLatitude,
+                originLng = mapBounds.MinimumLongitude,
+                minLat = mapBounds.MinimumLatitude,
+                maxLng = mapBounds.MaximumLongitude,
                 obstacles = Array.Empty<object>(),
                 targets = targets.Select(t => new { x = t.X, y = t.Y, width = t.Width, height = t.Height, name = t.Name, id = t.Id })
             });
 
-            await _simulator.InvokeVoidAsync("setMapTerrain",
+            await _simulationRenderer.InvokeVoidAsync("setMapTerrain",
                 Array.ConvertAll(mapScenario.Blocked, blocked => blocked ? (byte)1 : (byte)0),
                 mapScenario.Columns, mapScenario.Rows, mapScenario.CellSize);
 
@@ -455,9 +293,9 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
                 string? preferredEngine = null;
                 try { preferredEngine = await JS.InvokeAsync<string?>("localStorage.getItem", "plansafe_simulation_engine"); }
                 catch (JSException) { }
-                if (preferredEngine != "wasm" && await _simModule.InvokeAsync<bool>("checkWebGpuSupport"))
+                if (preferredEngine != "wasm" && await _simulationModule.InvokeAsync<bool>("checkWebGpuSupport"))
                 {
-                    await _simulator.InvokeVoidAsync("initMapGpu", MapGpuSnapshot.Capture(_engine));
+                    await _simulationRenderer.InvokeVoidAsync("initMapGpu", MapGpuSnapshot.Capture(_simulationEngine));
                     _activeEngine = "webgpu";
                 }
             }
@@ -478,46 +316,46 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
         catch (OperationCanceledException) when (_disposed) { }
         catch (Exception ex)
         {
-            _simWarningMessage = $"Błąd uruchomienia symulacji: {ex.Message}";
+            _simulationWarningMessage = $"Błąd uruchomienia symulacji: {ex.Message}";
             StateHasChanged();
         }
         finally
         {
             _isStarting = false;
-            _preparationCts?.Dispose();
-            _preparationCts = null;
+            _preparationCancellation?.Dispose();
+            _preparationCancellation = null;
             if (!_disposed) StateHasChanged();
         }
     }
 
     private async Task RequestRender()
     {
-        if (_simulator == null || _engine == null) return;
+        if (_simulationRenderer == null || _simulationEngine == null) return;
         try
         {
             if (_activeEngine == "webgpu")
             {
-                await _simulator.InvokeVoidAsync("renderGpu", _simConfig.RenderMode, _simConfig.ShowWhiskers,
-                    _simConfig.WhiskerLength, _simConfig.Granulation);
+                await _simulationRenderer.InvokeVoidAsync("renderGpu", _simulationConfig.RenderMode, _simulationConfig.ShowWhiskers,
+                    _simulationConfig.WhiskerLength, _simulationConfig.Granulation);
                 return;
             }
-            int count = _engine.SimulatedAgentCount;
-            await _simulator.InvokeVoidAsync("render",
-                _engine.AgentPositionX[..count],
-                _engine.AgentPositionY[..count],
-                _engine.AgentVelocityX[..count],
-                _engine.AgentVelocityY[..count],
-                _engine.AgentRadius[..count],
+            int count = _simulationEngine.SimulatedAgentCount;
+            await _simulationRenderer.InvokeVoidAsync("render",
+                _simulationEngine.AgentPositionX[..count],
+                _simulationEngine.AgentPositionY[..count],
+                _simulationEngine.AgentVelocityX[..count],
+                _simulationEngine.AgentVelocityY[..count],
+                _simulationEngine.AgentRadius[..count],
                 count,
-                _simConfig.RenderMode,
-                _simConfig.ShowWhiskers,
-                _simConfig.WhiskerLength,
-                _simConfig.Granulation);
+                _simulationConfig.RenderMode,
+                _simulationConfig.ShowWhiskers,
+                _simulationConfig.WhiskerLength,
+                _simulationConfig.Granulation);
         }
         catch { }
     }
 
-    private async Task RunSimulationLoopAsync(CancellationToken ct)
+    private async Task RunSimulationLoopAsync(CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
         long lastRenderTime = sw.ElapsedMilliseconds;
@@ -526,16 +364,16 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
         double lastStepTime = 0;
         double tickBudget = 0;
 
-        while (!ct.IsCancellationRequested && _isRunning && _engine != null)
+        while (!cancellationToken.IsCancellationRequested && _isRunning && _simulationEngine != null)
         {
             double stepTime = sw.Elapsed.TotalSeconds;
-            if (_simConfig.Unlimited) tickBudget = 0;
-            else tickBudget += (stepTime - lastStepTime) * _simConfig.TimeScale / 0.016;
+            if (_simulationConfig.Unlimited) tickBudget = 0;
+            else tickBudget += (stepTime - lastStepTime) * _simulationConfig.TimeScale / 0.016;
             lastStepTime = stepTime;
-            int batch = _simConfig.Unlimited ? 32 : Math.Clamp((int)Math.Floor(tickBudget), 0, 32);
-            if (_activeEngine == "webgpu" && _simulator != null)
+            int batch = _simulationConfig.Unlimited ? 32 : Math.Clamp((int)Math.Floor(tickBudget), 0, 32);
+            if (_activeEngine == "webgpu" && _simulationRenderer != null)
             {
-                if (batch > 0) await _simulator.InvokeVoidAsync("stepGpu", batch);
+                if (batch > 0) await _simulationRenderer.InvokeVoidAsync("stepGpu", batch);
                 if (sw.ElapsedMilliseconds - lastTelemetryTime >= 100)
                 {
                     await SampleGpuTelemetry();
@@ -548,14 +386,14 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
                 int completed = 0;
                 for (int tick = 0; tick < batch; tick++)
                 {
-                    _engine.Step(0.016, 1.0);
+                    _simulationEngine.Step(0.016, 1.0);
                     completed++;
                     if (sw.ElapsedMilliseconds - chunkStart >= 12) break;
                 }
                 batch = completed;
-                _statsCollector.SampleTelemetry(_engine);
+                _statsCollector.SampleTelemetry(_simulationEngine);
             }
-            if (!_simConfig.Unlimited) tickBudget -= batch;
+            if (!_simulationConfig.Unlimited) tickBudget -= batch;
 
             if (_statsCollector.Stats.IsComplete)
             {
@@ -566,7 +404,7 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
             }
 
             long now = sw.ElapsedMilliseconds;
-            int frameInterval = _simConfig.RenderFps switch
+            int frameInterval = _simulationConfig.RenderFps switch
             {
                 "15" => 66,
                 "30" => 33,
@@ -592,23 +430,23 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
 
     private void StartSimulationLoop()
     {
-        _simCts?.Dispose();
-        _simCts = new CancellationTokenSource();
+        _simulationCancellation?.Dispose();
+        _simulationCancellation = new CancellationTokenSource();
         _isRunning = true;
-        _simulationLoopTask = RunSimulationLoopAsync(_simCts.Token);
+        _simulationLoopTask = RunSimulationLoopAsync(_simulationCancellation.Token);
     }
 
     private async Task StopSimulationLoopAsync()
     {
         _isRunning = false;
-        _simCts?.Cancel();
+        _simulationCancellation?.Cancel();
         if (_simulationLoopTask != null) await _simulationLoopTask;
     }
 
     private async Task SampleGpuTelemetry()
     {
-        if (_simulator == null) return;
-        var sample = await _simulator.InvokeAsync<GpuSimulationTelemetry?>("getGpuTelemetry");
+        if (_simulationRenderer == null) return;
+        var sample = await _simulationRenderer.InvokeAsync<GpuSimulationTelemetry?>("getGpuTelemetry");
         if (sample != null) _statsCollector.SampleTelemetry(sample);
     }
 
@@ -630,16 +468,16 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
 
     private async Task StepSimulation()
     {
-        if (_isStarting || _isRunning || _engine == null) return;
-        if (_activeEngine == "webgpu" && _simulator != null)
+        if (_isStarting || _isRunning || _simulationEngine == null) return;
+        if (_activeEngine == "webgpu" && _simulationRenderer != null)
         {
-            await _simulator.InvokeVoidAsync("stepGpu", 1);
+            await _simulationRenderer.InvokeVoidAsync("stepGpu", 1);
             await SampleGpuTelemetry();
         }
         else
         {
-            _engine.Step(0.016, 1.0);
-            _statsCollector.SampleTelemetry(_engine);
+            _simulationEngine.Step(0.016, 1.0);
+            _statsCollector.SampleTelemetry(_simulationEngine);
         }
         await RequestRender();
         await InvokeAsync(StateHasChanged);
@@ -649,12 +487,12 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
     {
         if (_isStarting) return;
         await StopSimulationLoopAsync();
-        if (_engine != null)
+        if (_simulationEngine != null)
         {
-            if (_activeEngine == "webgpu" && _simulator != null)
-                await _simulator.InvokeVoidAsync("resetMapGpu");
-            else _engine.Reset();
-            _statsCollector.Reset(_engine.AgentCount);
+            if (_activeEngine == "webgpu" && _simulationRenderer != null)
+                await _simulationRenderer.InvokeVoidAsync("resetMapGpu");
+            else _simulationEngine.Reset();
+            _statsCollector.Reset(_simulationEngine.AgentCount);
         }
         await RequestRender();
         await InvokeAsync(StateHasChanged);
@@ -665,49 +503,49 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
         if (_isStarting) return;
         await StopSimulationLoopAsync();
         _isSimulating = false;
-        if (_simulator != null)
+        if (_simulationRenderer != null)
         {
-            try { await _simulator.InvokeVoidAsync("setWorldConfig", new { }); } catch { }
+            try { await _simulationRenderer.InvokeVoidAsync("setWorldConfig", new { }); } catch { }
         }
         await InvokeAsync(StateHasChanged);
     }
 
     private async Task HandleRenderModeChanged(string mode)
     {
-        _simConfig.RenderMode = mode;
+        _simulationConfig.RenderMode = mode;
         await RequestRender();
         await InvokeAsync(StateHasChanged);
     }
 
     private async Task HandleToggleWhiskers()
     {
-        _simConfig.ShowWhiskers = !_simConfig.ShowWhiskers;
+        _simulationConfig.ShowWhiskers = !_simulationConfig.ShowWhiskers;
         await RequestRender();
         await InvokeAsync(StateHasChanged);
     }
 
     private Task HandleCycleSpeed()
     {
-        if (_simConfig.Unlimited)
+        if (_simulationConfig.Unlimited)
         {
-            _simConfig.Unlimited = false;
-            _simConfig.TimeScale = 1.0f;
+            _simulationConfig.Unlimited = false;
+            _simulationConfig.TimeScale = 1.0f;
         }
-        else if (_simConfig.TimeScale < 2.0f)
+        else if (_simulationConfig.TimeScale < 2.0f)
         {
-            _simConfig.TimeScale = 2.5f;
+            _simulationConfig.TimeScale = 2.5f;
         }
-        else if (_simConfig.TimeScale < 5.0f)
+        else if (_simulationConfig.TimeScale < 5.0f)
         {
-            _simConfig.TimeScale = 5.0f;
+            _simulationConfig.TimeScale = 5.0f;
         }
-        else if (_simConfig.TimeScale < 10.0f)
+        else if (_simulationConfig.TimeScale < 10.0f)
         {
-            _simConfig.TimeScale = 15.0f;
+            _simulationConfig.TimeScale = 15.0f;
         }
         else
         {
-            _simConfig.Unlimited = true;
+            _simulationConfig.Unlimited = true;
         }
         StateHasChanged();
         return Task.CompletedTask;
@@ -717,136 +555,35 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
     {
         bool resume = _isRunning;
         await StopSimulationLoopAsync();
-        bool granulationChanged = _simConfig.Granulation != config.Granulation;
-        _simConfig = config.Clone();
+        bool granulationChanged = _simulationConfig.Granulation != config.Granulation;
+        _simulationConfig = config.Clone();
         if (_activeSession != null)
         {
-            _activeSession.SimulationConfig = _simConfig.Clone();
+            _activeSession.SimulationConfig = _simulationConfig.Clone();
             await SessionService.SaveSessionAsync(_activeSession);
         }
-        if (_engine != null)
+        if (_simulationEngine != null)
         {
-            _engine.SocialRepulsionWeight = _simConfig.SocialRepulsionWeight;
-            _engine.WhiskerLength = _simConfig.WhiskerLength;
-            _engine.WeightDistance = _simConfig.WeightDistance;
-            _engine.WeightOccupancy = _simConfig.WeightOccupancy;
-            _engine.PotentialFieldMap.RefineDynamicField();
+            _simulationEngine.SocialRepulsionWeight = _simulationConfig.SocialRepulsionWeight;
+            _simulationEngine.WhiskerLength = _simulationConfig.WhiskerLength;
+            _simulationEngine.WeightDistance = _simulationConfig.WeightDistance;
+            _simulationEngine.WeightOccupancy = _simulationConfig.WeightOccupancy;
+            _simulationEngine.PotentialFieldMap.RefineDynamicField();
             if (granulationChanged)
             {
-                _engine.SetGranulation(_simConfig.Granulation);
-                _statsCollector.Reset(_engine.AgentCount);
+                _simulationEngine.SetGranulation(_simulationConfig.Granulation);
+                _statsCollector.Reset(_simulationEngine.AgentCount);
             }
-            if (_activeEngine == "webgpu" && _simulator != null)
+            if (_activeEngine == "webgpu" && _simulationRenderer != null)
             {
                 if (granulationChanged)
-                    await _simulator.InvokeVoidAsync("initMapGpu", MapGpuSnapshot.Capture(_engine));
-                else await _simulator.InvokeVoidAsync("setGpuWeight", _simConfig.SocialRepulsionWeight);
+                    await _simulationRenderer.InvokeVoidAsync("initMapGpu", MapGpuSnapshot.Capture(_simulationEngine));
+                else await _simulationRenderer.InvokeVoidAsync("setGpuWeight", _simulationConfig.SocialRepulsionWeight);
             }
         }
         await RequestRender();
         if (resume) StartSimulationLoop();
         StateHasChanged();
-    }
-
-    private static (double minLat, double maxLat, double minLng, double maxLng) ComputeGeographicBoundingBox(
-        List<MapZoneItem> items,
-        MapSession? session)
-    {
-        var lats = new List<double>();
-        var lngs = new List<double>();
-
-        foreach (var item in items)
-        {
-            switch (item)
-            {
-                case CircleMapZoneItem circle when circle.Center is { Length: >= 2 }:
-                    double rDegLat = (circle.Radius ?? 50.0) / 111320.0;
-                    double rDegLng = rDegLat / Math.Cos(circle.Center[0] * Math.PI / 180.0);
-                    lats.Add(circle.Center[0] - rDegLat);
-                    lats.Add(circle.Center[0] + rDegLat);
-                    lngs.Add(circle.Center[1] - rDegLng);
-                    lngs.Add(circle.Center[1] + rDegLng);
-                    break;
-                case PolygonMapZoneItem poly when poly.Coordinates != null:
-                    foreach (var c in poly.Coordinates.Where(c => c is { Length: >= 2 }))
-                    {
-                        lats.Add(c[0]);
-                        lngs.Add(c[1]);
-                    }
-                    break;
-                case LineMapZoneItem line:
-                    if (line.StartPoint is { Length: >= 2 }) { lats.Add(line.StartPoint[0]); lngs.Add(line.StartPoint[1]); }
-                    if (line.EndPoint is { Length: >= 2 }) { lats.Add(line.EndPoint[0]); lngs.Add(line.EndPoint[1]); }
-                    break;
-                case PointMapZoneItem pt when pt.Position is { Length: >= 2 }:
-                    lats.Add(pt.Position[0]);
-                    lngs.Add(pt.Position[1]);
-                    break;
-            }
-        }
-
-        if (lats.Count < 2)
-        {
-            double cLat = session?.MapCenter is { Length: >= 2 } ? session.MapCenter[0] : 50.0614;
-            double cLng = session?.MapCenter is { Length: >= 2 } ? session.MapCenter[1] : 19.9366;
-            double margin = 0.005; // ~550m
-            return (cLat - margin, cLat + margin, cLng - margin, cLng + margin);
-        }
-
-        double minLat = lats.Min();
-        double maxLat = lats.Max();
-        double minLng = lngs.Min();
-        double maxLng = lngs.Max();
-
-        double padLat = Math.Max(0.0010, (maxLat - minLat) * 0.15);
-        double padLng = Math.Max(0.0010, (maxLng - minLng) * 0.15);
-
-        return (minLat - padLat, maxLat + padLat, minLng - padLng, maxLng + padLng);
-    }
-
-    private static async Task<List<(double X, double Y)>> GenerateUniformZonePositionsAsync(
-        List<MapZoneItem> evacZones,
-        int count,
-        Func<double, double, (double X, double Y)> toWorld,
-        CancellationToken cancellationToken)
-    {
-        var rng = new Random(42);
-        var result = new List<(double X, double Y)>();
-        int attempts = 0;
-        int maxAttempts = count * 50;
-        var scheduler = new PreparationScheduler();
-
-        while (result.Count < count && attempts < maxAttempts)
-        {
-            attempts++;
-            if (attempts % 128 == 0) await scheduler.YieldAsync(cancellationToken);
-            var zone = evacZones[rng.Next(evacZones.Count)];
-            if (!GeoSpatialMath.GetZoneBoundingBox(zone, out double zMinLat, out double zMinLng, out double zMaxLat, out double zMaxLng))
-                continue;
-
-            double candLat = zMinLat + rng.NextDouble() * (zMaxLat - zMinLat);
-            double candLng = zMinLng + rng.NextDouble() * (zMaxLng - zMinLng);
-
-            if (GeoSpatialMath.IsPointInZone(candLat, candLng, zone))
-            {
-                result.Add(toWorld(candLat, candLng));
-            }
-        }
-
-        while (result.Count < count && evacZones.Count > 0)
-        {
-            var zone = evacZones[0];
-            if (GeoSpatialMath.GetZoneBoundingBox(zone, out double zMinLat, out double zMinLng, out double zMaxLat, out double zMaxLng))
-            {
-                result.Add(toWorld((zMinLat + zMaxLat) / 2.0, (zMinLng + zMaxLng) / 2.0));
-            }
-            else
-            {
-                break;
-            }
-        }
-
-        return result;
     }
 
     private void RecalculateCensusData()
@@ -939,7 +676,7 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
 
     private async Task ToggleMobilePanel()
     {
-        isMobilePanelOpen = !isMobilePanelOpen;
+        _isMobilePanelOpen = !_isMobilePanelOpen;
         StateHasChanged();
         await Task.Delay(250);
         await MapInterop.InvalidateSizeAsync(MapContainerId);
@@ -948,24 +685,24 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         _disposed = true;
-        _preparationCts?.Cancel();
+        _preparationCancellation?.Cancel();
         await StopSimulationLoopAsync();
-        _simCts?.Dispose();
+        _simulationCancellation?.Dispose();
 
-        if (_simulator != null)
+        if (_simulationRenderer != null)
         {
             try
             {
-                await _simulator.InvokeVoidAsync("dispose");
-                await _simulator.DisposeAsync();
+                await _simulationRenderer.InvokeVoidAsync("dispose");
+                await _simulationRenderer.DisposeAsync();
             }
             catch
             {
                 // Ignore disposal errors on teardown
             }
-            _simulator = null;
+            _simulationRenderer = null;
         }
-        if (isMapInitialized)
+        if (_isMapInitialized)
         {
             try
             {
