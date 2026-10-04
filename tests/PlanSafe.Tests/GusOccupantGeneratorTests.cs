@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using PlanSafe.App.Services.Gus;
 using PlanSafe.Contracts.Models.Gus;
 using PlanSafe.Contracts.Models.Map;
@@ -10,7 +11,7 @@ namespace PlanSafe.Tests;
 public class GusOccupantGeneratorTests
 {
     [Fact]
-    public void GenerateOccupants_StrictCount_MatchesCensusPopulation()
+    public async Task GenerateOccupants_StrictCount_MatchesCensusPopulation()
     {
         var service = new GusCensusService(null!);
         var cell = new GusGridCell
@@ -37,6 +38,9 @@ public class GusOccupantGeneratorTests
         };
 
         var occupants = generator.GenerateOccupants(new[] { zone }, randomSeed: 12345);
+        var batched = await generator.GenerateOccupantsAsync(new[] { zone }, randomSeed: 12345);
+        Assert.Equal(occupants.Select(a => (a.Latitude, a.Longitude, a.CellId, a.EvacZoneId)),
+            batched.Select(a => (a.Latitude, a.Longitude, a.CellId, a.EvacZoneId)));
 
         // Strict 1:1 census count
         Assert.Equal(42, occupants.Count);

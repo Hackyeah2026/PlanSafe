@@ -1491,6 +1491,9 @@ export interface ParsedMapExit {
   readonly x: number;
   readonly y: number;
   readonly radius: number;
+  readonly capacity?: number;
+  readonly initialOccupancy?: number;
+  readonly basePotential?: number;
 }
 
 export interface ParsedMapSpawnZone {
@@ -1525,7 +1528,8 @@ export function parseMapScenario(data: Uint8Array): ParsedMapScenario {
   let offset = 5;
   const version = view.getInt32(offset, true);
   offset += 4;
-  if (version !== 1) throw new Error(`Unsupported EFMAP version: ${version}`);
+  if (version !== 1 && version !== 2)
+    throw new Error(`Unsupported EFMAP version: ${version}`);
 
   const originLatitude = view.getFloat64(offset, true);
   offset += 8;
@@ -1568,7 +1572,16 @@ export function parseMapScenario(data: Uint8Array): ParsedMapScenario {
     offset += 8;
     const radius = view.getFloat64(offset, true);
     offset += 8;
-    exits.push({ x, y, radius });
+    let capacity = 1000,
+      initialOccupancy = 0,
+      basePotential = 0;
+    if (version >= 2) {
+      capacity = view.getInt32(offset, true);
+      initialOccupancy = view.getInt32(offset + 4, true);
+      basePotential = view.getFloat64(offset + 8, true);
+      offset += 16;
+    }
+    exits.push({ x, y, radius, capacity, initialOccupancy, basePotential });
   }
 
   const zoneCount = view.getInt32(offset, true);
@@ -3266,9 +3279,10 @@ export class GpuSimulationEngine implements ISimulationEngine {
       this.dynamicFieldTimer += 0.016;
 
       const refine =
-        this.initialDensityPending ||
-        this.dynamicFieldTimer >= (this.isMapScenario ? 1.0 : 0.2) ||
-        (!this.isMapScenario && this.activeTick + step === 0);
+        !this.isMapScenario &&
+        (this.initialDensityPending ||
+          this.dynamicFieldTimer >= 0.2 ||
+          this.activeTick + step === 0);
       if (refine || this.granulation > 1) {
         const run = (
           pipeline: GPUComputePipeline,

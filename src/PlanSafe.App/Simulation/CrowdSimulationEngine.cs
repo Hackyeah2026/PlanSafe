@@ -325,6 +325,19 @@ public class PotentialFieldGrid
 
     private void BuildStaticFieldFromSinks(IReadOnlyList<Obstacle> zones, IReadOnlyList<float> initialPotentials)
     {
+        foreach (var _ in BuildStaticFieldSteps(zones, initialPotentials)) { }
+    }
+
+    public async Task BuildStaticFieldAsync(Obstacle[] exitZones, CancellationToken cancellationToken = default)
+    {
+        CachedTargets = null;
+        var scheduler = new PreparationScheduler();
+        foreach (var _ in BuildStaticFieldSteps(exitZones, new float[exitZones.Length]))
+            await scheduler.YieldAsync(cancellationToken);
+    }
+
+    private IEnumerable<int> BuildStaticFieldSteps(IReadOnlyList<Obstacle> zones, IReadOnlyList<float> initialPotentials)
+    {
         CachedExitZones = zones.ToArray();
         Array.Fill(StaticPotentialFieldMatrix, float.MaxValue);
         BuildSinkProtectedMask();
@@ -380,8 +393,10 @@ public class PotentialFieldGrid
             knightStep, knightStep, knightStep, knightStep, knightStep, knightStep, knightStep, knightStep
         };
 
+        int processed = 0;
         while (pq.Count > 0)
         {
+            if (++processed % 256 == 0) yield return processed;
             if (!pq.TryDequeue(out int currIdx, out float currPot))
                 break;
 
@@ -1017,6 +1032,34 @@ public class CrowdSimulationEngine
         InitializeAgents();
     }
 
+    private CrowdSimulationEngine(MapScenario scenario, int agentCount)
+    {
+        AgentCount = agentCount;
+        ConfigureMapScenario(scenario);
+    }
+
+    /// <summary>Prepares a map once, yielding browser time between batches; no demo or random agents are created.</summary>
+    public static async Task<CrowdSimulationEngine> CreateMapAsync(MapScenario scenario,
+        IReadOnlyList<(double X, double Y)> positions, int granulation = 1, double socialRepulsionWeight = 4.5,
+        int? seed = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(positions);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (granulation is < 1 or > 25) throw new ArgumentOutOfRangeException(nameof(granulation));
+        if (positions.Count < 1 || Math.Ceiling((double)positions.Count / granulation) > MaxAllowedAgents)
+            throw new ArgumentOutOfRangeException(nameof(positions));
+        var engine = new CrowdSimulationEngine(scenario, positions.Count)
+        {
+            Granulation = granulation, IsMapMode = true, SocialRepulsionWeight = socialRepulsionWeight
+        };
+        var scheduler = new PreparationScheduler();
+        foreach (var _ in engine.PrepareMapGridSteps(scenario)) await scheduler.YieldAsync(cancellationToken);
+        await engine.PotentialFieldMap.BuildStaticFieldAsync(engine._mapExitZones, cancellationToken);
+        foreach (var _ in engine.PrepareReachableMaskSteps()) await scheduler.YieldAsync(cancellationToken);
+        foreach (var _ in engine.InitializeCustomAgentSteps(positions, seed)) await scheduler.YieldAsync(cancellationToken);
+        return engine;
+    }
+
     public CrowdSimulationEngine(double width = 200.0, double height = 200.0, int agentCount = 1000)
     {
         AgentCount = agentCount;
@@ -1408,6 +1451,11 @@ public class CrowdSimulationEngine
     /// </summary>
     public void InitializeAgentsWithPositions(IReadOnlyList<(double X, double Y)> positions, int? seed = null)
     {
+        foreach (var _ in InitializeCustomAgentSteps(positions, seed)) { }
+    }
+
+    private IEnumerable<int> InitializeCustomAgentSteps(IReadOnlyList<(double X, double Y)> positions, int? seed)
+    {
         ArgumentNullException.ThrowIfNull(positions);
         _initialCustomPositions = positions.ToArray();
         Random random = seed.HasValue ? new Random(seed.Value) : new Random();
@@ -1436,6 +1484,7 @@ public class CrowdSimulationEngine
         double step = activeCount > 0 ? (double)totalCount / activeCount : 1.0;
         for (int i = 0; i < activeCount && i < MaxAllowedAgents; i++)
         {
+            if (i % 128 == 0) yield return i;
             int posIdx = Math.Min(totalCount - 1, (int)(i * step));
             var (px, py) = positions[posIdx];
 
@@ -1465,8 +1514,15 @@ public class CrowdSimulationEngine
             ReevaluateTargetAssignments();
         }
 
-        PotentialFieldMap.UpdateDynamicDensity(activeCount, AgentPositionX, AgentPositionY, Granulation);
-        PotentialFieldMap.RefineDynamicField();
+        if (!IsMapScenario)
+        {
+            PotentialFieldMap.UpdateDynamicDensity(activeCount, AgentPositionX, AgentPositionY, Granulation);
+            PotentialFieldMap.RefineDynamicField();
+        }
+        else if (Granulation > 1)
+        {
+            PotentialFieldMap.UpdateDynamicDensity(activeCount, AgentPositionX, AgentPositionY, Granulation, updatePenalty: false);
+        }
         _dynamicFieldTimer = 0.0;
     }
 
@@ -1488,8 +1544,8 @@ public class CrowdSimulationEngine
         if (IsMapScenario)
         {
             SpawnMapAgents(random, activeCount, radius);
-            PotentialFieldMap.UpdateDynamicDensity(activeCount, AgentPositionX, AgentPositionY, Granulation);
-            PotentialFieldMap.RefineDynamicField();
+            if (Granulation > 1)
+                PotentialFieldMap.UpdateDynamicDensity(activeCount, AgentPositionX, AgentPositionY, Granulation, updatePenalty: false);
             _dynamicFieldTimer = 0.0;
             return;
         }
@@ -1535,9 +1591,8 @@ public class CrowdSimulationEngine
         }
 
         _dynamicFieldTimer += dt;
-        // City-scale fields are large; congestion routing refreshes less often there.
-        double dynamicFieldInterval = IsMapScenario ? 1.0 : 0.20;
-        if (_dynamicFieldTimer >= dynamicFieldInterval || FrameCounter == 0)
+        // Map routing is prepared once from terrain and exits; local crowd forces still run every tick.
+        if (!IsMapScenario && (_dynamicFieldTimer >= 0.20 || FrameCounter == 0))
         {
             _dynamicFieldTimer = 0.0;
             // Aktualizacja kar tłumu dla Dijkstry co 0.20s z zachowaniem skalibrowanego tempa EMA:
@@ -2230,6 +2285,13 @@ public class CrowdSimulationEngine
     /// <summary>Switches to a real map area. The scenario raster defines walls and every exit is a sink.</summary>
     public void LoadMapScenario(MapScenario scenario)
     {
+        ConfigureMapScenario(scenario);
+        RebuildGrids();
+        InitializeAgents();
+    }
+
+    private void ConfigureMapScenario(MapScenario scenario)
+    {
         ArgumentNullException.ThrowIfNull(scenario);
         MapScenario = scenario;
         WorldWidth = scenario.WorldWidth;
@@ -2242,8 +2304,6 @@ public class CrowdSimulationEngine
         TargetX = scenario.Exits[0].X;
         TargetY = scenario.Exits[0].Y;
         WhiskerLength = 2.5;
-        RebuildGrids();
-        InitializeAgents();
     }
 
     public MapEvacuationStatus GetMapEvacuationStatus()
@@ -2426,6 +2486,14 @@ public class CrowdSimulationEngine
         if (scenario is null) return null;
         if (_reachableMask != null && ReferenceEquals(_reachableMaskScenario, scenario)) return _reachableMask;
 
+        foreach (var _ in PrepareReachableMaskSteps()) { }
+        return _reachableMask;
+    }
+
+    private IEnumerable<int> PrepareReachableMaskSteps()
+    {
+        var scenario = MapScenario;
+        if (scenario is null) yield break;
         int cols = scenario.Columns, rows = scenario.Rows;
         var blocked = scenario.Blocked;
         var reachable = new bool[blocked.Length];
@@ -2437,8 +2505,10 @@ public class CrowdSimulationEngine
             int start = er * cols + ec;
             if (!blocked[start] && !reachable[start]) { reachable[start] = true; queue.Enqueue(start); }
         }
+        int processed = 0;
         while (queue.Count > 0)
         {
+            if (++processed % 512 == 0) yield return processed;
             int index = queue.Dequeue();
             int c = index % cols, r = index / cols;
             for (int dy = -1; dy <= 1; dy++)
@@ -2459,7 +2529,6 @@ public class CrowdSimulationEngine
         }
         _reachableMask = reachable;
         _reachableMaskScenario = scenario;
-        return reachable;
     }
 
     public bool IsReachable(double px, double py)
@@ -2485,15 +2554,39 @@ public class CrowdSimulationEngine
         int reach = (int)Math.Ceiling(maxDistance / cell);
         double bestDistSq = maxDistance * maxDistance;
         (double X, double Y)? best = null;
-        for (int r = Math.Max(0, centerRow - reach); r <= Math.Min(scenario.Rows - 1, centerRow + reach); r++)
+        int bestIndex = int.MaxValue;
+        void Consider(int c, int r)
         {
-            for (int c = Math.Max(0, centerCol - reach); c <= Math.Min(scenario.Columns - 1, centerCol + reach); c++)
+            if (c < 0 || c >= scenario.Columns || r < 0 || r >= scenario.Rows) return;
+            int index = r * scenario.Columns + c;
+            if (!mask[index]) return;
+            double cx = (c + 0.5) * cell, cy = (r + 0.5) * cell;
+            double distSq = (cx - px) * (cx - px) + (cy - py) * (cy - py);
+            if (distSq < bestDistSq || (best.HasValue && distSq == bestDistSq && index < bestIndex))
             {
-                if (!mask[r * scenario.Columns + c]) continue;
-                double cx = (c + 0.5) * cell, cy = (r + 0.5) * cell;
-                double distSq = (cx - px) * (cx - px) + (cy - py) * (cy - py);
-                if (distSq < bestDistSq) { bestDistSq = distSq; best = (cx, cy); }
+                bestDistSq = distSq; best = (cx, cy); bestIndex = index;
             }
+        }
+        for (int ring = 0; ring <= reach; ring++)
+        {
+            int minRow = centerRow - ring, maxRow = centerRow + ring;
+            int minCol = centerCol - ring, maxCol = centerCol + ring;
+            for (int c = Math.Max(0, minCol); c <= Math.Min(scenario.Columns - 1, maxCol); c++)
+            {
+                Consider(c, minRow);
+                if (maxRow != minRow) Consider(c, maxRow);
+            }
+            for (int r = Math.Max(0, minRow + 1); r <= Math.Min(scenario.Rows - 1, maxRow - 1); r++)
+            {
+                Consider(minCol, r);
+                if (maxCol != minCol) Consider(maxCol, r);
+            }
+            // Every unvisited center lies beyond one of these four edges. Stop only
+            // when its lower bound is strictly larger, preserving row-major ties.
+            double remainingDistance = Math.Min(
+                Math.Min(px - (centerCol - ring - 0.5) * cell, (centerCol + ring + 1.5) * cell - px),
+                Math.Min(py - (centerRow - ring - 0.5) * cell, (centerRow + ring + 1.5) * cell - py));
+            if (best.HasValue && remainingDistance > 0 && remainingDistance * remainingDistance > bestDistSq) break;
         }
         if (best.HasValue) return best;
         if (maxDistance < 400.0) return FindNearestReachable(px, py, Math.Min(400.0, maxDistance * 4.0));
@@ -2501,6 +2594,12 @@ public class CrowdSimulationEngine
     }
 
     private void RebuildMapGrids(MapScenario scenario)
+    {
+        foreach (var _ in PrepareMapGridSteps(scenario)) { }
+        PotentialFieldMap.BuildStaticField(_mapExitZones);
+    }
+
+    private IEnumerable<int> PrepareMapGridSteps(MapScenario scenario)
     {
         // The field shares the raster resolution whenever possible so its gradient never points
         // into a wall the agents collide with; very large areas fall back to coarser field cells.
@@ -2516,6 +2615,7 @@ public class CrowdSimulationEngine
         double fine = scenario.CellSize;
         for (int row = 0; row < grid.RowCount; row++)
         {
+            if (row % 8 == 0) yield return row;
             int firstFineRow = (int)(row * grid.CellSize / fine + 1e-9);
             int lastFineRow = Math.Max(firstFineRow, (int)Math.Ceiling((row + 1) * grid.CellSize / fine - 1e-9) - 1);
             for (int col = 0; col < grid.ColumnCount; col++)
@@ -2537,7 +2637,6 @@ public class CrowdSimulationEngine
             }
         }
         grid.InitializeStaticMask(mask);
-        grid.BuildStaticField(_mapExitZones);
         _spawnCells = null;
         _dynamicFieldTimer = 0.20;
     }

@@ -77,10 +77,22 @@ falls back to WASM if GPU initialization fails. Map preparation transfers the
 same starting agents, terrain, and potential fields to the GPU once; subsequent
 physics and compact telemetry run on the GPU.
 
+Map routing is calculated once from terrain, obstacles, and exits and stays fixed
+through playback and reset in both engines. Local density, crowd forces, and
+collision avoidance still respond to moving agents. Preparation creates the
+requested agents once and yields between terrain, field, and spawning batches
+so the browser can render the preparation indicator and remain responsive.
+
 Both views run only the selected physics engine. Both engines integrate in 16 ms
 ticks; playback speed controls how many ticks run, and actual speed measures
 simulation seconds per wall-clock second. Unlimited mode measures throughput.
 The GPU agent view renders from the physics storage buffer and samples reduced
 statistics at 10 Hz. Heatmap views retain the existing Canvas renderer and agent
-readback. Potential-field convergence remains exact rather than using a fixed
-number of relaxation passes.
+readback. Demo congestion routing still solves potential fields to convergence.
+
+For an opt-in performance regression on a hardware WebGPU adapter, set
+`PLANSAFE_MAP_PERFORMANCE=1` along with the browser-test environment variables
+above and run `node --test scripts/test-map-view.mjs`. This adds a 10,000-agent,
+roughly 1 km city map at 20x playback, checks UI responsiveness and throughput,
+and prints measured playback speed and render FPS. Run it without competing GPU
+work; software adapters and low-end GPUs may not meet its throughput thresholds.

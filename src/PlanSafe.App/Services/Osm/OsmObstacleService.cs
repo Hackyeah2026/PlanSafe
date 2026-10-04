@@ -49,6 +49,7 @@ public class OsmObstacleService : IOsmObstacleService
         try
         {
             if (_isLoaded) return;
+            var scheduler = new PreparationScheduler();
 
             byte[]? binData = null;
 
@@ -97,6 +98,7 @@ public class OsmObstacleService : IOsmObstacleService
                     var areas = new OsmArea[areaCount];
                     for (int i = 0; i < areaCount; i++)
                     {
+                        if (i % 64 == 0) await scheduler.YieldAsync(cancellationToken);
                         long id = reader.ReadInt64();
                         byte kind = reader.ReadByte();
                         int ringCount = reader.ReadInt32();
@@ -141,6 +143,7 @@ public class OsmObstacleService : IOsmObstacleService
                     var roads = new OsmRoad[roadCount];
                     for (int i = 0; i < roadCount; i++)
                     {
+                        if (i % 64 == 0) await scheduler.YieldAsync(cancellationToken);
                         long id = reader.ReadInt64();
                         string hw = reader.ReadString();
                         byte flags = reader.ReadByte();
@@ -163,6 +166,7 @@ public class OsmObstacleService : IOsmObstacleService
                     var lines = new OsmLine[lineCount];
                     for (int i = 0; i < lineCount; i++)
                     {
+                        if (i % 64 == 0) await scheduler.YieldAsync(cancellationToken);
                         long id = reader.ReadInt64();
                         byte kind = reader.ReadByte();
                         float halfWidth = reader.ReadSingle();
@@ -185,6 +189,7 @@ public class OsmObstacleService : IOsmObstacleService
                     var gates = new (float Lat, float Lng)[gateCount];
                     for (int i = 0; i < gateCount; i++)
                     {
+                        if (i % 64 == 0) await scheduler.YieldAsync(cancellationToken);
                         gates[i] = (reader.ReadSingle(), reader.ReadSingle());
                     }
 
@@ -192,7 +197,7 @@ public class OsmObstacleService : IOsmObstacleService
                     _roads = roads;
                     _lines = lines;
                     _gates = gates;
-                    BuildSpatialIndex();
+                    await BuildSpatialIndexAsync(cancellationToken);
                     _isLoaded = true;
                     return;
                 }
@@ -229,7 +234,7 @@ public class OsmObstacleService : IOsmObstacleService
                     });
                 }
                 _areas = areas.ToArray();
-                BuildSpatialIndex();
+                await BuildSpatialIndexAsync(cancellationToken);
                 _isLoaded = true;
             }
         }
@@ -243,11 +248,13 @@ public class OsmObstacleService : IOsmObstacleService
         }
     }
 
-    private void BuildSpatialIndex()
+    private async Task BuildSpatialIndexAsync(CancellationToken cancellationToken)
     {
+        var scheduler = new PreparationScheduler();
         _areaIndex.Clear();
         for (int i = 0; i < _areas.Length; i++)
         {
+            if (i % 64 == 0) await scheduler.YieldAsync(cancellationToken);
             var a = _areas[i];
             int minGx = BucketX(Math.Max(a.MinLng, BboxWest)), maxGx = BucketX(Math.Min(a.MaxLng, BboxEast));
             int minGy = BucketY(Math.Max(a.MinLat, BboxSouth)), maxGy = BucketY(Math.Min(a.MaxLat, BboxNorth));
@@ -256,20 +263,25 @@ public class OsmObstacleService : IOsmObstacleService
                     IndexAdd(_areaIndex, (gx, gy), i);
         }
 
-        IndexPolylines(_roadIndex, _roads.Select(r => r.Nodes));
-        IndexPolylines(_lineIndex, _lines.Select(l => l.Nodes));
+        await IndexPolylinesAsync(_roadIndex, _roads.Select(r => r.Nodes), cancellationToken);
+        await IndexPolylinesAsync(_lineIndex, _lines.Select(l => l.Nodes), cancellationToken);
 
         _gateIndex.Clear();
         for (int i = 0; i < _gates.Length; i++)
+        {
+            if (i % 64 == 0) await scheduler.YieldAsync(cancellationToken);
             IndexAdd(_gateIndex, (BucketX(_gates[i].Lng), BucketY(_gates[i].Lat)), i);
+        }
     }
 
-    private static void IndexPolylines(Dictionary<(int, int), List<int>> index, IEnumerable<(float Lat, float Lng)[]> polylines)
+    private static async Task IndexPolylinesAsync(Dictionary<(int, int), List<int>> index, IEnumerable<(float Lat, float Lng)[]> polylines, CancellationToken cancellationToken)
     {
+        var scheduler = new PreparationScheduler();
         index.Clear();
         int i = 0;
         foreach (var nodes in polylines)
         {
+            if (i % 32 == 0) await scheduler.YieldAsync(cancellationToken);
             var seen = new HashSet<(int, int)>();
             for (int k = 0; k < nodes.Length; k++)
             {
@@ -317,6 +329,7 @@ public class OsmObstacleService : IOsmObstacleService
         CancellationToken cancellationToken = default)
     {
         await EnsureLoadedAsync(cancellationToken);
+        var scheduler = new PreparationScheduler();
 
         double cellSize = builder.CellSize;
         double minimumHalfWidth = cellSize * 0.75; // a thin obstacle or opening never leaves a diagonal gap
@@ -341,10 +354,11 @@ public class OsmObstacleService : IOsmObstacleService
             .Select(road => (Road: road, Geometry: Line(road.Nodes)))
             .ToList();
 
-        void SetAreas(MapScenarioBuilder target, OsmAreaKind kind, bool isWalkable)
+        async Task SetAreasAsync(MapScenarioBuilder target, OsmAreaKind kind, bool isWalkable)
         {
             foreach (var area in areas.Where(a => a.Kind == kind))
             {
+                await scheduler.YieldAsync(cancellationToken);
                 var rings = area.Rings.Select(Line).ToArray();
                 target.SetRings(rings.Select(r => r.X).ToArray(), rings.Select(r => r.Y).ToArray(), isWalkable);
                 // Thin shapes (city walls mapped as buildings, narrow channels) would fall between cell
@@ -358,22 +372,25 @@ public class OsmObstacleService : IOsmObstacleService
         }
 
         builder.Fill(isWalkable: true);
-        SetAreas(builder, OsmAreaKind.Water, isWalkable: false);
+        await SetAreasAsync(builder, OsmAreaKind.Water, isWalkable: false);
 
         var obstacles = new SegmentIndex(20.0);
         foreach (var line in lines)
         {
+            await scheduler.YieldAsync(cancellationToken);
             var (xs, ys) = Line(line.Nodes);
             builder.SetCorridor(xs, ys, Math.Max(line.HalfWidth, minimumHalfWidth), isWalkable: false);
             for (int i = 0; i + 1 < xs.Length; i++) obstacles.Add(xs[i], ys[i], xs[i + 1], ys[i + 1], line.Kind);
         }
         foreach (var gate in Query(_gateIndex, _gates, minLat, minLng, maxLat, maxLng))
         {
+            await scheduler.YieldAsync(cancellationToken);
             var (gx, gy) = toWorld(gate.Lat, gate.Lng);
             builder.SetDisk(gx, gy, Math.Max(1.5, cellSize), isWalkable: true);
         }
         foreach (var (road, (xs, ys)) in roads)
         {
+            await scheduler.YieldAsync(cancellationToken);
             double roadHalfWidth = HalfWidth(road.HighwayType);
             for (int i = 0; i + 1 < xs.Length; i++)
             {
@@ -394,11 +411,14 @@ public class OsmObstacleService : IOsmObstacleService
 
         // Ways reopen only the building cells they pass through: gateways, arcades, passages.
         var buildingCells = new MapScenarioBuilder(builder.Columns * cellSize, builder.Rows * cellSize, cellSize);
-        SetAreas(buildingCells, OsmAreaKind.Building, isWalkable: true);
+        await SetAreasAsync(buildingCells, OsmAreaKind.Building, isWalkable: true);
         var insideBuildings = buildingCells.ToMask();
-        SetAreas(builder, OsmAreaKind.Building, isWalkable: false);
+        await SetAreasAsync(builder, OsmAreaKind.Building, isWalkable: false);
         foreach (var (_, (xs, ys)) in roads)
+        {
+            await scheduler.YieldAsync(cancellationToken);
             builder.SetCorridor(xs, ys, Math.Max(1.0, minimumHalfWidth), isWalkable: true, onlyWhere: insideBuildings);
+        }
     }
 
     private static double MeanWidth(double[] xs, double[] ys)
