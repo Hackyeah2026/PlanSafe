@@ -9,6 +9,7 @@ test.beforeAll(() => {
     "PLANSAFE_FIELD_REFERENCE",
   );
   assert.equal(references.length, 10);
+  assert.ok(references.some((ref) => ref.name === "unlimited-zones"));
   for (const ref of references) {
     for (const key of [
       "staticField",
