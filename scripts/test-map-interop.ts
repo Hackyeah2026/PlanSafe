@@ -33,6 +33,17 @@ class ElementFixture extends EventTarget {
     this.children.push(...children);
   }
 
+  getBoundingClientRect() {
+    return {
+      top: 0,
+      left: 0,
+      right: 800,
+      bottom: 500,
+      width: 800,
+      height: 500,
+    };
+  }
+
   closest(selector: string): ElementFixture | null {
     const matches = selector.startsWith(".")
       ? this.className.split(" ").includes(selector.slice(1))
@@ -65,11 +76,13 @@ async function setup(t: TestContext, citizen = true) {
       (key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)],
     ),
   );
+  const container = new ElementFixture("div");
   const fits: number[][] = [];
   const layers: { getLayers?: () => unknown[] }[] = [];
   const map = {
     layers,
     fits,
+    getContainer: () => container,
     addLayer(layer: (typeof layers)[number]) {
       layers.push(layer);
       return this;
@@ -105,11 +118,12 @@ async function setup(t: TestContext, citizen = true) {
   const window = {
     addEventListener() {},
     removeEventListener() {},
+    matchMedia: () => ({ matches: false }),
     screen: { deviceXDPI: 1, logicalXDPI: 1 },
   };
   const document = {
     documentElement: { style: {} },
-    getElementById: () => new ElementFixture("div"),
+    getElementById: () => container,
     createElement: (tag: string) => new ElementFixture(tag),
     createTextNode: (text: string) => {
       const node = new ElementFixture("#text");
