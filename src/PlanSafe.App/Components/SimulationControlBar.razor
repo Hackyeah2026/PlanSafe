@@ -1,4 +1,5 @@
 @namespace PlanSafe.App.Components
+@using System.Globalization
 
 <div class="sim-control-bar-wrapper">
     <div class="sim-control-capsule surface-panel">
@@ -113,13 +114,23 @@
 
         <div class="capsule-divider"></div>
 
-        <!-- Speed Dropdown/Pill -->
-        <button type="button"
-                class="app-button btn-capsule-speed"
-                @onclick="CycleSpeed"
+        <select class="app-input sim-speed-select"
+                data-testid="map-time-scale"
+                disabled="@IsBusy"
+                value="@(Unlimited ? "max" : SelectedSpeed.ToString(CultureInfo.InvariantCulture))"
+                @onchange="ChangeSpeed"
+                aria-label="@L.Simulation.Speed"
                 title="@L.Simulation.ChangeSpeed">
-            <span>@(Unlimited ? "MAX" : $"{TimeScale:0.#}×")</span>
-        </button>
+            @if (!SpeedOptions.Contains(SelectedSpeed))
+            {
+                <option value="@SelectedSpeed.ToString(CultureInfo.InvariantCulture)">@SelectedSpeed.ToString("0.##")×</option>
+            }
+            @foreach (var speed in SpeedOptions)
+            {
+                <option value="@speed.ToString(CultureInfo.InvariantCulture)">@speed.ToString("0.##")×</option>
+            }
+            <option value="max">MAX</option>
+        </select>
 
         <!-- Statistics Button -->
         <button type="button"
@@ -165,7 +176,7 @@
     [Parameter] public EventCallback OnReset { get; set; }
     [Parameter] public EventCallback<string> OnRenderModeChanged { get; set; }
     [Parameter] public EventCallback OnToggleWhiskers { get; set; }
-    [Parameter] public EventCallback OnCycleSpeed { get; set; }
+    [Parameter] public EventCallback<double> OnSpeedChanged { get; set; }
     [Parameter] public EventCallback OnOpenStats { get; set; }
     [Parameter] public EventCallback OnExit { get; set; }
 
@@ -179,11 +190,19 @@
         }
     }
 
-    private async Task CycleSpeed()
+    private static readonly double[] SpeedOptions = [0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 10, 15, 20, 25, 50];
+    private double SelectedSpeed => Math.Round(TimeScale, 6);
+
+    private async Task ChangeSpeed(ChangeEventArgs args)
     {
-        if (OnCycleSpeed.HasDelegate)
+        if (args.Value?.ToString() == "max")
         {
-            await OnCycleSpeed.InvokeAsync();
+            await OnSpeedChanged.InvokeAsync(0);
+        }
+        else if (double.TryParse(args.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var speed)
+                 && double.IsFinite(speed) && speed >= 0.1 && speed <= 50)
+        {
+            await OnSpeedChanged.InvokeAsync(speed);
         }
     }
 }

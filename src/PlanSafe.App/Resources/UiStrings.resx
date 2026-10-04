@@ -360,6 +360,9 @@
   <data name="Evacuation.WalkingTime" xml:space="preserve">
     <value>~{0} min on foot</value>
   </data>
+  <data name="Evacuation.ZoneRequired" xml:space="preserve">
+    <value>Draw at least one evacuation zone before starting an evacuation.</value>
+  </data>
   <data name="Location.Acquired" xml:space="preserve">
     <value>GPS location acquired.</value>
   </data>
@@ -1214,6 +1217,9 @@
   </data>
   <data name="Simulation.UnlimitedOption" xml:space="preserve">
     <value>Unlimited</value>
+  </data>
+  <data name="Simulation.UpdateFailed" xml:space="preserve">
+    <value>Failed to update simulation routes: {0}</value>
   </data>
   <data name="Simulation.WebGpuUnavailable" xml:space="preserve">
     <value>WebGPU is unavailable in this browser</value>

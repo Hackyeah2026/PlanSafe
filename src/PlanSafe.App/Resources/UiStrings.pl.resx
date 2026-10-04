@@ -360,6 +360,9 @@
   <data name="Evacuation.WalkingTime" xml:space="preserve">
     <value>~{0} min pieszo</value>
   </data>
+  <data name="Evacuation.ZoneRequired" xml:space="preserve">
+    <value>Przed uruchomieniem ewakuacji narysuj co najmniej jedną strefę ewakuacji.</value>
+  </data>
   <data name="Location.Acquired" xml:space="preserve">
     <value>Pobrano pozycję GPS.</value>
   </data>
@@ -1214,6 +1217,9 @@
   </data>
   <data name="Simulation.UnlimitedOption" xml:space="preserve">
     <value>Bez limitu</value>
+  </data>
+  <data name="Simulation.UpdateFailed" xml:space="preserve">
+    <value>Nie udało się zaktualizować tras symulacji: {0}</value>
   </data>
   <data name="Simulation.WebGpuUnavailable" xml:space="preserve">
     <value>WebGPU niedostępne w tej przeglądarce</value>

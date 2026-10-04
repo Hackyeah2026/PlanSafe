@@ -66,6 +66,13 @@
 .sim-mode-toggle-group {
   flex: none;
 }
+.sim-speed-select {
+  width: auto;
+  min-width: 80px;
+  padding: 6px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
 @media (max-width: 767.98px) {
   .sim-control-bar-wrapper {
     left: 10px;
@@ -94,8 +101,8 @@
   .sim-control-capsule .app-button span {
     display: none;
   }
-  .sim-control-capsule .btn-capsule-speed span {
-    display: inline;
+  .sim-speed-select {
+    min-height: 44px;
   }
   .sim-control-capsule .app-button {
     min-height: 44px;

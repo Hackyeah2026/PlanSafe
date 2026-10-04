@@ -166,6 +166,7 @@ public sealed class LocalizedText(IStringLocalizer<UiStrings> strings)
         public string Start => strings["Evacuation.Start"].Value;
         public string Title => strings["Evacuation.Title"].Value;
         public string WalkingTime(object arg0) => strings["Evacuation.WalkingTime", arg0].Value;
+        public string ZoneRequired => strings["Evacuation.ZoneRequired"].Value;
     }
 
     public sealed class EvacuationUiText(IStringLocalizer<UiStrings> strings)
@@ -563,6 +564,7 @@ public sealed class LocalizedText(IStringLocalizer<UiStrings> strings)
         public string Units(object arg0) => strings["Simulation.Units", arg0].Value;
         public string Unlimited => strings["Simulation.Unlimited"].Value;
         public string UnlimitedOption => strings["Simulation.UnlimitedOption"].Value;
+        public string UpdateFailed(object arg0) => strings["Simulation.UpdateFailed", arg0].Value;
         public string WebGpuUnavailable => strings["Simulation.WebGpuUnavailable"].Value;
         public string ZoneRequired => strings["Simulation.ZoneRequired"].Value;
     }

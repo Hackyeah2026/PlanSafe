@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <title>PlanSafe</title>
+  <desc>A teal shield with a white route arrow pointing toward safety.</desc>
+  <path fill="#0F766E" d="M32 3 57 12v18c0 15-10 24-25 31C17 54 7 45 7 30V12Z"/>
+  <path d="M22 43V32a5 5 0 0 1 5-5h15m-7-7 7 7-7 7" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
