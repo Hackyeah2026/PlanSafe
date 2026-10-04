@@ -1603,28 +1603,28 @@
     <value>{{current}} z {{total}}</value>
   </data>
   <data name="Tour.WelcomeTitle" xml:space="preserve">
-    <value>Zaplanuj bezpieczną ewakuację z PlanSafe</value>
+    <value>Zaplanuj ewakuację</value>
   </data>
   <data name="Tour.WelcomeBody" xml:space="preserve">
-    <value>Wyznacz obszary ewakuacji, bezpieczne miejsca i zablokowane przejścia. Sprawdź, jak ludzie docierają do celu, a następnie udostępnij plan.</value>
+    <value>Zaznacz strefy ewakuacji, bezpieczne miejsca i zablokowane przejścia. Sprawdź, jak ludzie docierają do celu, a potem udostępnij plan. Przycisk Przewodnik po mapie otwiera ten przewodnik ponownie.</value>
   </data>
   <data name="Tour.ZoneTitle" xml:space="preserve">
     <value>1. Skąd ewakuujemy ludzi?</value>
   </data>
   <data name="Tour.ZoneBody" xml:space="preserve">
-    <value>Strefy ewakuacji to obszary, które ludzie mają opuścić. Wybierz narzędzie „Strefa ewakuacji”, a następnie wielokąt lub okrąg. Liczba mieszkańców pochodzi z danych spisowych dla tych stref. Własną liczbę ustawisz w ustawieniach, pokażemy za chwilę gdzie są.</value>
+    <value>Wybierz Strefa ewakuacji, a następnie wielokąt lub koło, aby zaznaczyć obszar, który ludzie mają opuścić. Liczba osób pochodzi z danych spisowych. Własną liczbę wpiszesz w ustawieniach symulacji.</value>
   </data>
   <data name="Tour.SafeTitle" xml:space="preserve">
     <value>2. Dokąd mają dotrzeć?</value>
   </data>
   <data name="Tour.SafeBody" xml:space="preserve">
-    <value>Bezpieczne miejsca są celami ewakuacji. Zielone narzędzie pozwala narysować wielokąt lub okrąg. Dodaj osiągalne miejsce jako cel dla ewakuowanych.</value>
+    <value>Wybierz Bezpieczne miejsce i narysuj wielokąt lub koło tam, gdzie mają dotrzeć ewakuowani.</value>
   </data>
   <data name="Tour.BlockadeTitle" xml:space="preserve">
     <value>3. Oznacz zablokowane przejścia</value>
   </data>
   <data name="Tour.BlockadeBody" xml:space="preserve">
-    <value>Blokady to bariery liniowe, które ludzie muszą omijać. Wybierz blokadę, kliknij początek bariery na mapie, a potem jej koniec. Oznaczysz tak zamknięte ulice lub niedostępne przejścia.</value>
+    <value>Wybierz Blokada i kliknij jej początek i koniec na mapie, aby oznaczyć zamkniętą ulicę lub przejście.</value>
   </data>
   <data name="Tour.PolygonTitle" xml:space="preserve">
     <value>Narysuj wielokąt</value>
@@ -1633,39 +1633,39 @@
     <value>Wybierz strefę ewakuacji lub bezpieczne miejsce, a następnie wielokąt. Kliknij co najmniej trzy narożniki: trzeci tworzy obszar. Kolejne kliknięcia dodają narożniki. Wybierz Gotowe, aby zakończyć.</value>
   </data>
   <data name="Tour.CircleTitle" xml:space="preserve">
-    <value>Narysuj okrąg dwoma kliknięciami</value>
+    <value>Narysuj koło dwoma kliknięciami</value>
   </data>
   <data name="Tour.CircleBody" xml:space="preserve">
-    <value>Wybierz strefę ewakuacji lub bezpieczne miejsce, a następnie okrąg. Kliknij środek, przesuń wskaźnik, aby ustawić promień, i kliknij ponownie. Na ekranie dotykowym dotknij środka, a potem krawędzi.</value>
+    <value>Wybierz strefę ewakuacji lub bezpieczne miejsce, a następnie koło. Kliknij środek, przesuń wskaźnik, aby ustawić promień, i kliknij ponownie. Na ekranie dotykowym dotknij środka, a potem krawędzi.</value>
   </data>
   <data name="Tour.RemoveTitle" xml:space="preserve">
     <value>Usuń element</value>
   </data>
   <data name="Tour.RemoveBody" xml:space="preserve">
-    <value>Przełącz na nawigację i kliknij strefę, bezpieczne miejsce lub blokadę na mapie. W okienku zobaczysz szczegóły i przycisk Usuń.</value>
+    <value>Wybierz Przesuwanie mapy, kliknij strefę, bezpieczne miejsce lub blokadę, a potem Usuń w otwartym okienku.</value>
   </data>
   <data name="Tour.SettingsTitle" xml:space="preserve">
-    <value>Dostosuj scenariusz</value>
+    <value>Ustawienia symulacji</value>
   </data>
   <data name="Tour.SettingsBody" xml:space="preserve">
-    <value>W konfiguracji wybierzesz dane spisowe lub własną liczbę osób, tempo symulacji i liczbę klatek na sekundę. Ustawisz znaczenie odległości i zajętości miejsc przy wyborze celu oraz widok osób, prędkości lub gęstości.</value>
+    <value>Wybierz dane spisowe lub wpisz własną liczbę osób. Ustaw tempo symulacji i liczbę klatek na sekundę. Określ, jak odległość i zajętość miejsc wpływają na wybór celu.</value>
   </data>
   <data name="Tour.SimulationTitle" xml:space="preserve">
     <value>Przetestuj plan</value>
   </data>
   <data name="Tour.SimulationBody" xml:space="preserve">
-    <value>Ten przycisk uruchamia model ruchu ludzi z Twoimi strefami, bezpiecznymi miejscami, blokadami i ustawieniami. Najpierw dodaj strefę ewakuacji i bezpieczny cel. Obserwuj ruch i postęp; możesz wstrzymać odtwarzanie, zmienić tempo i sprawdzić statystyki. Możesz wielokrotnie dostosować elementy mapy i parametry i uruchamiać symulację.</value>
+    <value>Dodaj strefę ewakuacji i bezpieczne miejsce, a potem wybierz Uruchom symulację. Obserwuj ruch ludzi i liczbę osób, które dotarły do celu. Zmień mapę lub ustawienia i uruchom symulację ponownie.</value>
   </data>
   <data name="Tour.EvacuationTitle" xml:space="preserve">
     <value>Udostępnij plan ewakuacji</value>
   </data>
   <data name="Tour.EvacuationBody" xml:space="preserve">
-    <value>Rozpocznij ewakuację otwiera podsumowanie planu. Stamtąd przycisk publikacji tworzy link i kod QR do widoku mieszkańca. Samo otwarcie tego okna nie publikuje planu. Przewodnik uruchomisz ponownie przyciskiem Przewodnik po mapie.</value>
+    <value>Wybierz Rozpocznij ewakuację, aby sprawdzić plan. Gdy będzie gotowy, wybierz Opublikuj plan, aby utworzyć link i kod QR dla mieszkańców.</value>
   </data>
   <data name="Tour.ControlsTitle" xml:space="preserve">
     <value>Sterowanie symulacją</value>
   </data>
   <data name="Tour.ControlsBody" xml:space="preserve">
-    <value>To panel który pozwala kontrolować uruchomioną symulację. Licznik pokazuje czas i postęp ewakuacji. Start/pauza steruje odtwarzaniem; Krok przesuwa symulację o jeden krok podczas pauzy, a Reset rozpoczyna przebieg od nowa. Przełączaj widok osób, prędkości i gęstości. Przycisk tempa zmienia szybkość odtwarzania, w tym MAX. Wykres otwiera statystyki, a × zamyka tryb symulacji i wraca do planowania.</value>
+    <value>Licznik pokazuje czas i postęp ewakuacji. Start i Pauza sterują odtwarzaniem. Krok przesuwa symulację o jeden krok podczas pauzy, a Resetuj przywraca początkowe pozycje ludzi. Przełączaj widok osób, prędkości i gęstości. Ustaw tempo lub wybierz MAX, aby uruchomić symulację z maksymalną szybkością. Otwórz wykres, aby sprawdzić statystyki. Zamknij symulację, aby wrócić do planowania.</value>
   </data>
 </root>
