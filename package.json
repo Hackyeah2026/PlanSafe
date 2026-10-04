@@ -18,7 +18,9 @@
     "typecheck:browser": "npm run typecheck --workspace @plansafe/browser-tests",
     "test:browser": "npm run build && dotnet build PlanSafe.slnx -c Debug -p:RunAOTCompilation=false -p:PublishAot=false -p:TreatWarningsAsErrors=true && npm run test --workspace @plansafe/browser-tests",
     "test:unit": "npm run test:parity && npm run test:potential && npm run test:camera && npm run test:map && npm run test:appearance && npm run test:spawn",
-    "test:spawn": "npm run build && node --test scripts/test-map-spawn.mjs"
+    "test:spawn": "npm run build && node --test scripts/test-map-spawn.mjs",
+    "benchmark:cpu": "node scripts/performance/benchmark.mjs cpu",
+    "benchmark:gpu": "npm run build && node scripts/performance/benchmark.mjs gpu"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

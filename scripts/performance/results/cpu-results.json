@@ -1,0 +1,302 @@
+[
+  {
+    "name": "sparse-10k",
+    "people": 10000,
+    "granulation": 1,
+    "agents": 10000,
+    "nativeMs": 2.1570825,
+    "simulatedSpeed": 7.417426083610618,
+    "allocatedPerTick": 0,
+    "variantMs": null,
+    "identical": null,
+    "instrumentedMs": 2.7375374999999997,
+    "phases": [
+      {
+        "name": "density-grid",
+        "ms": 0.00043375
+      },
+      {
+        "name": "hash-rebuild",
+        "ms": 0.04852625
+      },
+      {
+        "name": "flow-and-walls",
+        "ms": 1.23534
+      },
+      {
+        "name": "neighbors-pass1",
+        "ms": 0.9425800000000001
+      },
+      {
+        "name": "density-resolution",
+        "ms": 0.17924
+      },
+      {
+        "name": "neighbors-pass2",
+        "ms": 0.17542
+      },
+      {
+        "name": "integration",
+        "ms": 0.35372
+      },
+      {
+        "name": "collision",
+        "ms": 0.58058
+      },
+      {
+        "name": "evacuations",
+        "ms": 0.01824875
+      }
+    ]
+  },
+  {
+    "name": "dense-10k",
+    "people": 10000,
+    "granulation": 1,
+    "agents": 10000,
+    "nativeMs": 31.828926250000002,
+    "simulatedSpeed": 0.5026873943006481,
+    "allocatedPerTick": 0,
+    "variantMs": null,
+    "identical": null,
+    "instrumentedMs": 33.5860725,
+    "phases": [
+      {
+        "name": "density-grid",
+        "ms": 4.4999999999999996e-5
+      },
+      {
+        "name": "hash-rebuild",
+        "ms": 0.036559999999999995
+      },
+      {
+        "name": "flow-and-walls",
+        "ms": 0.6508
+      },
+      {
+        "name": "neighbors-pass1",
+        "ms": 30.09936
+      },
+      {
+        "name": "density-resolution",
+        "ms": 0.23210000000000003
+      },
+      {
+        "name": "neighbors-pass2",
+        "ms": 2.57806
+      },
+      {
+        "name": "integration",
+        "ms": 0.7954600000000001
+      },
+      {
+        "name": "collision",
+        "ms": 0.41256000000000004
+      },
+      {
+        "name": "evacuations",
+        "ms": 0.010255
+      }
+    ]
+  },
+  {
+    "name": "city-10k",
+    "people": 10000,
+    "granulation": 1,
+    "agents": 10000,
+    "nativeMs": 1.97173625,
+    "simulatedSpeed": 8.114675580975904,
+    "allocatedPerTick": 0,
+    "variantMs": null,
+    "identical": null,
+    "instrumentedMs": 2.05494625,
+    "phases": [
+      {
+        "name": "density-grid",
+        "ms": 3.25e-5
+      },
+      {
+        "name": "hash-rebuild",
+        "ms": 0.035472500000000004
+      },
+      {
+        "name": "flow-and-walls",
+        "ms": 0.60316
+      },
+      {
+        "name": "neighbors-pass1",
+        "ms": 1.01638
+      },
+      {
+        "name": "density-resolution",
+        "ms": 0.18472
+      },
+      {
+        "name": "neighbors-pass2",
+        "ms": 0.18278
+      },
+      {
+        "name": "integration",
+        "ms": 0.40164
+      },
+      {
+        "name": "collision",
+        "ms": 0.37557999999999997
+      },
+      {
+        "name": "evacuations",
+        "ms": 0.010163750000000001
+      }
+    ]
+  },
+  {
+    "name": "city-16k-g1",
+    "people": 16000,
+    "granulation": 1,
+    "agents": 16000,
+    "nativeMs": 3.7118049999999996,
+    "simulatedSpeed": 4.310571271928349,
+    "allocatedPerTick": 0,
+    "variantMs": null,
+    "identical": null,
+    "instrumentedMs": 3.9640999999999997,
+    "phases": [
+      {
+        "name": "density-grid",
+        "ms": 1.75e-5
+      },
+      {
+        "name": "hash-rebuild",
+        "ms": 0.05193
+      },
+      {
+        "name": "flow-and-walls",
+        "ms": 0.96972
+      },
+      {
+        "name": "neighbors-pass1",
+        "ms": 2.26592
+      },
+      {
+        "name": "density-resolution",
+        "ms": 0.30126
+      },
+      {
+        "name": "neighbors-pass2",
+        "ms": 0.31520000000000004
+      },
+      {
+        "name": "integration",
+        "ms": 0.6833
+      },
+      {
+        "name": "collision",
+        "ms": 0.6332
+      },
+      {
+        "name": "evacuations",
+        "ms": 0.015551249999999999
+      }
+    ]
+  },
+  {
+    "name": "city-16k-g3",
+    "people": 16000,
+    "granulation": 3,
+    "agents": 5334,
+    "nativeMs": 1.8189387499999998,
+    "simulatedSpeed": 8.796337974546972,
+    "allocatedPerTick": 0,
+    "variantMs": null,
+    "identical": null,
+    "instrumentedMs": 1.8348287500000002,
+    "phases": [
+      {
+        "name": "density-grid",
+        "ms": 0.35380500000000004
+      },
+      {
+        "name": "hash-rebuild",
+        "ms": 0.027456249999999998
+      },
+      {
+        "name": "flow-and-walls",
+        "ms": 0.33886
+      },
+      {
+        "name": "neighbors-pass1",
+        "ms": 0.69684
+      },
+      {
+        "name": "density-resolution",
+        "ms": 0.21478000000000003
+      },
+      {
+        "name": "neighbors-pass2",
+        "ms": 0.09192
+      },
+      {
+        "name": "integration",
+        "ms": 0.33446
+      },
+      {
+        "name": "collision",
+        "ms": 0.19878
+      },
+      {
+        "name": "evacuations",
+        "ms": 0.0051925
+      }
+    ]
+  },
+  {
+    "name": "city-16k-g16",
+    "people": 16000,
+    "granulation": 16,
+    "agents": 1000,
+    "nativeMs": 1.12969375,
+    "simulatedSpeed": 14.163130494437098,
+    "allocatedPerTick": 0,
+    "variantMs": 1.227325,
+    "identical": true,
+    "instrumentedMs": 1.15146,
+    "phases": [
+      {
+        "name": "density-grid",
+        "ms": 0.91288625
+      },
+      {
+        "name": "hash-rebuild",
+        "ms": 0.005425
+      },
+      {
+        "name": "flow-and-walls",
+        "ms": 0.07493999999999999
+      },
+      {
+        "name": "neighbors-pass1",
+        "ms": 0.0891
+      },
+      {
+        "name": "density-resolution",
+        "ms": 0.04232
+      },
+      {
+        "name": "neighbors-pass2",
+        "ms": 0.01662
+      },
+      {
+        "name": "integration",
+        "ms": 0.060660000000000006
+      },
+      {
+        "name": "collision",
+        "ms": 0.03922
+      },
+      {
+        "name": "evacuations",
+        "ms": 0.00102875
+      }
+    ]
+  }
+]
