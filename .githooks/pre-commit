@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root=$(git rev-parse --show-toplevel)
+if [[ ! -d "$repo_root/node_modules" ]]; then
+    echo 'Commit checks need dependencies. Run npm ci first.' >&2
+    exit 1
+fi
+
+snapshot=$(mktemp -d "${TMPDIR:-/tmp}/plansafe-pre-commit.XXXXXXXX")
+trap 'rm -rf -- "$snapshot"' EXIT
+git checkout-index --all --prefix="$snapshot/"
+ln -s "$repo_root/node_modules" "$snapshot/node_modules"
+
+echo 'Checking staged files: TypeScript, build, and formatting.'
+cd "$snapshot"
+bash infra/ci/check-basic.sh

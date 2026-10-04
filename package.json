@@ -3,6 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prepare": "[ ! -e .git ] || git config --local core.hooksPath .githooks",
+    "hooks:install": "git config --local core.hooksPath .githooks",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:parity": "node --test scripts/test-physics-parity.ts",
