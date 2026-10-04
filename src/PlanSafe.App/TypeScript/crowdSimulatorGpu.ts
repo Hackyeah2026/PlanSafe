@@ -611,6 +611,12 @@ struct Agent {
     pad: u32,
 };
 
+struct RecoveryState {
+    anchor: vec2<f32>,
+    stationaryTicks: u32,
+    pad: u32,
+};
+
 struct SimParams {
     worldWidth: f32,
     worldHeight: f32,
@@ -645,6 +651,7 @@ struct SimParams {
 @group(0) @binding(5) var<storage, read> smoothedDensityGrid: array<f32>;
 @group(0) @binding(6) var<storage, read> blockedRaster: array<u32>;
 @group(0) @binding(7) var<storage, read> exits: array<vec4<f32>>;
+@group(0) @binding(8) var<storage, read_write> recovery: array<RecoveryState>;
 
 const cOffsets = array<i32, 8>(0, 0, -1, 1, -1, 1, -1, 1);
 const rOffsets = array<i32, 8>(-1, 1, 0, 0, -1, -1, 1, 1);
@@ -653,7 +660,7 @@ fn mapPositionBlocked(pos: vec2<f32>) -> bool {
     let col = i32(floor(pos.x / params.mapCellSize));
     let row = i32(floor(pos.y / params.mapCellSize));
     if (col < 0 || row < 0 || col >= i32(params.mapCols) || row >= i32(params.mapRows)) { return true; }
-    return blockedRaster[u32(row) * params.mapCols + u32(col)] != 0u;
+    return (blockedRaster[u32(row) * params.mapCols + u32(col)] & 1u) != 0u;
 }
 
 fn mapCircleClear(pos: vec2<f32>, radius: f32) -> bool {
@@ -663,7 +670,7 @@ fn mapCircleClear(pos: vec2<f32>, radius: f32) -> bool {
     let last = min(vec2<i32>(i32(params.mapCols) - 1, i32(params.mapRows) - 1), vec2<i32>(floor((pos + vec2<f32>(radius)) / cell)));
     for (var row = first.y; row <= last.y; row++) {
         for (var col = first.x; col <= last.x; col++) {
-            if (blockedRaster[u32(row) * params.mapCols + u32(col)] == 0u) { continue; }
+            if ((blockedRaster[u32(row) * params.mapCols + u32(col)] & 1u) == 0u) { continue; }
             let lo = vec2<f32>(f32(col), f32(row)) * cell;
             let d = pos - clamp(pos, lo, lo + vec2<f32>(cell));
             if (dot(d, d) < radius * radius - 0.000001) { return false; }
@@ -679,7 +686,7 @@ fn mapMovementBlocked(startPos: vec2<f32>, endPos: vec2<f32>) -> bool {
     let delta = endPos - startPos;
     for (var row = first.y; row <= last.y; row++) {
         for (var col = first.x; col <= last.x; col++) {
-            if (blockedRaster[u32(row) * params.mapCols + u32(col)] == 0u) { continue; }
+            if ((blockedRaster[u32(row) * params.mapCols + u32(col)] & 1u) == 0u) { continue; }
             let lo = vec2<f32>(f32(col), f32(row)) * cell;
             let hi = lo + vec2<f32>(cell);
             var enter = 0.0;
@@ -699,6 +706,85 @@ fn mapMovementBlocked(startPos: vec2<f32>, endPos: vec2<f32>) -> bool {
         }
     }
     return false;
+}
+
+
+fn recoverySpace(pos: vec2<f32>, radius: f32, agentIndex: u32) -> bool {
+    let cell = vec2<f32>(params.worldWidth / f32(params.gridCols), params.worldHeight / f32(params.gridRows));
+    let search = 2.0 * radius + 0.1;
+    let first = max(vec2<i32>(0), vec2<i32>(floor((pos - vec2<f32>(search)) / cell)));
+    let last = min(vec2<i32>(i32(params.gridCols) - 1, i32(params.gridRows) - 1), vec2<i32>(floor((pos + vec2<f32>(search)) / cell)));
+    for (var row = first.y; row <= last.y; row++) {
+        for (var col = first.x; col <= last.x; col++) {
+            let cellId = u32(row) * params.gridCols + u32(col);
+            let count = min(atomicLoad(&cellCounts[cellId]) & 0x7fffffffu, params.maxPerCell);
+            for (var k = 0u; k < count; k++) {
+                let neighborIndex = cellAgents[cellId * params.maxPerCell + k];
+                if (neighborIndex == agentIndex || agents[neighborIndex].flags == 0u) { continue; }
+                let neighbor = agents[neighborIndex];
+                let d = neighbor.pos - pos;
+                let separation = radius + neighbor.radius + 0.1;
+                if (dot(d, d) < separation * separation) { return false; }
+            }
+        }
+    }
+    return true;
+}
+
+// Reserve the destination footprint until the next grid rebuild so agents
+// recovering in parallel cannot choose overlapping positions. The high bit
+// is excluded from neighbor counts and cleared by the existing grid pass.
+fn reserveRecoverySpace(pos: vec2<f32>, radius: f32) -> bool {
+    let cell = vec2<f32>(params.worldWidth / f32(params.gridCols), params.worldHeight / f32(params.gridRows));
+    let footprint = radius + 0.05;
+    let first = max(vec2<i32>(0), vec2<i32>(floor((pos - vec2<f32>(footprint)) / cell)));
+    let last = min(vec2<i32>(i32(params.gridCols) - 1, i32(params.gridRows) - 1), vec2<i32>(floor((pos + vec2<f32>(footprint)) / cell)));
+    for (var row = first.y; row <= last.y; row++) {
+        for (var col = first.x; col <= last.x; col++) {
+            let previous = atomicOr(&cellCounts[u32(row) * params.gridCols + u32(col)], 0x80000000u);
+            if ((previous & 0x80000000u) != 0u) { return false; }
+        }
+    }
+    return true;
+}
+
+fn nearestRecoveryStreet(pos: vec2<f32>, radius: f32, agentIndex: u32) -> vec2<f32> {
+    let cell = params.mapCellSize;
+    let center = vec2<i32>(floor(pos / cell));
+    var best = vec2<f32>(-1.0);
+    var bestDistance = 1e30;
+    var bestIndex = 0xffffffffu;
+    let minimumMove = max(0.5, radius * 2.0);
+    let reach = i32(max(params.mapCols, params.mapRows));
+    for (var ring = 0; ring <= reach; ring++) {
+        for (var edge = 0; edge < 4; edge++) {
+            for (var offset = -ring; offset <= ring; offset++) {
+                var col = center.x + offset;
+                var row = center.y - ring;
+                if (edge == 1) { row = center.y + ring; }
+                if (edge == 2) { col = center.x - ring; row = center.y + offset; }
+                if (edge == 3) { col = center.x + ring; row = center.y + offset; }
+                if (col < 0 || row < 0 || col >= i32(params.mapCols) || row >= i32(params.mapRows)) { continue; }
+                let index = u32(row) * params.mapCols + u32(col);
+                if ((blockedRaster[index] & 3u) != 2u) { continue; }
+                let candidate = (vec2<f32>(f32(col), f32(row)) + vec2<f32>(0.5)) * cell;
+                let d = candidate - pos;
+                let distance = dot(d, d);
+                if (distance < minimumMove * minimumMove || distance > bestDistance || (distance == bestDistance && index >= bestIndex)) { continue; }
+                if (!mapCircleClear(candidate, radius + 0.6) || !recoverySpace(candidate, radius, agentIndex)) { continue; }
+                let pc = clamp(vec2<i32>(floor(candidate / params.potCellSize)), vec2<i32>(0), vec2<i32>(i32(params.potCols) - 1, i32(params.potRows) - 1));
+                if (potentialGrid[u32(pc.y) * params.potCols + u32(pc.x)] >= 1.7014117e38) { continue; }
+                bestDistance = distance;
+                bestIndex = index;
+                best = candidate;
+            }
+        }
+        let remaining = min(min(pos.x - (f32(center.x - ring) - 0.5) * cell, (f32(center.x + ring) + 1.5) * cell - pos.x),
+            min(pos.y - (f32(center.y - ring) - 0.5) * cell, (f32(center.y + ring) + 1.5) * cell - pos.y));
+        if (best.x >= 0.0 && remaining > 0.0 && remaining * remaining > bestDistance) { break; }
+    }
+    if (best.x >= 0.0 && !reserveRecoverySpace(best, radius)) { return vec2<f32>(-2.0); }
+    return best;
 }
 
 // Bilinear gradient interpolation matching C# GetFlowDirection exactly
@@ -960,7 +1046,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 let c = curCol + dc;
                 if (c < 0 || c >= i32(params.mapCols)) { continue; }
                 let cellIdx = u32(r) * params.mapCols + u32(c);
-                if (blockedRaster[cellIdx] == 0u) { continue; }
+                if ((blockedRaster[cellIdx] & 1u) == 0u) { continue; }
 
                 let minX = f32(c) * cell;
                 let maxX = minX + cell;
@@ -1093,6 +1179,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var closestBlockDist = effectiveWhisker;
     var densityLeft = 0.0;
     var densityRight = 0.0;
+    var hasRecoveryNeighbor = false;
 
     let cellW = params.worldWidth / f32(params.gridCols);
     let cellH = params.worldHeight / f32(params.gridRows);
@@ -1108,7 +1195,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             if (nx < 0 || nx >= i32(params.gridCols)) { continue; }
 
             let nCellId = u32(ny * i32(params.gridCols) + nx);
-            let nCellCount = min(atomicLoad(&cellCounts[nCellId]), params.maxPerCell);
+            let nCellCount = min(atomicLoad(&cellCounts[nCellId]) & 0x7fffffffu, params.maxPerCell);
 
             for (var k = 0u; k < nCellCount; k++) {
                 let neighborIdx = cellAgents[nCellId * params.maxPerCell + k];
@@ -1119,6 +1206,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
                 let diff = neighbor.pos - agent.pos;
                 let distSq = dot(diff, diff);
+                let recoveryDistance = agent.radius + neighbor.radius + 1.0;
+                if (distSq < recoveryDistance * recoveryDistance) { hasRecoveryNeighbor = true; }
                 if (distSq > spatialSearchRadiusSq || distSq < 0.000001) { continue; }
 
                 let dist = sqrt(distSq);
@@ -1230,7 +1319,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             if (nx < 0 || nx >= i32(params.gridCols)) { continue; }
 
             let nCellId = u32(ny * i32(params.gridCols) + nx);
-            let nCellCount = min(atomicLoad(&cellCounts[nCellId]), params.maxPerCell);
+            let nCellCount = min(atomicLoad(&cellCounts[nCellId]) & 0x7fffffffu, params.maxPerCell);
 
             for (var k = 0u; k < nCellCount; k++) {
                 let neighborIdx = cellAgents[nCellId * params.maxPerCell + k];
@@ -1408,7 +1497,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         for (var r = minRow; r <= maxRow; r++) {
             for (var c = minCol; c <= maxCol; c++) {
                 let cellIdx = u32(r) * params.mapCols + u32(c);
-                if (blockedRaster[cellIdx] == 0u) { continue; }
+                if ((blockedRaster[cellIdx] & 1u) == 0u) { continue; }
 
                 let minX = f32(c) * cell;
                 let maxX = minX + cell;
@@ -1453,7 +1542,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
             var bestPosition = agent.pos;
             for (var row = max(0, center.y - reach); row <= min(i32(params.mapRows) - 1, center.y + reach); row++) {
                 for (var col = max(0, center.x - reach); col <= min(i32(params.mapCols) - 1, center.x + reach); col++) {
-                    if (blockedRaster[u32(row) * params.mapCols + u32(col)] != 0u) { continue; }
+                    if ((blockedRaster[u32(row) * params.mapCols + u32(col)] & 1u) != 0u) { continue; }
                     let candidate = (vec2<f32>(f32(col), f32(row)) + vec2<f32>(0.5)) * cell;
                     let d = candidate - previousPosition;
                     let distance = dot(d, d);
@@ -1480,6 +1569,28 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 agents[i] = agent;
                 return;
             }
+        }
+        if (params.pad0 == 1u) {
+            var state = recovery[i];
+            let displacement = agent.pos - state.anchor;
+            if (hasRecoveryNeighbor || dot(displacement, displacement) >= 0.0625) {
+                state.anchor = agent.pos;
+                state.stationaryTicks = 0u;
+            } else {
+                state.stationaryTicks += 1u;
+                // Exactly 180 simulated seconds at the fixed 16 ms physics step.
+                if (state.stationaryTicks >= 11250u) {
+                    let street = nearestRecoveryStreet(agent.pos, agent.radius, i);
+                    if (street.x >= 0.0) {
+                        agent.pos = street;
+                        agent.vel = vec2<f32>(0.0);
+                        agent.pad = 0u;
+                    }
+                    state.anchor = agent.pos;
+                    state.stationaryTicks = select(0u, 11249u, street.x == -2.0);
+                }
+            }
+            recovery[i] = state;
         }
     } else {
         let obs1 = params.obs1;
@@ -1599,6 +1710,7 @@ export interface ParsedMapScenario {
   readonly columns: number;
   readonly rows: number;
   readonly blocked: Uint8Array;
+  readonly streets?: Uint8Array;
   readonly exits: readonly ParsedMapExit[];
   readonly spawnZones: readonly ParsedMapSpawnZone[];
   readonly worldWidth: number;
@@ -1621,7 +1733,7 @@ export function parseMapScenario(data: Uint8Array): ParsedMapScenario {
   let offset = 5;
   const version = view.getInt32(offset, true);
   offset += 4;
-  if (version !== 1 && version !== 2)
+  if (version !== 1 && version !== 2 && version !== 3)
     throw new Error(`Unsupported EFMAP version: ${version}`);
 
   const originLatitude = view.getFloat64(offset, true);
@@ -1698,6 +1810,27 @@ export function parseMapScenario(data: Uint8Array): ParsedMapScenario {
     spawnZones.push({ people, xs, ys });
   }
 
+  let streets: Uint8Array | undefined;
+  if (version >= 3) {
+    const runs = view.getInt32(offset, true);
+    offset += 4;
+    if (runs < 1 || runs > totalCells + 1)
+      throw new Error("Invalid street raster encoding.");
+    streets = new Uint8Array(totalCells);
+    let index = 0,
+      value = 0;
+    for (let i = 0; i < runs; i++) {
+      const run = view.getInt32(offset, true);
+      offset += 4;
+      if (run < 0 || run > totalCells - index)
+        throw new Error("Invalid street raster encoding.");
+      if (value) streets.fill(1, index, index + run);
+      index += run;
+      value = 1 - value;
+    }
+    if (index !== totalCells)
+      throw new Error("Invalid street raster encoding.");
+  }
   return {
     originLatitude,
     originLongitude,
@@ -1707,6 +1840,7 @@ export function parseMapScenario(data: Uint8Array): ParsedMapScenario {
     columns,
     rows,
     blocked,
+    streets,
     exits,
     spawnZones,
     worldWidth: columns * cellSize,
@@ -2080,6 +2214,8 @@ export class GpuSimulationEngine implements ISimulationEngine {
 
   // GPU Buffers
   private agentsBuffer: GPUBuffer | undefined;
+  private recoveryBuffer: GPUBuffer | undefined;
+  private mapRecoveryAvailable = false;
   private cellCountsBuffer: GPUBuffer | undefined;
   private cellAgentsBuffer: GPUBuffer | undefined;
   private paramsBuffer: GPUBuffer | undefined;
@@ -2914,7 +3050,7 @@ export class GpuSimulationEngine implements ISimulationEngine {
     u32[26] = this.potCols;
     u32[27] = this.potRows;
     f32[28] = this.potCellSize;
-    u32[29] = 0;
+    u32[29] = this.isMapScenario && this.mapRecoveryAvailable ? 1 : 0;
     u32[30] = 0;
     u32[31] = 0;
 
@@ -3000,6 +3136,20 @@ export class GpuSimulationEngine implements ISimulationEngine {
       }
     }
     this.device.queue.writeBuffer(this.agentsBuffer, 0, initData.buffer);
+    this.recoveryBuffer?.destroy();
+    const recovery = new Float32Array(count * 4);
+    for (let i = 0; i < count; i++) {
+      recovery[i * 4] = initData[i * 8];
+      recovery[i * 4 + 1] = initData[i * 8 + 1];
+    }
+    this.recoveryBuffer = this.device.createBuffer({
+      size: Math.max(64, recovery.byteLength),
+      usage:
+        GPUBufferUsage.STORAGE |
+        GPUBufferUsage.COPY_DST |
+        GPUBufferUsage.COPY_SRC,
+    });
+    this.device.queue.writeBuffer(this.recoveryBuffer, 0, recovery);
     this.initialDensityPending = true;
 
     this.recreateSpatialBindGroups();
@@ -3065,6 +3215,7 @@ export class GpuSimulationEngine implements ISimulationEngine {
         { binding: 5, resource: { buffer: this.smoothedDensityBuffer } },
         { binding: 6, resource: { buffer: blockedRes } },
         { binding: 7, resource: { buffer: exitsRes } },
+        { binding: 8, resource: { buffer: this.recoveryBuffer! } },
       ],
     });
   }
@@ -3830,11 +3981,6 @@ export class GpuSimulationEngine implements ISimulationEngine {
         size: Math.max(64, blockedU32.byteLength),
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
       });
-      this.device.queue.writeBuffer(
-        this.mapBlockedBuffer,
-        0,
-        blockedU32.buffer,
-      );
 
       // A map's fine wall raster and potential grid can have different resolutions.
       const potCells = this.potCols * this.potRows;
@@ -3865,6 +4011,26 @@ export class GpuSimulationEngine implements ISimulationEngine {
         : undefined;
       const staticField =
         fields?.subarray(0, potCells) ?? buildMapPotentialField(scenario);
+      this.mapRecoveryAvailable = false;
+      for (let i = 0; i < blockedU32.length; i++) {
+        if (scenario.blocked[i] || (scenario.streets && !scenario.streets[i]))
+          continue;
+        const x = ((i % scenario.columns) + 0.5) * scenario.cellSize;
+        const y = (Math.floor(i / scenario.columns) + 0.5) * scenario.cellSize;
+        const col = Math.min(
+          this.potCols - 1,
+          Math.floor(x / this.potCellSize),
+        );
+        const row = Math.min(
+          this.potRows - 1,
+          Math.floor(y / this.potCellSize),
+        );
+        if (staticField[row * this.potCols + col] >= impassablePotential * 0.5)
+          continue;
+        blockedU32[i] |= 2;
+        this.mapRecoveryAvailable = true;
+      }
+      this.device.queue.writeBuffer(this.mapBlockedBuffer, 0, blockedU32);
       const mask = Uint32Array.from(snapshot?.blocked ?? scenario.blocked);
       const sinks: PotentialSink[] = scenario.exits.map((exit) => ({
         zone: [
@@ -3969,6 +4135,7 @@ export class GpuSimulationEngine implements ISimulationEngine {
     this.agentsBuffer?.destroy();
     this.stagingBuffer?.destroy();
     this.cellCountsBuffer?.destroy();
+    this.recoveryBuffer?.destroy();
     this.cellAgentsBuffer?.destroy();
     this.paramsBuffer?.destroy();
     this.rawDensityBuffer?.destroy();

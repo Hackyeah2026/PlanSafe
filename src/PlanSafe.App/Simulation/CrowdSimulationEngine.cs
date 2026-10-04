@@ -1006,6 +1006,12 @@ public class CrowdSimulationEngine
     public int ActiveAgentCount => IsMapScenario ? _activeMapAgents : _activePresetAgents;
     public double SimulationTime { get; private set; }
     public const double StalledEvacuationSeconds = 600.0;
+    public const double StationaryRecoverySeconds = 180.0;
+    private const double RecoveryMovementDistance = 0.25;
+    private readonly double[] _recoveryAnchorX = new double[MaxAllowedAgents];
+    private readonly double[] _recoveryAnchorY = new double[MaxAllowedAgents];
+    private readonly double[] _lastRecoveryMovementTime = new double[MaxAllowedAgents];
+    private readonly List<int> _recoveredThisStep = new();
     public const double FirstArrivalTimeoutSeconds = 3600.0;
     private int _activeMapAgents;
     private int _activePresetAgents;
@@ -1512,6 +1518,7 @@ public class CrowdSimulationEngine
             AgentLocalDensity[i] = 0.0;
         }
 
+        ResetRecoveryTracking(activeCount);
         if (MultiTargetEnabled && Targets.Count > 1)
         {
             ReevaluateTargetAssignments();
@@ -1586,6 +1593,7 @@ public class CrowdSimulationEngine
     {
         int activeCount = ActiveAgentCount;
         SimulationTime += dt;
+        _recoveredThisStep.Clear();
 
         // Aktualizacja gęstości komórkowej na siatce przy każdym kroku fizyki dla ciągłego samplingu (tylko makro dla Granulation > 1):
         if (Granulation > 1)
@@ -1784,6 +1792,7 @@ public class CrowdSimulationEngine
             double densityLeft = 0;
             double densityRight = 0;
             int pass2Count = 0;
+            bool hasRecoveryNeighbor = false;
 
             for (int i = 0; i < nearbyAgentCount; i++)
             {
@@ -1793,6 +1802,8 @@ public class CrowdSimulationEngine
                 double dx = AgentPositionX[neighborIndex] - px;
                 double dy = AgentPositionY[neighborIndex] - py;
                 double distSq = dx * dx + dy * dy;
+                double recoveryNeighborDistance = AgentRadius[agentIndex] + AgentRadius[neighborIndex] + 1.0;
+                if (distSq < recoveryNeighborDistance * recoveryNeighborDistance) hasRecoveryNeighbor = true;
 
                 if (distSq > spatialSearchRadiusSquared || distSq < 0.000001) continue;
 
@@ -2291,6 +2302,7 @@ public class CrowdSimulationEngine
                     }
                 }
             }
+            if (IsMapScenario) RecoverStationaryAgent(agentIndex, hasRecoveryNeighbor);
         }
 
         ProcessEvacuations();
@@ -2560,7 +2572,7 @@ public class CrowdSimulationEngine
     public (double X, double Y)? FindNearestReachable(double px, double py, double maxDistance = 50.0)
         => FindNearestReachable(px, py, maxDistance, 0);
 
-    private (double X, double Y)? FindNearestReachable(double px, double py, double maxDistance, double spawnClearance)
+    private (double X, double Y)? FindNearestReachable(double px, double py, double maxDistance, double spawnClearance, int recoveringAgent = -1)
     {
         var scenario = MapScenario;
         var mask = GetReachableMask();
@@ -2577,9 +2589,15 @@ public class CrowdSimulationEngine
             if (c < 0 || c >= scenario.Columns || r < 0 || r >= scenario.Rows) return;
             int index = r * scenario.Columns + c;
             if (!mask[index]) return;
+            if (recoveringAgent >= 0 && scenario.StreetMask is { } streets && !streets[index]) return;
             double cx = (c + 0.5) * cell, cy = (r + 0.5) * cell;
             if (spawnClearance > 0 && !IsSafeMapSpawn(cx, cy, spawnClearance)) return;
             double distSq = (cx - px) * (cx - px) + (cy - py) * (cy - py);
+            if (recoveringAgent >= 0)
+            {
+                double minimumMove = Math.Max(0.5, AgentRadius[recoveringAgent] * 2);
+                if (distSq < minimumMove * minimumMove || !HasRecoverySpace(recoveringAgent, cx, cy)) return;
+            }
             if (distSq < bestDistSq || (best.HasValue && distSq == bestDistSq && index < bestIndex))
             {
                 bestDistSq = distSq; best = (cx, cy); bestIndex = index;
@@ -2612,11 +2630,75 @@ public class CrowdSimulationEngine
             double searchLimit = Math.Sqrt(scenario.WorldWidth * scenario.WorldWidth + scenario.WorldHeight * scenario.WorldHeight)
                 + Math.Abs(px) + Math.Abs(py);
             return maxDistance < searchLimit
-                ? FindNearestReachable(px, py, Math.Min(searchLimit, maxDistance * 4.0), spawnClearance)
+                ? FindNearestReachable(px, py, Math.Min(searchLimit, maxDistance * 4.0), spawnClearance, recoveringAgent)
                 : null;
         }
         if (maxDistance < 400.0) return FindNearestReachable(px, py, Math.Min(400.0, maxDistance * 4.0));
         return scenario.NearestOpenCell(px, py, maxDistance);
+    }
+
+    private void ResetRecoveryTracking(int count)
+    {
+        AgentPositionX.AsSpan(0, count).CopyTo(_recoveryAnchorX);
+        AgentPositionY.AsSpan(0, count).CopyTo(_recoveryAnchorY);
+        _lastRecoveryMovementTime.AsSpan(0, count).Clear();
+    }
+
+    private void RecoverStationaryAgent(int index, bool hasNeighbor)
+    {
+        double x = AgentPositionX[index], y = AgentPositionY[index];
+        foreach (int other in _recoveredThisStep)
+        {
+            double separation = AgentRadius[index] + AgentRadius[other] + 1;
+            double nx = AgentPositionX[other] - x, ny = AgentPositionY[other] - y;
+            if (nx * nx + ny * ny < separation * separation) hasNeighbor = true;
+        }
+        double dx = x - _recoveryAnchorX[index], dy = y - _recoveryAnchorY[index];
+        if (hasNeighbor || dx * dx + dy * dy >= RecoveryMovementDistance * RecoveryMovementDistance)
+        {
+            _recoveryAnchorX[index] = x;
+            _recoveryAnchorY[index] = y;
+            _lastRecoveryMovementTime[index] = SimulationTime;
+            return;
+        }
+        if (SimulationTime - _lastRecoveryMovementTime[index] + 1e-9 < StationaryRecoverySeconds) return;
+        // Arrival takes precedence over recovery at the threshold.
+        foreach (var exit in MapScenario!.Exits)
+            if (Math.Abs(x - exit.X) <= exit.Radius + PotentialFieldMap.CellSize &&
+                Math.Abs(y - exit.Y) <= exit.Radius + PotentialFieldMap.CellSize) return;
+        var nearest = FindNearestReachable(x, y, 20, AgentRadius[index] + 0.6, index);
+        if (nearest is { } target)
+        {
+            AgentPositionX[index] = target.X;
+            AgentPositionY[index] = target.Y;
+            AgentVelocityX[index] = AgentVelocityY[index] = 0;
+            AgentLocalDensity[index] = 0;
+            _recoveredThisStep.Add(index);
+        }
+        _recoveryAnchorX[index] = AgentPositionX[index];
+        _recoveryAnchorY[index] = AgentPositionY[index];
+        _lastRecoveryMovementTime[index] = SimulationTime;
+    }
+
+    private bool HasRecoverySpace(int index, double x, double y)
+    {
+        double radius = AgentRadius[index];
+        int count = SpatialHashGridIndex.QueryNearby(x, y, radius * 2 + 0.1, out var neighbors);
+        for (int i = 0; i < count; i++)
+        {
+            int neighbor = neighbors[i];
+            if (neighbor == index || neighbor >= ActiveAgentCount) continue;
+            double dx = AgentPositionX[neighbor] - x, dy = AgentPositionY[neighbor] - y;
+            double separation = radius + AgentRadius[neighbor] + 0.1;
+            if (dx * dx + dy * dy < separation * separation) return false;
+        }
+        foreach (int other in _recoveredThisStep)
+        {
+            double dx = AgentPositionX[other] - x, dy = AgentPositionY[other] - y;
+            double separation = radius + AgentRadius[other] + 0.1;
+            if (dx * dx + dy * dy < separation * separation) return false;
+        }
+        return true;
     }
 
     // Keep the whole agent outside the wall-repulsion range, including raster corners.
@@ -2800,6 +2882,7 @@ public class CrowdSimulationEngine
         _lastEvacuationTime = 0;
         SimulationTime = 0;
         FrameCounter = 0;
+        ResetRecoveryTracking(activeCount);
     }
 
     /// <summary>Agents inside an exit area leave the crowd and are parked after the active prefix.</summary>
@@ -2915,6 +2998,9 @@ public class CrowdSimulationEngine
         (AgentMaxSpeed[a], AgentMaxSpeed[b]) = (AgentMaxSpeed[b], AgentMaxSpeed[a]);
         (AgentLocalDensity[a], AgentLocalDensity[b]) = (AgentLocalDensity[b], AgentLocalDensity[a]);
         (AgentTargetIndex[a], AgentTargetIndex[b]) = (AgentTargetIndex[b], AgentTargetIndex[a]);
+        (_recoveryAnchorX[a], _recoveryAnchorX[b]) = (_recoveryAnchorX[b], _recoveryAnchorX[a]);
+        (_recoveryAnchorY[a], _recoveryAnchorY[b]) = (_recoveryAnchorY[b], _recoveryAnchorY[a]);
+        (_lastRecoveryMovementTime[a], _lastRecoveryMovementTime[b]) = (_lastRecoveryMovementTime[b], _lastRecoveryMovementTime[a]);
     }
 
     public double TimeScale { get; set; } = 1.0;

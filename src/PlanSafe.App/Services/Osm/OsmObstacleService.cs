@@ -443,6 +443,13 @@ public class OsmObstacleService : IOsmObstacleService
             await scheduler.YieldAsync(cancellationToken);
             builder.SetCorridor(xs, ys, Math.Max(1.0, minimumHalfWidth), isWalkable: true, onlyWhere: insideBuildings);
         }
+        var recoveryStreets = new MapScenarioBuilder(builder.Columns * cellSize, builder.Rows * cellSize, cellSize);
+        foreach (var (road, (xs, ys)) in roads)
+        {
+            await scheduler.YieldAsync(cancellationToken);
+            recoveryStreets.SetCorridor(xs, ys, Math.Max(HalfWidth(road.HighwayType), minimumHalfWidth));
+        }
+        builder.SetStreetMask(recoveryStreets.ToMask());
     }
 
     private static double MeanWidth(double[] xs, double[] ys)

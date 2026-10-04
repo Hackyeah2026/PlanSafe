@@ -232,6 +232,10 @@ public sealed class MapScenarioFactory
         SetAreas(builder, OsmAreaKind.Building, isWalkable: false);
         foreach (var (_, (xs, ys)) in roads)
             builder.SetCorridor(xs, ys, Math.Max(PassageHalfWidthMeters, minimumHalfWidth), isWalkable: true, onlyWhere: insideBuildings);
+        var recoveryStreets = new MapScenarioBuilder(builder.Columns * cellSize, builder.Rows * cellSize, cellSize);
+        foreach (var (road, (xs, ys)) in roads)
+            recoveryStreets.SetCorridor(xs, ys, Math.Max(HalfWidth(road.HighwayType), minimumHalfWidth));
+        builder.SetStreetMask(recoveryStreets.ToMask());
     }
 
     private static double MeanWidth(double[] xs, double[] ys)
