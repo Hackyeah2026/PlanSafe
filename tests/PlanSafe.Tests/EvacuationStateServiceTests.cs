@@ -191,6 +191,7 @@ public sealed class EvacuationStateServiceTests
         );
 
         Assert.NotNull(res1.Target);
+        Assert.NotNull(res1.TargetEvaluations);
         Assert.Equal(2, res1.TargetEvaluations.Count);
         var evalRynek1 = res1.TargetEvaluations.First(e => e.TargetId == "safe-zone-rynek");
         var evalDworzec1 = res1.TargetEvaluations.First(e => e.TargetId == "safe-zone-dworzec");
