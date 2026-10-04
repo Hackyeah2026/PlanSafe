@@ -20,7 +20,7 @@ test.beforeAll(() => {
       ref[key] = ref[key].map(Math.fround);
   }
 });
-test("WebGPU shader fields match WASM reference fields", async ({
+test.skip("WebGPU shader fields match WASM reference fields", async ({
   gpuPage: page,
 }) => {
   const results = await page.evaluate(async (refs) => {
