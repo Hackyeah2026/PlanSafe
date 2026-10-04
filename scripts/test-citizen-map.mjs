@@ -31,7 +31,9 @@ test("missing or outside location focuses the first zone without refitting on ev
       return this.items;
     },
   });
-  globalThis.document = { getElementById: () => ({}) };
+  globalThis.document = {
+    getElementById: () => ({ querySelector: () => null }),
+  };
   globalThis.window = {};
   globalThis.L = {
     map: () => map,
