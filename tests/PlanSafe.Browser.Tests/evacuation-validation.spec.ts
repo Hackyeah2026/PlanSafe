@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
 
+test.beforeEach(async ({ context }) => {
+  await context.addInitScript(() =>
+    localStorage.setItem("plansafe.map-tour.v1", "seen"),
+  );
+});
+
 for (const language of ["en", "pl"] as const) {
   for (const hasSafeLocation of [false, true]) {
     test(`evacuation requires a zone: ${language}, ${hasSafeLocation ? "safe location only" : "empty map"}`, async ({

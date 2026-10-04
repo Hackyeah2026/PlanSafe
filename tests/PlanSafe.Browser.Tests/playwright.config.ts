@@ -8,7 +8,8 @@ export default defineConfig({
   testDir: ".",
   testMatch: "*.spec.ts",
   forbidOnly: !!process.env.CI,
-  workers: 1,
+  // Leave CPU headroom for software WebGPU and the app/API servers in CI.
+  workers: process.env.CI ? 2 : 1,
   retries: 0,
   timeout: 90_000,
   expect: { timeout: 10_000 },
