@@ -121,11 +121,7 @@
           for (const reg of regs) reg.unregister();
         });
       }
-      if ("caches" in window) {
-        caches.keys().then((keys) => {
-          for (const key of keys) caches.delete(key);
-        });
-      }
+      // Preserve the runtime's boot resource cache
     </script>
   </head>
 
