@@ -7,6 +7,7 @@ import vm from "node:vm";
 // are replaced, so these tests need neither tiles nor a browser/GPU installation.
 class ElementFixture extends EventTarget {
   children: ElementFixture[] = [];
+  parentElement: ElementFixture | null = null;
   className = "";
   innerHTML = "";
   style: Record<string, string> = {};
@@ -28,7 +29,15 @@ class ElementFixture extends EventTarget {
   }
 
   append(...children: ElementFixture[]): void {
+    for (const child of children) child.parentElement = this;
     this.children.push(...children);
+  }
+
+  closest(selector: string): ElementFixture | null {
+    const matches = selector.startsWith(".")
+      ? this.className.split(" ").includes(selector.slice(1))
+      : this.tagName === selector;
+    return matches ? this : (this.parentElement?.closest(selector) ?? null);
   }
 
   querySelector(selector: string): ElementFixture | null {
