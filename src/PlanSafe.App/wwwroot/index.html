@@ -5,10 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Plan Safe</title>
     <base href="/" />
+    <script src="js/appearance.js"></script>
     <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="lib/leaflet/leaflet.css" />
     <link rel="stylesheet" href="css/app.css" />
+    <link rel="stylesheet" href="css/design-tokens.css" />
+    <link rel="stylesheet" href="css/controls.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <link href="PlanSafe.App.styles.css" rel="stylesheet" />
     <link href="manifest.webmanifest" rel="manifest" />
@@ -138,7 +141,20 @@
     <div id="blazor-error-ui">
       An unhandled error has occurred.
       <a href="." class="reload">Reload</a>
-      <span class="dismiss">🗙</span>
+      <button type="button" class="dismiss" aria-label="Dismiss error">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M6 6l12 12M6 18L18 6" />
+        </svg>
+      </button>
     </div>
     <script src="_framework/blazor.webassembly.js"></script>
     <script type="module" src="js/main.js"></script>

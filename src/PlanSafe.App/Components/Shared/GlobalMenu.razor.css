@@ -1,0 +1,58 @@
+.global-menu {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 1500;
+}
+.global-menu summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 16px 0 14px;
+  cursor: pointer;
+  list-style: none;
+}
+.global-menu summary::-webkit-details-marker {
+  display: none;
+}
+.global-menu summary span {
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.global-menu-content {
+  position: absolute;
+  top: 52px;
+  left: 0;
+  width: 264px;
+  max-width: calc(100vw - 32px);
+  padding: 8px;
+}
+.global-menu nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.global-menu nav ::deep a {
+  display: block;
+  padding: 9px 12px;
+  color: inherit;
+  border-radius: var(--ui-control-radius);
+  font-size: 14px;
+  text-decoration: none;
+}
+.global-menu nav ::deep a:hover {
+  background: var(--ui-fill);
+}
+.global-menu nav ::deep a.active {
+  background: rgba(10, 132, 255, 0.14);
+  color: var(--ui-accent);
+  font-weight: 600;
+}
+@media (max-width: 767.98px) {
+  .global-menu {
+    top: 10px;
+    left: 10px;
+  }
+}

@@ -1,0 +1,46 @@
+@namespace PlanSafe.App.Components
+@using PlanSafe.Contracts.Models.Simulation
+@using System.Globalization
+<SurfacePanel Strong="true" Label="Dystrybucja i schrony">
+    <h2 class="feature-section-title">Dystrybucja &amp; Schrony</h2>
+    <div role="group" aria-label="Scenariusz" class="parameter-options">
+        <AppButton Disabled="@(!Ready)" Pressed="@(Math.Abs(WeightDistance - 1) < .05 && Math.Abs(WeightOccupancy) < .05)" OnClick="() => OnScenario.InvokeAsync((1.0, 0.0))">A (1:0)</AppButton>
+        <AppButton Disabled="@(!Ready)" Pressed="@(Math.Abs(WeightDistance - .5) < .05 && Math.Abs(WeightOccupancy - .5) < .05)" OnClick="() => OnScenario.InvokeAsync((.5, .5))">B (0.5:0.5)</AppButton>
+        <AppButton Disabled="@(!Ready)" Pressed="@(Math.Abs(WeightDistance - .2) < .05 && Math.Abs(WeightOccupancy - .8) < .05)" OnClick="() => OnScenario.InvokeAsync((.2, .8))">C (0.2:0.8)</AppButton>
+    </div>
+    <p class="small ui-muted">Balans wag (Suma = 1.00): @((WeightDistance * 100).ToString("F0"))% / @((WeightOccupancy * 100).ToString("F0"))%</p>
+    <label for="weight-dist">Waga odległości (w_dist): @WeightDistance.ToString("F2", CultureInfo.InvariantCulture)</label>
+    <div class="parameter-options">
+        <IconButton Label="Zmniejsz wagę odległości" Disabled="@(!Ready || WeightDistance <= .001)" OnClick="() => OnAdjustDistance.InvokeAsync(-.05)"><UiIcon Kind="UiIconKind.Minus" /></IconButton>
+        <IconButton Label="Zwiększ wagę odległości" Disabled="@(!Ready || WeightDistance >= .999)" OnClick="() => OnAdjustDistance.InvokeAsync(.05)"><UiIcon Kind="UiIconKind.Plus" /></IconButton>
+    </div>
+    <input id="weight-dist" data-testid="weight-dist" disabled="@(!Ready)" type="range" class="form-range" min="0" max="1" step=".01" value="@WeightDistance.ToString("F2", CultureInfo.InvariantCulture)" @oninput="OnDistanceInput" @onchange="OnDistanceInput" />
+    <label for="weight-occ">Waga obłożenia (w_occ): @WeightOccupancy.ToString("F2", CultureInfo.InvariantCulture)</label>
+    <div class="parameter-options">
+        <IconButton Label="Zmniejsz wagę obłożenia" Disabled="@(!Ready || WeightOccupancy <= .001)" OnClick="() => OnAdjustOccupancy.InvokeAsync(-.05)"><UiIcon Kind="UiIconKind.Minus" /></IconButton>
+        <IconButton Label="Zwiększ wagę obłożenia" Disabled="@(!Ready || WeightOccupancy >= .999)" OnClick="() => OnAdjustOccupancy.InvokeAsync(.05)"><UiIcon Kind="UiIconKind.Plus" /></IconButton>
+    </div>
+    <input id="weight-occ" data-testid="weight-occ" disabled="@(!Ready)" type="range" class="form-range" min="0" max="1" step=".01" value="@WeightOccupancy.ToString("F2", CultureInfo.InvariantCulture)" @oninput="OnOccupancyInput" @onchange="OnOccupancyInput" />
+    @if (Targets.Count > 0)
+    {
+        <AppButton Disabled="@(!Ready)" OnClick="OnResetShelters">Resetuj obłożenie</AppButton>
+        @foreach (var target in Targets)
+        {
+            var pct = target.Capacity > 0 ? (int)Math.Round((double)target.CurrentOccupancy / target.Capacity * 100) : 0;
+            <p class="small">@target.Name: <strong>@target.CurrentOccupancy / @target.Capacity (@pct%)</strong></p>
+            <progress max="100" value="@Math.Min(100, pct)" aria-label="@target.Name"></progress>
+        }
+    }
+</SurfacePanel>
+@code {
+    [Parameter] public bool Ready { get; set; }
+    [Parameter] public IReadOnlyList<EvacuationTarget> Targets { get; set; } = Array.Empty<EvacuationTarget>();
+    [Parameter] public double WeightDistance { get; set; }
+    [Parameter] public double WeightOccupancy { get; set; }
+    [Parameter] public EventCallback<(double Distance, double Occupancy)> OnScenario { get; set; }
+    [Parameter] public EventCallback<double> OnAdjustDistance { get; set; }
+    [Parameter] public EventCallback<double> OnAdjustOccupancy { get; set; }
+    [Parameter] public EventCallback<ChangeEventArgs> OnDistanceInput { get; set; }
+    [Parameter] public EventCallback<ChangeEventArgs> OnOccupancyInput { get; set; }
+    [Parameter] public EventCallback OnResetShelters { get; set; }
+}

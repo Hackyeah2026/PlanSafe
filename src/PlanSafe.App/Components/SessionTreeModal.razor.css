@@ -1,0 +1,123 @@
+.tree-modal-header {
+  flex-wrap: wrap;
+}
+.tree-header-left,
+.tree-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tree-modal-title {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+}
+.tree-count-badge,
+.badge-head,
+.mini-stat {
+  padding: 3px 7px;
+  background: var(--ui-fill);
+  border: 1px solid var(--ui-border);
+  border-radius: 8px;
+  font-size: 0.7rem;
+}
+.tree-search-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-delete {
+  color: var(--ui-danger);
+}
+.tree-modal-body {
+  padding: 10px 16px;
+  overflow: auto;
+  max-height: 65dvh;
+  background: radial-gradient(var(--ui-border) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+.graph-scroll-area {
+  overflow-x: auto;
+}
+.graph-canvas {
+  min-width: 700px !important;
+}
+.graph-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 8px;
+}
+.graph-row:hover,
+.graph-row.is-active {
+  background: var(--ui-fill);
+}
+.row-branch-box,
+.row-meta-and-actions,
+.row-stat-chips,
+.row-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.row-branch-box {
+  min-width: 0;
+}
+.branch-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: monospace;
+  font-size: 0.8rem;
+  border: 1px solid var(--branch-color);
+  border-radius: 5px;
+  padding: 3px 8px;
+  background: var(--ui-strong);
+}
+.branch-pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.branch-pill-name,
+.branch-desc-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+.branch-desc-text,
+.time-subtle {
+  font-size: 0.7rem;
+  color: var(--ui-muted);
+}
+.graph-legend {
+  display: flex;
+  gap: 12px;
+  font-size: 0.75rem;
+  color: var(--ui-muted);
+}
+.legend-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.dot-head {
+  background: #a855f7;
+}
+.dot-root {
+  background: #0284c7;
+}
+.dot-branch {
+  background: #1a7f45;
+}
+.tree-status-box {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--ui-muted);
+}
+::deep .text-secondary {
+  color: var(--ui-muted) !important;
+}

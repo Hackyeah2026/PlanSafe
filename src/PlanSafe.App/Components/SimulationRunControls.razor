@@ -1,0 +1,19 @@
+@namespace PlanSafe.App.Components
+<div class="simulation-run-controls" role="group" aria-label="Simulation controls">
+    <AppButton data-testid="toggle" Tone="@(IsRunning ? ButtonTone.Danger : ButtonTone.Success)" Disabled="@(!Ready)" OnClick="OnToggle">@(IsRunning ? "Zatrzymaj" : "Uruchom")</AppButton>
+    <AppButton Disabled="@(!Ready || IsRunning)" OnClick="OnStep">Krok</AppButton>
+    <AppButton data-testid="reset" Disabled="@(!Ready)" OnClick="OnReset">Reset Agenci</AppButton>
+    <AppButton Tone="ButtonTone.Primary" Disabled="@(!Ready || IsPublishing)" OnClick="OnPublish"><UiIcon Kind="UiIconKind.Phone" /> @(IsPublishing ? "Publikowanie..." : "Zatwierdź Plan & Kod QR")</AppButton>
+    <AppButton Pressed="ShowStats" OnClick="OnStatistics">Statistics</AppButton>
+</div>
+@code {
+    [Parameter] public bool Ready { get; set; }
+    [Parameter] public bool IsRunning { get; set; }
+    [Parameter] public bool IsPublishing { get; set; }
+    [Parameter] public bool ShowStats { get; set; }
+    [Parameter] public EventCallback OnToggle { get; set; }
+    [Parameter] public EventCallback OnStep { get; set; }
+    [Parameter] public EventCallback OnReset { get; set; }
+    [Parameter] public EventCallback OnPublish { get; set; }
+    [Parameter] public EventCallback OnStatistics { get; set; }
+}

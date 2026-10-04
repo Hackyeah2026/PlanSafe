@@ -1,0 +1,16 @@
+.simulation-workspace {
+  min-width: 0;
+  background: var(--ui-base);
+  padding: 80px 16px 16px;
+}
+
+/* Wrap actions rather than making the viewport horizontally scrollable. */
+.simulation-workspace ::deep .app-button {
+  margin: 4px 0;
+}
+
+@media (max-width: 991.98px) {
+  .simulation-workspace ::deep .surface-panel {
+    padding: var(--ui-space-3);
+  }
+}

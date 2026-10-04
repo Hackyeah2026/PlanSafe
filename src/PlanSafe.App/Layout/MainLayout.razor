@@ -1,47 +1,7 @@
 @inherits LayoutComponentBase
-@inject NavigationManager Navigation
 
-@if (IsEvacuate)
-{
-    <main class="evac-standalone-container">
-        @Body
-    </main>
-}
-else
-{
-    <div class="page">
-        <div class="sidebar">
-            <NavMenu />
-        </div>
+<GlobalMenu />
 
-        <main>
-            <div class="top-row px-4">
-                <div class="brand-tag">
-                    <span class="pulse-indicator"></span>
-                    <span class="brand-text">PlanSafe System</span>
-                </div>
-            </div>
-
-            <article class="content-viewport">
-                @Body
-            </article>
-        </main>
-    </div>
-}
-
-@code {
-    private bool IsEvacuate
-    {
-        get
-        {
-            var relative = Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0].Trim('/');
-            return relative.Equals("evacuate", StringComparison.OrdinalIgnoreCase)
-                || relative.StartsWith("evacuate/", StringComparison.OrdinalIgnoreCase);
-        }
-    }
-
-    protected override void OnInitialized()
-    {
-        Navigation.LocationChanged += (_, _) => InvokeAsync(StateHasChanged);
-    }
-}
+<main class="content-viewport">
+    @Body
+</main>

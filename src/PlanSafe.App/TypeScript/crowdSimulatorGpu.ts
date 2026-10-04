@@ -1,6 +1,16 @@
 /// <reference types="@webgpu/types" />
 
+import {
+  impassablePotential,
+  rasterizeObstacles,
+  seedPotentialField,
+  solvePotentialField,
+  type PotentialSink,
+  type Rectangle,
+} from "./potentialField.js";
+
 import type { CoreCommandValues } from "./crowdCoreCommand.js";
+import { GpuAgentRenderer } from "./gpuAgentRenderer.js";
 import {
   type BrowserCoreCommand,
   type ISimulationEngine,
@@ -19,6 +29,19 @@ export function isWebGpuSupported(): boolean {
     typeof navigator.gpu !== "undefined" &&
     typeof navigator.gpu.requestAdapter === "function"
   );
+}
+
+export interface MapGpuSnapshot {
+  count: number;
+  granulation: number;
+  socialRepulsionWeight: number;
+  columns: number;
+  rows: number;
+  cellSize: number;
+  scenario: Uint8Array;
+  agents: Uint8Array;
+  fields: Uint8Array;
+  blocked: Uint8Array;
 }
 
 // --- WGSL Compute Shaders ---
@@ -63,6 +86,10 @@ struct SimParams {
     mapRows: u32,
     mapCellSize: f32,
     numExits: u32,
+    potCols: u32,
+    potRows: u32,
+    potCellSize: f32,
+    pad0: u32,
     pad1: u32,
     pad2: u32,
 };
@@ -134,6 +161,10 @@ struct SimParams {
     mapRows: u32,
     mapCellSize: f32,
     numExits: u32,
+    potCols: u32,
+    potRows: u32,
+    potCellSize: f32,
+    pad0: u32,
     pad1: u32,
     pad2: u32,
 };
@@ -142,6 +173,15 @@ struct SimParams {
 @group(0) @binding(1) var<storage, read_write> rawDensity: array<atomic<u32>>;
 @group(0) @binding(2) var<uniform> params: SimParams;
 
+fn addDensity(idx: u32, mass: f32) {
+    var old = atomicLoad(&rawDensity[idx]);
+    loop {
+        let result = atomicCompareExchangeWeak(&rawDensity[idx], old, bitcast<u32>(bitcast<f32>(old) + mass));
+        if (result.exchanged) { break; }
+        old = result.old_value;
+    }
+}
+
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let i = global_id.x;
@@ -149,16 +189,103 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let agent = agents[i];
     if (agent.flags == 0u) { return; }
 
-    let cellW = params.worldWidth / 100.0;
-    let cellH = params.worldHeight / 100.0;
-    let invCellArea = 1.0 / (cellW * cellH);
+    let pCols = params.potCols;
+    let pRows = params.potRows;
+    let invCell = 1.0 / params.potCellSize;
+    let invCellArea = invCell * invCell;
 
-    let col = clamp(u32(max(agent.pos.x, 0.0) / cellW), 0u, 99u);
-    let row = clamp(u32(max(agent.pos.y, 0.0) / cellH), 0u, 99u);
-    let idx = row * 100u + col;
+    if (params.granulation >= 16u) {
+        let m = invCellArea * f32(params.granulation);
+        let u = agent.pos.x * invCell - 0.5;
+        let v = agent.pos.y * invCell - 0.5;
+        let c0 = i32(floor(u));
+        let r0 = i32(floor(v));
+        let s = clamp(u - f32(c0), 0.0, 1.0);
+        let t = clamp(v - f32(r0), 0.0, 1.0);
 
-    let mass = u32(round(invCellArea * f32(params.granulation) * 1000.0));
-    atomicAdd(&rawDensity[idx], mass);
+        let w00 = m * (1.0 - s) * (1.0 - t);
+        let w10 = m * s * (1.0 - t);
+        let w01 = m * (1.0 - s) * t;
+        let w11 = m * s * t;
+
+        let maxC = i32(pCols) - 1;
+        let maxR = i32(pRows) - 1;
+
+        if (c0 >= 0 && c0 <= maxC && r0 >= 0 && r0 <= maxR && w00 > 0.0) {
+            addDensity(u32(r0) * pCols + u32(c0), w00);
+        }
+        if (c0 + 1 >= 0 && c0 + 1 <= maxC && r0 >= 0 && r0 <= maxR && w10 > 0.0) {
+            addDensity(u32(r0) * pCols + u32(c0 + 1), w10);
+        }
+        if (c0 >= 0 && c0 <= maxC && r0 + 1 >= 0 && r0 + 1 <= maxR && w01 > 0.0) {
+            addDensity(u32(r0 + 1) * pCols + u32(c0), w01);
+        }
+        if (c0 + 1 >= 0 && c0 + 1 <= maxC && r0 + 1 >= 0 && r0 + 1 <= maxR && w11 > 0.0) {
+            addDensity(u32(r0 + 1) * pCols + u32(c0 + 1), w11);
+        }
+    } else {
+        let col = i32(floor(agent.pos.x * invCell));
+        let row = i32(floor(agent.pos.y * invCell));
+        if (col >= 0 && col < i32(pCols) && row >= 0 && row < i32(pRows)) {
+            let idx = u32(row) * pCols + u32(col);
+            let mass = invCellArea * f32(params.granulation);
+            addDensity(idx, mass);
+        }
+    }
+}
+`;
+
+const decodeDensityShader = `
+@group(0) @binding(0) var<storage, read_write> rawDensity: array<atomic<u32>>;
+@group(0) @binding(1) var<storage, read_write> density: array<f32>;
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) id: vec3<u32>) {
+    if (id.x < arrayLength(&density)) { density[id.x] = bitcast<f32>(atomicLoad(&rawDensity[id.x])); }
+}
+`;
+
+const smoothDensityOnlyShader = `
+struct SimParams {
+    worldWidth: f32,
+    worldHeight: f32,
+    dt: f32,
+    socialWeight: f32,
+    agentCount: u32,
+    gridCols: u32,
+    gridRows: u32,
+    maxPerCell: u32,
+    obs1: vec4<f32>,
+    obs2: vec4<f32>,
+    exitZone: vec4<f32>,
+    granulation: u32,
+    isMap: u32,
+    mapCols: u32,
+    mapRows: u32,
+    mapCellSize: f32,
+    numExits: u32,
+    potCols: u32,
+    potRows: u32,
+    potCellSize: f32,
+    pad0: u32,
+    pad1: u32,
+    pad2: u32,
+};
+
+
+@group(0) @binding(0) var<storage, read> source: array<f32>;
+@group(0) @binding(1) var<storage, read_write> smoothedTarget: array<f32>;
+@group(0) @binding(2) var<uniform> params: SimParams;
+@compute @workgroup_size(16, 16)
+fn main(@builtin(global_invocation_id) id: vec3<u32>) {
+    let col = id.x; let row = id.y;
+    let cols = params.potCols; let rows = params.potRows;
+    if (col >= cols || row >= rows) { return; }
+    let idx = row * cols + col;
+    let left = row * cols + max(1u, col) - 1u;
+    let right = row * cols + min(cols - 1u, col + 1u);
+    let top = (max(1u, row) - 1u) * cols + col;
+    let bottom = min(rows - 1u, row + 1u) * cols + col;
+    smoothedTarget[idx] = 0.50 * source[idx] + 0.125 * (source[left] + source[right] + source[top] + source[bottom]);
 }
 `;
 
@@ -181,83 +308,34 @@ struct SimParams {
     mapRows: u32,
     mapCellSize: f32,
     numExits: u32,
+    potCols: u32,
+    potRows: u32,
+    potCellSize: f32,
+    pad0: u32,
     pad1: u32,
     pad2: u32,
 };
 
-@group(0) @binding(0) var<storage, read_write> rawDensity: array<atomic<u32>>;
-@group(0) @binding(1) var<storage, read_write> smoothedDensity: array<f32>;
+
+@group(0) @binding(0) var<storage, read> density: array<f32>;
+@group(0) @binding(1) var<storage, read> sinkProtected: array<u32>;
 @group(0) @binding(2) var<storage, read_write> penalty: array<f32>;
 @group(0) @binding(3) var<storage, read> blocked: array<u32>;
 @group(0) @binding(4) var<uniform> params: SimParams;
-
+@group(0) @binding(5) var<storage, read_write> state: array<atomic<u32>>;
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
-    let col = id.x;
-    let row = id.y;
-    if (col >= 100u || row >= 100u) { return; }
-    let idx = row * 100u + col;
-
-    let cPrev = max(1u, col) - 1u;
-    let cNext = min(99u, col + 1u);
-    let rPrev = max(1u, row) - 1u;
-    let rNext = min(99u, row + 1u);
-
-    let center = f32(atomicLoad(&rawDensity[idx])) * 0.001;
-    let left = f32(atomicLoad(&rawDensity[row * 100u + cPrev])) * 0.001;
-    let right = f32(atomicLoad(&rawDensity[row * 100u + cNext])) * 0.001;
-    let top = f32(atomicLoad(&rawDensity[rPrev * 100u + col])) * 0.001;
-    let bottom = f32(atomicLoad(&rawDensity[rNext * 100u + col])) * 0.001;
-
-    let rho = 0.50 * center + 0.125 * (left + right + top + bottom);
-    smoothedDensity[idx] = rho;
-
-    // Sink protection for exit zone
-    let cellW = params.worldWidth / 100.0;
-    let cellH = params.worldHeight / 100.0;
-    let ez = params.exitZone;
-    let exitMinCol = clamp(u32(max(0.0, ez.x - 2.5 * cellW) / cellW), 0u, 99u);
-    let exitMaxCol = clamp(u32((ez.x + ez.z + 2.5 * cellW) / cellW), 0u, 99u);
-    let exitMinRow = clamp(u32(max(0.0, ez.y - 2.5 * cellH) / cellH), 0u, 99u);
-    let exitMaxRow = clamp(u32((ez.y + ez.w + 2.5 * cellH) / cellH), 0u, 99u);
-
-    if (blocked[idx] != 0u || (row >= exitMinRow && row <= exitMaxRow && col >= exitMinCol && col <= exitMaxCol)) {
-        penalty[idx] = 0.0;
-        return;
-    }
-
+    if (id.x >= params.potCols || id.y >= params.potRows) { return; }
+    let idx = id.y * params.potCols + id.x;
+    if (blocked[idx] != 0u || sinkProtected[idx] != 0u) { penalty[idx] = 0.0; return; }
+    let rho = density[idx];
     var targetPenalty = 0.0;
     if (rho > 0.80) {
         let excess = rho - 0.80;
         targetPenalty = min(120.0, excess * 6.0 + excess * excess * 2.0);
     }
     penalty[idx] = 0.70 * penalty[idx] + 0.30 * targetPenalty;
-}
-`;
-
-const smoothDensityOnlyShader = `
-@group(0) @binding(0) var<storage, read_write> rawDensity: array<atomic<u32>>;
-@group(0) @binding(1) var<storage, read_write> smoothedDensity: array<f32>;
-
-@compute @workgroup_size(16, 16)
-fn main(@builtin(global_invocation_id) id: vec3<u32>) {
-    let col = id.x;
-    let row = id.y;
-    if (col >= 100u || row >= 100u) { return; }
-    let idx = row * 100u + col;
-
-    let cPrev = max(1u, col) - 1u;
-    let cNext = min(99u, col + 1u);
-    let rPrev = max(1u, row) - 1u;
-    let rNext = min(99u, row + 1u);
-
-    let center = f32(atomicLoad(&rawDensity[idx])) * 0.001;
-    let left = f32(atomicLoad(&rawDensity[row * 100u + cPrev])) * 0.001;
-    let right = f32(atomicLoad(&rawDensity[row * 100u + cNext])) * 0.001;
-    let top = f32(atomicLoad(&rawDensity[rPrev * 100u + col])) * 0.001;
-    let bottom = f32(atomicLoad(&rawDensity[rNext * 100u + col])) * 0.001;
-
-    smoothedDensity[idx] = 0.50 * center + 0.125 * (left + right + top + bottom);
+    if (penalty[idx] > 0.5) { atomicStore(&state[0], 1u); }
 }
 `;
 
@@ -439,37 +517,25 @@ struct SimParams {
     mapRows: u32,
     mapCellSize: f32,
     numExits: u32,
+    potCols: u32,
+    potRows: u32,
+    potCellSize: f32,
+    pad0: u32,
     pad1: u32,
     pad2: u32,
 };
 
-@group(0) @binding(0) var<storage, read_write> pot: array<f32>;
-@group(0) @binding(1) var<storage, read> blocked: array<u32>;
-@group(0) @binding(2) var<uniform> params: SimParams;
 
+@group(0) @binding(0) var<storage, read_write> pot: array<f32>;
+@group(0) @binding(1) var<storage, read> seeds: array<f32>;
+@group(0) @binding(2) var<uniform> params: SimParams;
+@group(0) @binding(3) var<storage, read> staticPot: array<f32>;
+@group(0) @binding(4) var<storage, read_write> state: array<atomic<u32>>;
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
-    let col = id.x;
-    let row = id.y;
-    if (col >= 100u || row >= 100u) { return; }
-    let idx = row * 100u + col;
-
-    if (blocked[idx] != 0u) {
-        pot[idx] = 1e6;
-        return;
-    }
-
-    let cellW = params.worldWidth / 100.0;
-    let cellH = params.worldHeight / 100.0;
-    let wx = (f32(col) + 0.5) * cellW;
-    let wy = (f32(row) + 0.5) * cellH;
-    let ez = params.exitZone;
-
-    if (wx >= ez.x && wx <= ez.x + ez.z && wy >= ez.y && wy <= ez.y + ez.w) {
-        pot[idx] = 0.0;
-    } else {
-        pot[idx] = 1e6;
-    }
+    if (id.x >= params.potCols || id.y >= params.potRows) { return; }
+    let idx = id.y * params.potCols + id.x;
+    pot[idx] = select(staticPot[idx], seeds[idx], atomicLoad(&state[0]) != 0u);
 }
 `;
 
@@ -492,70 +558,46 @@ struct SimParams {
     mapRows: u32,
     mapCellSize: f32,
     numExits: u32,
+    potCols: u32,
+    potRows: u32,
+    potCellSize: f32,
+    pad0: u32,
     pad1: u32,
     pad2: u32,
 };
+
 
 @group(0) @binding(0) var<storage, read> inPot: array<f32>;
 @group(0) @binding(1) var<storage, read_write> outPot: array<f32>;
 @group(0) @binding(2) var<storage, read> penalty: array<f32>;
 @group(0) @binding(3) var<storage, read> blocked: array<u32>;
 @group(0) @binding(4) var<uniform> params: SimParams;
-
+@group(0) @binding(5) var<storage, read_write> state: array<atomic<u32>>;
 const dCol = array<i32, 8>(1, -1, 0, 0, 1, 1, -1, -1);
 const dRow = array<i32, 8>(0, 0, 1, -1, 1, -1, 1, -1);
-
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) id: vec3<u32>) {
-    let col = id.x;
-    let row = id.y;
-    if (col >= 100u || row >= 100u) { return; }
-    let idx = row * 100u + col;
-
-    if (blocked[idx] != 0u) {
-        outPot[idx] = 1e6;
-        return;
-    }
-
-    let cellW = params.worldWidth / 100.0;
-    let cellH = params.worldHeight / 100.0;
-    let wx = (f32(col) + 0.5) * cellW;
-    let wy = (f32(row) + 0.5) * cellH;
-    let ez = params.exitZone;
-
-    if (wx >= ez.x && wx <= ez.x + ez.z && wy >= ez.y && wy <= ez.y + ez.w) {
-        outPot[idx] = 0.0;
-        return;
-    }
-
-    let step = cellW;
-    let diagStep = cellW * 1.41421356;
-
-    let currPen = penalty[idx];
+    let col = id.x; let row = id.y;
+    let cols = params.potCols; let rows = params.potRows;
+    if (col >= cols || row >= rows) { return; }
+    let idx = row * cols + col;
     var best = inPot[idx];
-
-    for (var i = 0u; i < 8u; i++) {
-        let nCol = i32(col) + dCol[i];
-        let nRow = i32(row) + dRow[i];
-        if (nCol >= 0 && nCol < 100 && nRow >= 0 && nRow < 100) {
-            let nIdx = u32(nRow * 100 + nCol);
-            if (blocked[nIdx] == 0u) {
-                if (i >= 4u) {
-                    if (blocked[row * 100u + u32(nCol)] != 0u && blocked[u32(nRow) * 100u + col] != 0u) {
-                        continue;
-                    }
-                }
-                let avgPen = 0.5 * (currPen + penalty[nIdx]);
-                let edgeStep = select(diagStep, step, i < 4u);
-                let edgeCost = edgeStep * (1.0 + avgPen);
-                let cand = inPot[nIdx] + edgeCost;
-                if (cand < best) {
-                    best = cand;
-                }
-            }
+    if (atomicLoad(&state[0]) != 0u && blocked[idx] == 0u) {
+        for (var i = 0u; i < 8u; i++) {
+            let nc = i32(col) + dCol[i]; let nr = i32(row) + dRow[i];
+            if (nc < 0 || nc >= i32(cols) || nr < 0 || nr >= i32(rows)) { continue; }
+            let ni = u32(nr) * cols + u32(nc);
+            if (blocked[ni] != 0u) { continue; }
+            if (i >= 4u && blocked[row * cols + u32(nc)] != 0u && blocked[u32(nr) * cols + col] != 0u) { continue; }
+            let edgeStep = select(params.potCellSize, params.potCellSize * 1.41421356, i >= 4u);
+            let avgPenalty = 0.5 * (penalty[idx] + penalty[ni]);
+            let edgeCost = edgeStep * (1.0 + avgPenalty);
+            let candidate = inPot[ni] + edgeCost;
+            best = min(best, candidate);
         }
     }
     outPot[idx] = best;
+    if (best < inPot[idx]) { atomicStore(&state[1], 1u); }
 }
 `;
 
@@ -587,6 +629,10 @@ struct SimParams {
     mapRows: u32,
     mapCellSize: f32,
     numExits: u32,
+    potCols: u32,
+    potRows: u32,
+    potCellSize: f32,
+    pad0: u32,
     pad1: u32,
     pad2: u32,
 };
@@ -605,10 +651,10 @@ const rOffsets = array<i32, 8>(-1, 1, 0, 0, -1, -1, 1, 1);
 
 // Bilinear gradient interpolation matching C# GetFlowDirection exactly
 fn getFlowDirection(pos: vec2<f32>) -> vec2<f32> {
-    let pCols = select(100u, params.mapCols, params.isMap == 1u);
-    let pRows = select(100u, params.mapRows, params.isMap == 1u);
-    let invCellW = f32(pCols) / params.worldWidth;
-    let invCellH = f32(pRows) / params.worldHeight;
+    let pCols = params.potCols;
+    let pRows = params.potRows;
+    let invCellW = 1.0 / params.potCellSize;
+    let invCellH = 1.0 / params.potCellSize;
 
     let u = pos.x * invCellW - 0.5;
     let v = pos.y * invCellH - 0.5;
@@ -629,7 +675,7 @@ fn getFlowDirection(pos: vec2<f32>) -> vec2<f32> {
     let p01 = potentialGrid[idx01];
     let p11 = potentialGrid[idx11];
 
-    let maxValidPot = 900000.0;
+    let maxValidPot = 1.7014117e38;
     let v00 = p00 < maxValidPot;
     let v10 = p10 < maxValidPot;
     let v01 = p01 < maxValidPot;
@@ -669,8 +715,8 @@ fn getFlowDirection(pos: vec2<f32>) -> vec2<f32> {
     var flowY = 0.0;
 
     if (v00 && v10 && v01 && v11) {
-        flowX = (1.0 - t) * (p00 - p10) + t * (p01 - p11);
-        flowY = (1.0 - s) * (p00 - p01) + s * (p10 - p11);
+        flowX = ((1.0 - t) * (p00 - p10) + t * (p01 - p11)) * invCellW;
+        flowY = ((1.0 - s) * (p00 - p01) + s * (p10 - p11)) * invCellH;
     } else {
         var gradX0 = 0.0;
         var hasGX0 = false;
@@ -685,11 +731,11 @@ fn getFlowDirection(pos: vec2<f32>) -> vec2<f32> {
         else if (!v01 && v11) { gradX1 = 1.0; hasGX1 = true; }
 
         if (hasGX0 && hasGX1) {
-            flowX = (1.0 - t) * gradX0 + t * gradX1;
+            flowX = ((1.0 - t) * gradX0 + t * gradX1) * invCellW;
         } else if (hasGX0) {
-            flowX = gradX0;
+            flowX = gradX0 * invCellW;
         } else if (hasGX1) {
-            flowX = gradX1;
+            flowX = gradX1 * invCellW;
         }
 
         var gradY0 = 0.0;
@@ -705,11 +751,11 @@ fn getFlowDirection(pos: vec2<f32>) -> vec2<f32> {
         else if (!v10 && v11) { gradY1 = 1.0; hasGY1 = true; }
 
         if (hasGY0 && hasGY1) {
-            flowY = (1.0 - s) * gradY0 + s * gradY1;
+            flowY = ((1.0 - s) * gradY0 + s * gradY1) * invCellH;
         } else if (hasGY0) {
-            flowY = gradY0;
+            flowY = gradY0 * invCellH;
         } else if (hasGY1) {
-            flowY = gradY1;
+            flowY = gradY1 * invCellH;
         }
     }
 
@@ -717,16 +763,25 @@ fn getFlowDirection(pos: vec2<f32>) -> vec2<f32> {
     if (gradMag > 0.0001) {
         return vec2<f32>(flowX / gradMag, flowY / gradMag);
     }
+    var bestDist = 3.4028234e38;
+    var direction = vec2<f32>(1.0, 0.0);
+    for (var e = 0u; e < params.numExits; e++) {
+        let z = exits[e];
+        let center = select(z.xy + z.zw * 0.5, z.xy, params.isMap == 1u);
+        let delta = center - pos;
+        let dist = dot(delta, delta);
+        if (dist < bestDist) { bestDist = dist; direction = delta; }
+    }
+    if (bestDist > 0.00000001) { return normalize(direction); }
     return vec2<f32>(1.0, 0.0);
 }
 
 fn sampleSmoothedDensity(pos: vec2<f32>) -> f32 {
-    let pCols = select(100u, params.mapCols, params.isMap == 1u);
-    let pRows = select(100u, params.mapRows, params.isMap == 1u);
-    let invCellW = f32(pCols) / params.worldWidth;
-    let invCellH = f32(pRows) / params.worldHeight;
-    let u = pos.x * invCellW - 0.5;
-    let v = pos.y * invCellH - 0.5;
+    let pCols = params.potCols;
+    let pRows = params.potRows;
+    let invCell = 1.0 / params.potCellSize;
+    let u = pos.x * invCell - 0.5;
+    let v = pos.y * invCell - 0.5;
     let c0 = i32(floor(u));
     let r0 = i32(floor(v));
     let s = clamp(u - f32(c0), 0.0, 1.0);
@@ -951,10 +1006,10 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
 
         // 3. Corridor check matching C#
-        let corridorMinX = params.worldWidth * 0.35 - 0.5;
-        let corridorMaxX = params.worldWidth * 0.47 + 1.0;
-        let corridorMinY = params.worldHeight * 0.455;
-        let corridorMaxY = params.worldHeight * 0.545;
+        let corridorMinX = min(params.obs1.x, params.obs2.x) - 0.5;
+        let corridorMaxX = max(params.obs1.x + params.obs1.z, params.obs2.x + params.obs2.z) + 1.0;
+        let corridorMinY = min(params.obs1.y + params.obs1.w, params.obs2.y + params.obs2.w);
+        let corridorMaxY = max(params.obs1.y, params.obs2.y);
         isInsideCorridor = agent.pos.x >= corridorMinX && agent.pos.x <= corridorMaxX &&
                            agent.pos.y >= corridorMinY && agent.pos.y <= corridorMaxY;
     }
@@ -1099,6 +1154,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         effectiveHeadway = select(0.44 + max(0.0, surfaceGap / scaleSqrtG), closestForwardDist, params.granulation == 1u);
     }
     let localDensity = calculateEffectiveDensity(effectiveForwardKernel, effectiveHeadway);
+    agent.pad = bitcast<u32>(localDensity);
 
     // Total pressure factor for social repulsion
     let crowdPressureFactor = 1.0 + min(3.5, max(0.0, (max(localDensity, totalRadialDensity) - 0.70) * 1.2));
@@ -1325,7 +1381,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
 
         // Evacuation check: agent reached an exit
-        let catchMargin = params.mapCellSize;
+        let catchMargin = params.potCellSize;
         for (var e = 0u; e < params.numExits; e++) {
             let exit = exits[e];
             let reach = exit.z + catchMargin;
@@ -1393,15 +1449,25 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
     }
 
+    if (params.isMap == 0u) {
+        let margin = max(2.5, params.potCellSize * 0.5);
+        for (var e = 0u; e < params.numExits; e++) {
+            let z = exits[e];
+            if (all(agent.pos >= z.xy - vec2<f32>(margin)) && all(agent.pos <= z.xy + z.zw + vec2<f32>(margin))) {
+                agent.flags = 0u; agent.radius = 0.0; agent.vel = vec2<f32>(0.0);
+                agents[i] = agent; return;
+            }
+        }
+    }
     agent.pos = clamp(agent.pos, vec2<f32>(agent.radius), vec2<f32>(params.worldWidth - agent.radius, params.worldHeight - agent.radius));
 
     agents[i] = agent;
 }
 `;
 
-// --- Potential Field Generator (8-Direction BFS Flood Fill matching C# PotentialFieldGrid.cs) ---
+// --- Potential Field Generator (16-Direction Dijkstra Flood Fill matching C# PotentialFieldGrid.cs) ---
 
-function buildPotentialField(
+export function buildPotentialField(
   worldWidth: number,
   worldHeight: number,
   obs1: [number, number, number, number],
@@ -1409,105 +1475,14 @@ function buildPotentialField(
   exitZone: [number, number, number, number],
   cols = 100,
   rows = 100,
+  cellSize?: number,
 ): Float32Array {
-  const cellW = worldWidth / cols;
-  const cellH = worldHeight / rows;
-  const totalCells = cols * rows;
-
-  const blocked = new Uint8Array(totalCells);
-  for (let r = 0; r < rows; r++) {
-    const wy = (r + 0.5) * cellH;
-    for (let c = 0; c < cols; c++) {
-      const wx = (c + 0.5) * cellW;
-      const inObs1 =
-        wx > obs1[0] + 0.001 &&
-        wx < obs1[0] + obs1[2] - 0.001 &&
-        wy > obs1[1] + 0.001 &&
-        wy < obs1[1] + obs1[3] - 0.001;
-      const inObs2 =
-        wx > obs2[0] + 0.001 &&
-        wx < obs2[0] + obs2[2] - 0.001 &&
-        wy > obs2[1] + 0.001 &&
-        wy < obs2[1] + obs2[3] - 0.001;
-      if (inObs1 || inObs2) {
-        blocked[r * cols + c] = 1;
-      }
-    }
-  }
-
-  // 1. Static potential field flood fill (matching C# PotentialFieldGrid.BuildStaticField)
-  const grid = new Float32Array(totalCells).fill(1e6);
-  const queue = new Int32Array(totalCells * 4);
-  let head = 0;
-  let tail = 0;
-
-  const minCol = Math.max(
-    0,
-    Math.min(cols - 1, Math.floor(exitZone[0] / cellW)),
-  );
-  const maxCol = Math.max(
-    0,
-    Math.min(cols - 1, Math.floor((exitZone[0] + exitZone[2]) / cellW)),
-  );
-  const minRow = Math.max(
-    0,
-    Math.min(rows - 1, Math.floor(exitZone[1] / cellH)),
-  );
-  const maxRow = Math.max(
-    0,
-    Math.min(rows - 1, Math.floor((exitZone[1] + exitZone[3]) / cellH)),
-  );
-
-  for (let r = minRow; r <= maxRow; r++) {
-    for (let c = minCol; c <= maxCol; c++) {
-      const idx = r * cols + c;
-      if (!blocked[idx]) {
-        grid[idx] = 0;
-        queue[tail++] = idx;
-      }
-    }
-  }
-
-  const dCol8 = [1, -1, 0, 0, 1, 1, -1, -1];
-  const dRow8 = [0, 0, 1, -1, 1, -1, 1, -1];
-  const stepCosts = [
-    cellW,
-    cellW,
-    cellW,
-    cellW,
-    cellW * 1.41421356,
-    cellW * 1.41421356,
-    cellW * 1.41421356,
-    cellW * 1.41421356,
-  ];
-
-  while (head < tail) {
-    const curr = queue[head++];
-    const c = curr % cols;
-    const r = (curr / cols) | 0;
-    const pot = grid[curr];
-    for (let i = 0; i < 8; i++) {
-      const nc = c + dCol8[i];
-      const nr = r + dRow8[i];
-      if (nc >= 0 && nc < cols && nr >= 0 && nr < rows) {
-        const ni = nr * cols + nc;
-        if (blocked[ni]) continue;
-
-        // Diagonal corner-cutting prevention matching C#
-        if (i >= 4) {
-          if (blocked[r * cols + nc] && blocked[nr * cols + c]) continue;
-        }
-
-        const cand = pot + stepCosts[i];
-        if (cand < grid[ni]) {
-          grid[ni] = cand;
-          queue[tail++] = ni;
-        }
-      }
-    }
-  }
-
-  return grid;
+  const size = cellSize ?? worldWidth / cols;
+  const blocked = rasterizeObstacles(cols, rows, size, [obs1, obs2]);
+  const seeds = seedPotentialField(cols, rows, size, blocked, [
+    { zone: exitZone, potential: 0 },
+  ]);
+  return solvePotentialField(cols, rows, size, blocked, seeds);
 }
 
 // --- Map Scenario Helpers ---
@@ -1657,7 +1632,7 @@ export function buildMapPotentialField(
 ): Float32Array {
   const { columns, rows, cellSize, exits, blocked } = scenario;
   const totalCells = columns * rows;
-  const field = new Float32Array(totalCells).fill(1e6);
+  const field = new Float32Array(totalCells).fill(impassablePotential);
 
   const heapIdx = new Int32Array(totalCells * 4);
   const heapCost = new Float32Array(totalCells * 4);
@@ -1969,6 +1944,7 @@ export class GpuSimulationEngine implements ISimulationEngine {
   private binPipeline: GPUComputePipeline | undefined;
   private clearDensityPipeline: GPUComputePipeline | undefined;
   private accumulateDensityPipeline: GPUComputePipeline | undefined;
+  private decodeDensityPipeline: GPUComputePipeline | undefined;
   private updatePenaltyPipeline: GPUComputePipeline | undefined;
   private smoothDensityOnlyPipeline: GPUComputePipeline | undefined;
   private initRelaxPipeline: GPUComputePipeline | undefined;
@@ -1982,6 +1958,11 @@ export class GpuSimulationEngine implements ISimulationEngine {
   private paramsBuffer: GPUBuffer | undefined;
   private rawDensityBuffer: GPUBuffer | undefined;
   private smoothedDensityBuffer: GPUBuffer | undefined;
+  private densityScratchBuffer: GPUBuffer | undefined;
+  private seedBuffer: GPUBuffer | undefined;
+  private protectedBuffer: GPUBuffer | undefined;
+  private relaxStateBuffer: GPUBuffer | undefined;
+  private relaxStateStaging: GPUBuffer | undefined;
   private penaltyBuffer: GPUBuffer | undefined;
   private blockedBuffer: GPUBuffer | undefined;
   private staticPotentialBuffer: GPUBuffer | undefined;
@@ -1994,6 +1975,8 @@ export class GpuSimulationEngine implements ISimulationEngine {
   private binBindGroup: GPUBindGroup | undefined;
   private densityBindGroup: GPUBindGroup | undefined;
   private accumulateDensityBindGroup: GPUBindGroup | undefined;
+  private decodeDensityBindGroup: GPUBindGroup | undefined;
+  private smoothDensityReverseBindGroup: GPUBindGroup | undefined;
   private penaltyBindGroup: GPUBindGroup | undefined;
   private smoothDensityOnlyBindGroup: GPUBindGroup | undefined;
   private initRelaxBindGroup: GPUBindGroup | undefined;
@@ -2024,9 +2007,10 @@ export class GpuSimulationEngine implements ISimulationEngine {
   private activeTick = 0;
   private dispatchSequence = 0;
   private dynamicFieldTimer = 0.2;
-  private lastDynamicFieldWallTime = 0;
+  private initialDensityPending = false;
   private inFlightBatches = 0;
   private inFlightWorkPromise: Promise<void> | null = null;
+  private tickWork: Promise<number> = Promise.resolve(0);
 
   private worldWidth = 200;
   private worldHeight = 200;
@@ -2044,6 +2028,9 @@ export class GpuSimulationEngine implements ISimulationEngine {
   private mapCols = 100;
   private mapRows = 100;
   private mapCellSize = 2.0;
+  private potCols = 100;
+  private potRows = 100;
+  private potCellSize = 2.0;
   private numExits = 1;
   private totalPeople = 0;
   private activeMapAgents = 0;
@@ -2056,9 +2043,293 @@ export class GpuSimulationEngine implements ISimulationEngine {
 
   private cpuValues: Float64Array | undefined;
   private isCapturing = false;
+  private agentRenderer?: GpuAgentRenderer;
+  private telemetryPipeline?: GPUComputePipeline;
+  private telemetryBuffer?: GPUBuffer;
+  private telemetryStaging?: GPUBuffer;
+  private telemetryGroups = 0;
+
+  async drawAgents(
+    width: number,
+    height: number,
+    scaleX: number,
+    scaleY: number,
+    offsetX: number,
+    offsetY: number,
+    minRadius: number,
+    granulation: number,
+    showWhiskers: boolean,
+    whiskerLength: number,
+  ): Promise<HTMLCanvasElement> {
+    await this.tickWork;
+    if (!this.device || !this.agentsBuffer)
+      throw new Error("GPU engine is not initialized.");
+    this.agentRenderer ??= new GpuAgentRenderer(this.device);
+    return this.agentRenderer.draw(
+      this.agentsBuffer,
+      this.activeCount,
+      width,
+      height,
+      scaleX,
+      scaleY,
+      offsetX,
+      offsetY,
+      minRadius,
+      granulation,
+      showWhiskers,
+      whiskerLength,
+    );
+  }
+
+  /** One 32-byte reduction per workgroup, sampled independently of rendering. */
+  async captureTelemetry() {
+    await this.tickWork;
+    if (!this.device || !this.agentsBuffer)
+      throw new Error("GPU engine is not initialized.");
+    this.telemetryPipeline ??= this.device.createComputePipeline({
+      layout: "auto",
+      compute: {
+        module: this.device.createShaderModule({
+          code: `
+        struct Agent { pos: vec2<f32>, vel: vec2<f32>, radius: f32,
+          desiredSpeed: f32, flags: u32, density: u32, };
+        @group(0) @binding(0) var<storage, read> agents: array<Agent>;
+        @group(0) @binding(1) var<storage, read_write> output: array<f32>;
+        struct Counts { unused: vec4<u32>, count: vec4<u32>, };
+        @group(0) @binding(2) var<uniform> params: Counts;
+        var<workgroup> moments: array<vec4<f32>, 64>;
+        var<workgroup> densities: array<vec2<f32>, 64>;
+        var<workgroup> liveCount: array<f32, 64>;
+        @compute @workgroup_size(64) fn main(
+          @builtin(global_invocation_id) id: vec3<u32>,
+          @builtin(local_invocation_index) lane: u32,
+          @builtin(workgroup_id) group: vec3<u32>) {
+          moments[lane] = vec4(0.); densities[lane] = vec2(0.); liveCount[lane] = 0.;
+          if (id.x < params.count.x) {
+            let agent = agents[id.x];
+            if (agent.flags != 0u && agent.radius > 0.001) {
+              let speed = length(agent.vel); let density = bitcast<f32>(agent.density);
+              moments[lane] = vec4(speed, speed * speed, density, density * density);
+              densities[lane] = vec2(density, 0.); liveCount[lane] = 1.;
+            }
+          }
+          workgroupBarrier();
+          for (var stride = 32u; stride > 0u; stride /= 2u) {
+            if (lane < stride) {
+              moments[lane] += moments[lane + stride];
+              densities[lane].x = max(densities[lane].x, densities[lane + stride].x);
+              liveCount[lane] += liveCount[lane + stride];
+            }
+            workgroupBarrier();
+          }
+          if (lane == 0u) {
+            let offset = group.x * 8u;
+            output[offset] = liveCount[0]; output[offset + 1u] = moments[0].x;
+            output[offset + 2u] = moments[0].y; output[offset + 3u] = moments[0].z;
+            output[offset + 4u] = moments[0].w; output[offset + 5u] = densities[0].x;
+          }
+        }`,
+        }),
+        entryPoint: "main",
+      },
+    });
+    const groups = Math.max(1, Math.ceil(this.activeCount / 64));
+    if (groups !== this.telemetryGroups) {
+      this.telemetryBuffer?.destroy();
+      this.telemetryStaging?.destroy();
+      this.telemetryGroups = groups;
+      this.telemetryBuffer = this.device.createBuffer({
+        size: groups * 32,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+      });
+      this.telemetryStaging = this.device.createBuffer({
+        size: groups * 32,
+        usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+      });
+    }
+    // SimParams.agentCount occupies bytes 16..31.
+    const bindGroup = this.device.createBindGroup({
+      layout: this.telemetryPipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: this.agentsBuffer } },
+        { binding: 1, resource: { buffer: this.telemetryBuffer! } },
+        {
+          binding: 2,
+          resource: { buffer: this.paramsBuffer!, offset: 0, size: 32 },
+        },
+      ],
+    });
+    const encoder = this.device.createCommandEncoder();
+    const pass = encoder.beginComputePass();
+    pass.setPipeline(this.telemetryPipeline);
+    pass.setBindGroup(0, bindGroup);
+    pass.dispatchWorkgroups(groups);
+    pass.end();
+    encoder.copyBufferToBuffer(
+      this.telemetryBuffer!,
+      0,
+      this.telemetryStaging!,
+      0,
+      groups * 32,
+    );
+    this.device.queue.submit([encoder.finish()]);
+    await this.telemetryStaging!.mapAsync(GPUMapMode.READ);
+    const values = new Float32Array(this.telemetryStaging!.getMappedRange());
+    let active = 0,
+      speed = 0,
+      speedSquared = 0,
+      density = 0,
+      densitySquared = 0,
+      peak = 0;
+    for (let i = 0; i < groups; i++) {
+      const offset = i * 8;
+      active += values[offset];
+      speed += values[offset + 1];
+      speedSquared += values[offset + 2];
+      density += values[offset + 3];
+      densitySquared += values[offset + 4];
+      peak = Math.max(peak, values[offset + 5]);
+    }
+    this.telemetryStaging!.unmap();
+    const meanSpeed = active ? speed / active : 0;
+    const meanDensity = active ? density / active : 0;
+    const evacuated = this.activeCount - active;
+    const evacuatedPeople =
+      active === 0
+        ? this.rawCount
+        : Math.min(this.rawCount, evacuated * this.granulation);
+    return {
+      simulationTime: this.simulationTime,
+      activeDots: active,
+      activeAgents: this.rawCount - evacuatedPeople,
+      evacuatedAgents: evacuatedPeople,
+      meanSpeed,
+      meanDensity,
+      peakDensity: peak,
+      speedStdDev: active
+        ? Math.sqrt(Math.max(0, speedSquared / active - meanSpeed ** 2))
+        : 0,
+      densityStdDev: active
+        ? Math.sqrt(Math.max(0, densitySquared / active - meanDensity ** 2))
+        : 0,
+    };
+  }
 
   get count(): number {
     return this.activeCount;
+  }
+
+  private obs1: [number, number, number, number] = [70, 36, 24, 56];
+  private obs2: [number, number, number, number] = [70, 108, 24, 56];
+  private exitZone: [number, number, number, number] = [184, 80, 12, 40];
+  private sinks: PotentialSink[] = [];
+  private weightDistance = 1.0;
+  private weightOccupancy = 0.0;
+  private multipleTargets = false;
+
+  private parseObstacle(o: any): [number, number, number, number] | null {
+    if (!o) return null;
+    if (Array.isArray(o) && o.length >= 4) {
+      return [Number(o[0]), Number(o[1]), Number(o[2]), Number(o[3])];
+    }
+    const x = Number(o.x ?? o.X);
+    const y = Number(o.y ?? o.Y);
+    const w = Number(o.width ?? o.Width ?? o.w ?? o.W);
+    const h = Number(o.height ?? o.Height ?? o.h ?? o.H);
+    if (
+      Number.isFinite(x) &&
+      Number.isFinite(y) &&
+      Number.isFinite(w) &&
+      Number.isFinite(h)
+    ) {
+      return [x, y, w, h];
+    }
+    return null;
+  }
+
+  private applyEnvironment(values?: CoreCommandValues): void {
+    if (this.isMapScenario) return;
+    const rawObs = (values as any)?.obstacles;
+    if (Array.isArray(rawObs) && rawObs.length > 0) {
+      const o0 = this.parseObstacle(rawObs[0]);
+      if (o0) this.obs1 = o0;
+      if (rawObs.length > 1) {
+        const o1 = this.parseObstacle(rawObs[1]);
+        if (o1) this.obs2 = o1;
+      }
+    } else if (this.worldWidth === 60 && this.worldHeight === 40) {
+      // Hala 60m preset matching C# InitDefaultEnvironment()
+      this.obs1 = [20.0, 0.0, 8.0, 14.0];
+      this.obs2 = [20.0, 26.0, 8.0, 14.0];
+    } else {
+      // Default formula for 200m, 500m, 1000m presets
+      this.obs1 = [
+        this.worldWidth * 0.35,
+        this.worldHeight * 0.18,
+        this.worldWidth * 0.12,
+        this.worldHeight * 0.28,
+      ];
+      this.obs2 = [
+        this.worldWidth * 0.35,
+        this.worldHeight * 0.54,
+        this.worldWidth * 0.12,
+        this.worldHeight * 0.28,
+      ];
+    }
+
+    const rawExit = (values as any)?.exitZone;
+    const rawTargets = (values as any)?.targets;
+    const parsedExit = this.parseObstacle(rawExit);
+    if (parsedExit) {
+      this.exitZone = parsedExit;
+    } else if (Array.isArray(rawTargets) && rawTargets.length > 0) {
+      const parsedTgt = this.parseObstacle(rawTargets[0]);
+      if (parsedTgt) this.exitZone = parsedTgt;
+    } else if (this.worldWidth === 60 && this.worldHeight === 40) {
+      this.exitZone = [56.0, 15.0, 4.0, 10.0];
+    } else {
+      this.exitZone = [
+        this.worldWidth * 0.92,
+        this.worldHeight * 0.4,
+        this.worldWidth * 0.06,
+        this.worldHeight * 0.2,
+      ];
+    }
+    if (typeof values?.weightDistance === "number")
+      this.weightDistance = values.weightDistance;
+    if (typeof values?.weightOccupancy === "number")
+      this.weightOccupancy = values.weightOccupancy;
+    const active = Array.isArray(rawTargets)
+      ? rawTargets.filter(
+          (t: any) =>
+            (t.isActive ?? t.IsActive ?? true) && this.parseObstacle(t),
+        )
+      : [];
+    const hasCapacity = active.some(
+      (t: any) =>
+        Number(t.currentOccupancy ?? t.CurrentOccupancy ?? 0) <
+        Number(t.capacity ?? t.Capacity ?? 1000),
+    );
+    this.sinks = active.map((t: any) => {
+      const cap = Math.max(1, Number(t.capacity ?? t.Capacity ?? 1000));
+      const occupancy = Number(t.currentOccupancy ?? t.CurrentOccupancy ?? 0);
+      const base =
+        ((Math.max(0, this.weightOccupancy) /
+          Math.max(0.001, this.weightDistance)) *
+          Math.max(1, this.worldWidth) *
+          occupancy) /
+        cap;
+      return {
+        zone: this.parseObstacle(t)!,
+        potential: Math.fround(
+          base + (occupancy >= cap && hasCapacity ? 100000 : 0),
+        ),
+      };
+    });
+    if (!Array.isArray(rawTargets) || rawTargets.length === 0)
+      this.sinks = [{ zone: this.exitZone, potential: 0 }];
+    this.numExits = this.sinks.length;
+    this.multipleTargets = Array.isArray(rawTargets) && rawTargets.length > 1;
   }
 
   private getAgentRadius(granulation: number): number {
@@ -2113,6 +2384,13 @@ export class GpuSimulationEngine implements ISimulationEngine {
     });
     const accDensityModule = this.device.createShaderModule({
       code: accumulateDensityShader,
+    });
+    const decodeDensityModule = this.device.createShaderModule({
+      code: decodeDensityShader,
+    });
+    this.decodeDensityPipeline = this.device.createComputePipeline({
+      layout: "auto",
+      compute: { module: decodeDensityModule, entryPoint: "main" },
     });
     const updatePenaltyModule = this.device.createShaderModule({
       code: updatePenaltyShader,
@@ -2203,9 +2481,9 @@ export class GpuSimulationEngine implements ISimulationEngine {
     // 2b. Adaptive KDE Grid Buffers
     this.ensureKdeGrid();
 
-    // 3. SimParams Uniform Buffer (112 bytes: aligned to 16 bytes)
+    // 3. SimParams Uniform Buffer (128 bytes: aligned to 16 bytes)
     this.paramsBuffer = this.device.createBuffer({
-      size: 112,
+      size: 128,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
@@ -2217,11 +2495,40 @@ export class GpuSimulationEngine implements ISimulationEngine {
     });
     this.smoothedDensityBuffer = this.device.createBuffer({
       size: potCells * 4,
+      usage:
+        GPUBufferUsage.STORAGE |
+        GPUBufferUsage.COPY_DST |
+        GPUBufferUsage.COPY_SRC,
+    });
+    this.densityScratchBuffer = this.device.createBuffer({
+      size: potCells * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    this.seedBuffer = this.device.createBuffer({
+      size: potCells * 4,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    this.protectedBuffer = this.device.createBuffer({
+      size: potCells * 4,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    this.relaxStateBuffer = this.device.createBuffer({
+      size: 8,
+      usage:
+        GPUBufferUsage.STORAGE |
+        GPUBufferUsage.COPY_SRC |
+        GPUBufferUsage.COPY_DST,
+    });
+    this.relaxStateStaging = this.device.createBuffer({
+      size: 8,
+      usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
     });
     this.penaltyBuffer = this.device.createBuffer({
       size: potCells * 4,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      usage:
+        GPUBufferUsage.STORAGE |
+        GPUBufferUsage.COPY_DST |
+        GPUBufferUsage.COPY_SRC,
     });
     this.blockedBuffer = this.device.createBuffer({
       size: potCells * 4,
@@ -2254,6 +2561,7 @@ export class GpuSimulationEngine implements ISimulationEngine {
       size: 64,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
+    this.applyEnvironment();
   }
 
   private updatePotentialGrid(): void {
@@ -2271,98 +2579,144 @@ export class GpuSimulationEngine implements ISimulationEngine {
       return;
     }
 
-    const obs1: [number, number, number, number] = [
-      this.worldWidth * 0.35,
-      this.worldHeight * 0.18,
-      this.worldWidth * 0.12,
-      this.worldHeight * 0.28,
-    ];
-    const obs2: [number, number, number, number] = [
-      this.worldWidth * 0.35,
-      this.worldHeight * 0.54,
-      this.worldWidth * 0.12,
-      this.worldHeight * 0.28,
-    ];
-    const exitZone: [number, number, number, number] = [
-      this.worldWidth * 0.92,
-      this.worldHeight * 0.4,
-      this.worldWidth * 0.06,
-      this.worldHeight * 0.2,
-    ];
+    this.potCellSize = Math.max(
+      2.0,
+      Math.max(this.worldWidth, this.worldHeight) / 100.0,
+    );
+    this.potCols = Math.max(5, Math.ceil(this.worldWidth / this.potCellSize));
+    this.potRows = Math.max(5, Math.ceil(this.worldHeight / this.potCellSize));
+    const totalCells = this.potCols * this.potRows;
 
-    const grid = buildPotentialField(
-      this.worldWidth,
-      this.worldHeight,
-      obs1,
-      obs2,
-      exitZone,
-      100,
-      100,
+    const blockedData = rasterizeObstacles(
+      this.potCols,
+      this.potRows,
+      this.potCellSize,
+      [this.obs1, this.obs2],
+    );
+    const seeds = seedPotentialField(
+      this.potCols,
+      this.potRows,
+      this.potCellSize,
+      blockedData,
+      this.sinks,
+    );
+    // C# ignores the base cost when refining a single target under congestion.
+    const dynamicSeeds =
+      !this.multipleTargets && this.sinks.length === 1
+        ? seedPotentialField(
+            this.potCols,
+            this.potRows,
+            this.potCellSize,
+            blockedData,
+            [{ zone: this.sinks[0].zone, potential: 0 }],
+          )
+        : seeds;
+    const grid = solvePotentialField(
+      this.potCols,
+      this.potRows,
+      this.potCellSize,
+      blockedData,
+      seeds,
+    );
+    const protectedSeeds = seedPotentialField(
+      this.potCols,
+      this.potRows,
+      this.potCellSize,
+      blockedData,
+      this.sinks,
+      2.5,
+    );
+    const protectedData = Uint32Array.from(protectedSeeds, (v) =>
+      v < impassablePotential ? 1 : 0,
     );
     this.device.queue.writeBuffer(this.staticPotentialBuffer, 0, grid.buffer);
     this.device.queue.writeBuffer(this.potentialBufferA, 0, grid.buffer);
-
-    // Obstacle blocked mask
-    const cellW = this.worldWidth / 100;
-    const cellH = this.worldHeight / 100;
-    const blockedData = new Uint32Array(100 * 100);
-    for (let r = 0; r < 100; r++) {
-      const wy = (r + 0.5) * cellH;
-      for (let c = 0; c < 100; c++) {
-        const wx = (c + 0.5) * cellW;
-        const inObs1 =
-          wx > obs1[0] + 0.001 &&
-          wx < obs1[0] + obs1[2] - 0.001 &&
-          wy > obs1[1] + 0.001 &&
-          wy < obs1[1] + obs1[3] - 0.001;
-        const inObs2 =
-          wx > obs2[0] + 0.001 &&
-          wx < obs2[0] + obs2[2] - 0.001 &&
-          wy > obs2[1] + 0.001 &&
-          wy < obs2[1] + obs2[3] - 0.001;
-        if (inObs1 || inObs2) {
-          blockedData[r * 100 + c] = 1;
-        }
-      }
-    }
     this.device.queue.writeBuffer(this.blockedBuffer, 0, blockedData.buffer);
+    this.device.queue.writeBuffer(this.seedBuffer!, 0, dynamicSeeds.buffer);
+    this.device.queue.writeBuffer(
+      this.protectedBuffer!,
+      0,
+      protectedData.buffer,
+    );
+    this.exitsBuffer?.destroy();
+    const exitData = new Float32Array(Math.max(1, this.sinks.length) * 4);
+    this.sinks.forEach((sink, i) => exitData.set(sink.zone, i * 4));
+    this.exitsBuffer = this.device.createBuffer({
+      size: Math.max(64, exitData.byteLength),
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    this.device.queue.writeBuffer(this.exitsBuffer, 0, exitData.buffer);
 
     // Reset penalties to 0
-    const zeroPenalties = new Float32Array(100 * 100);
+    const zeroPenalties = new Float32Array(totalCells);
     this.device.queue.writeBuffer(this.penaltyBuffer, 0, zeroPenalties.buffer);
     this.dynamicFieldTimer = 0.2;
 
-    // Create bind groups for dynamic potential passes
+    this.recreatePotentialBindGroups();
+  }
+
+  private recreatePotentialBindGroups(): void {
+    if (!this.device) return;
+    // Create bind groups for dynamic potential passes.
     this.densityBindGroup = this.device.createBindGroup({
       layout: this.clearDensityPipeline!.getBindGroupLayout(0),
       entries: [{ binding: 0, resource: { buffer: this.rawDensityBuffer! } }],
     });
 
+    this.decodeDensityBindGroup = this.device.createBindGroup({
+      layout: this.decodeDensityPipeline!.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: this.rawDensityBuffer! } },
+        { binding: 1, resource: { buffer: this.densityScratchBuffer! } },
+      ],
+    });
     this.penaltyBindGroup = this.device.createBindGroup({
       layout: this.updatePenaltyPipeline!.getBindGroupLayout(0),
       entries: [
-        { binding: 0, resource: { buffer: this.rawDensityBuffer! } },
-        { binding: 1, resource: { buffer: this.smoothedDensityBuffer! } },
+        { binding: 0, resource: { buffer: this.smoothedDensityBuffer! } },
+        { binding: 1, resource: { buffer: this.protectedBuffer! } },
         { binding: 2, resource: { buffer: this.penaltyBuffer! } },
         { binding: 3, resource: { buffer: this.blockedBuffer! } },
         { binding: 4, resource: { buffer: this.paramsBuffer! } },
+        { binding: 5, resource: { buffer: this.relaxStateBuffer! } },
       ],
     });
-
+    const smoothEntries = (reverse: boolean) => [
+      {
+        binding: 0,
+        resource: {
+          buffer: reverse
+            ? this.smoothedDensityBuffer!
+            : this.densityScratchBuffer!,
+        },
+      },
+      {
+        binding: 1,
+        resource: {
+          buffer: reverse
+            ? this.densityScratchBuffer!
+            : this.smoothedDensityBuffer!,
+        },
+      },
+      { binding: 2, resource: { buffer: this.paramsBuffer! } },
+    ];
     this.smoothDensityOnlyBindGroup = this.device.createBindGroup({
       layout: this.smoothDensityOnlyPipeline!.getBindGroupLayout(0),
-      entries: [
-        { binding: 0, resource: { buffer: this.rawDensityBuffer! } },
-        { binding: 1, resource: { buffer: this.smoothedDensityBuffer! } },
-      ],
+      entries: smoothEntries(false),
+    });
+    this.smoothDensityReverseBindGroup = this.device.createBindGroup({
+      layout: this.smoothDensityOnlyPipeline!.getBindGroupLayout(0),
+      entries: smoothEntries(true),
     });
 
     this.initRelaxBindGroup = this.device.createBindGroup({
       layout: this.initRelaxPipeline!.getBindGroupLayout(0),
       entries: [
         { binding: 0, resource: { buffer: this.potentialBufferA! } },
-        { binding: 1, resource: { buffer: this.blockedBuffer! } },
+        { binding: 1, resource: { buffer: this.seedBuffer! } },
         { binding: 2, resource: { buffer: this.paramsBuffer! } },
+        { binding: 3, resource: { buffer: this.staticPotentialBuffer! } },
+        { binding: 4, resource: { buffer: this.relaxStateBuffer! } },
       ],
     });
 
@@ -2374,6 +2728,7 @@ export class GpuSimulationEngine implements ISimulationEngine {
         { binding: 2, resource: { buffer: this.penaltyBuffer! } },
         { binding: 3, resource: { buffer: this.blockedBuffer! } },
         { binding: 4, resource: { buffer: this.paramsBuffer! } },
+        { binding: 5, resource: { buffer: this.relaxStateBuffer! } },
       ],
     });
 
@@ -2385,13 +2740,14 @@ export class GpuSimulationEngine implements ISimulationEngine {
         { binding: 2, resource: { buffer: this.penaltyBuffer! } },
         { binding: 3, resource: { buffer: this.blockedBuffer! } },
         { binding: 4, resource: { buffer: this.paramsBuffer! } },
+        { binding: 5, resource: { buffer: this.relaxStateBuffer! } },
       ],
     });
   }
 
   private updateSimParams(): void {
     if (!this.device || !this.paramsBuffer) return;
-    const buf = new ArrayBuffer(112);
+    const buf = new ArrayBuffer(128);
     const f32 = new Float32Array(buf);
     const u32 = new Uint32Array(buf);
 
@@ -2405,22 +2761,22 @@ export class GpuSimulationEngine implements ISimulationEngine {
     u32[7] = this.maxPerCell;
 
     // Obstacle 1: [x, y, w, h] (floats 8..11, bytes 32..47)
-    f32[8] = this.worldWidth * 0.35;
-    f32[9] = this.worldHeight * 0.18;
-    f32[10] = this.worldWidth * 0.12;
-    f32[11] = this.worldHeight * 0.28;
+    f32[8] = this.obs1[0];
+    f32[9] = this.obs1[1];
+    f32[10] = this.obs1[2];
+    f32[11] = this.obs1[3];
 
     // Obstacle 2: [x, y, w, h] (floats 12..15, bytes 48..63)
-    f32[12] = this.worldWidth * 0.35;
-    f32[13] = this.worldHeight * 0.54;
-    f32[14] = this.worldWidth * 0.12;
-    f32[15] = this.worldHeight * 0.28;
+    f32[12] = this.obs2[0];
+    f32[13] = this.obs2[1];
+    f32[14] = this.obs2[2];
+    f32[15] = this.obs2[3];
 
     // ExitZone: [x, y, w, h] (floats 16..19, bytes 64..79)
-    f32[16] = this.worldWidth * 0.92;
-    f32[17] = this.worldHeight * 0.4;
-    f32[18] = this.worldWidth * 0.06;
-    f32[19] = this.worldHeight * 0.2;
+    f32[16] = this.exitZone[0];
+    f32[17] = this.exitZone[1];
+    f32[18] = this.exitZone[2];
+    f32[19] = this.exitZone[3];
 
     u32[20] = this.granulation;
     u32[21] = this.isMapScenario ? 1 : 0;
@@ -2428,13 +2784,17 @@ export class GpuSimulationEngine implements ISimulationEngine {
     u32[23] = this.mapRows;
     f32[24] = this.mapCellSize;
     u32[25] = this.numExits;
-    u32[26] = 0;
-    u32[27] = 0;
+    u32[26] = this.potCols;
+    u32[27] = this.potRows;
+    f32[28] = this.potCellSize;
+    u32[29] = 0;
+    u32[30] = 0;
+    u32[31] = 0;
 
     this.device.queue.writeBuffer(this.paramsBuffer, 0, buf);
   }
 
-  private reallocateAgents(count: number): void {
+  private reallocateAgents(count: number, preparedAgents?: Float32Array): void {
     if (!this.device) return;
     this.activeCount = count;
     const agentByteSize = 32; // 8 floats per agent
@@ -2459,6 +2819,8 @@ export class GpuSimulationEngine implements ISimulationEngine {
     this.cpuValues = new Float64Array(count * 5);
     const radius = this.getAgentRadius(this.granulation);
 
+    this.simulationTime = 0;
+
     let initData: Float32Array;
     if (this.isMapScenario && this.mapScenario) {
       this.activeMapAgents = count;
@@ -2468,14 +2830,15 @@ export class GpuSimulationEngine implements ISimulationEngine {
       this.lastEvacuationTime = 0;
       this.simulationTime = 0;
       this.agentEvacuated = new Uint8Array(count);
-      const staticField = buildMapPotentialField(this.mapScenario);
-      initData = spawnMapAgents(
-        this.mapScenario,
-        count,
-        this.granulation,
-        staticField,
-        radius,
-      );
+      initData =
+        preparedAgents ??
+        spawnMapAgents(
+          this.mapScenario,
+          count,
+          this.granulation,
+          buildMapPotentialField(this.mapScenario),
+          radius,
+        );
     } else {
       initData = new Float32Array(count * 8);
       const u32View = new Uint32Array(initData.buffer);
@@ -2510,6 +2873,7 @@ export class GpuSimulationEngine implements ISimulationEngine {
       }
     }
     this.device.queue.writeBuffer(this.agentsBuffer, 0, initData.buffer);
+    this.initialDensityPending = true;
 
     this.recreateSpatialBindGroups();
 
@@ -2767,7 +3131,6 @@ export class GpuSimulationEngine implements ISimulationEngine {
       this.activeRunGeneration++;
       this.activeTick = 0;
       this.dynamicFieldTimer = 0.2;
-      this.lastDynamicFieldWallTime = 0;
       this.inFlightBatches = 0;
       this.inFlightWorkPromise = null;
       if (typeof values.worldWidth === "number")
@@ -2779,6 +3142,7 @@ export class GpuSimulationEngine implements ISimulationEngine {
       if (typeof values.granulation === "number")
         this.granulation = values.granulation;
 
+      this.applyEnvironment(values);
       if (typeof values.count === "number") this.rawCount = values.count;
       const simCount = Math.max(1, Math.ceil(this.rawCount / this.granulation));
       this.ensureSpatialGrid();
@@ -2793,7 +3157,6 @@ export class GpuSimulationEngine implements ISimulationEngine {
       this.activeRunGeneration++;
       this.activeTick = 0;
       this.dynamicFieldTimer = 0.2;
-      this.lastDynamicFieldWallTime = 0;
       this.inFlightBatches = 0;
       this.inFlightWorkPromise = null;
       if (typeof values.count === "number") this.rawCount = values.count;
@@ -2807,7 +3170,6 @@ export class GpuSimulationEngine implements ISimulationEngine {
       this.activeRunGeneration++;
       this.activeTick = 0;
       this.dynamicFieldTimer = 0.2;
-      this.lastDynamicFieldWallTime = 0;
       this.inFlightBatches = 0;
       this.inFlightWorkPromise = null;
       if (typeof values.worldWidth === "number")
@@ -2817,11 +3179,31 @@ export class GpuSimulationEngine implements ISimulationEngine {
       if (typeof values.count === "number") this.rawCount = values.count;
       if (typeof values.granulation === "number")
         this.granulation = values.granulation;
+      this.applyEnvironment(values);
       const simCount = Math.max(1, Math.ceil(this.rawCount / this.granulation));
       this.ensureSpatialGrid();
       this.ensureKdeGrid();
       this.updatePotentialGrid();
       this.reallocateAgents(simCount);
+      this.updateSimParams();
+      return;
+    }
+
+    if (kind === "set-environment") {
+      this.activeRunGeneration++;
+      this.activeTick = 0;
+      this.dynamicFieldTimer = 0.2;
+      this.inFlightBatches = 0;
+      this.inFlightWorkPromise = null;
+      if (typeof values.worldWidth === "number")
+        this.worldWidth = values.worldWidth;
+      if (typeof values.worldHeight === "number")
+        this.worldHeight = values.worldHeight;
+      this.applyEnvironment(values);
+      this.ensureSpatialGrid();
+      this.ensureKdeGrid();
+      this.updatePotentialGrid();
+      this.recreateSpatialBindGroups();
       this.updateSimParams();
       return;
     }
@@ -2852,7 +3234,13 @@ export class GpuSimulationEngine implements ISimulationEngine {
     }
   }
 
-  advanceFixedTicks(ticks: number): number {
+  advanceFixedTicks(ticks: number): Promise<number> {
+    const work = this.tickWork.then(() => this.advanceGpuTicks(ticks));
+    this.tickWork = work.catch(() => this.activeTick);
+    return work;
+  }
+
+  private async advanceGpuTicks(ticks: number): Promise<number> {
     if (
       !this.device ||
       !this.clearPipeline ||
@@ -2866,84 +3254,134 @@ export class GpuSimulationEngine implements ISimulationEngine {
       return this.activeTick;
     }
 
-    const commandEncoder = this.device.createCommandEncoder();
+    let commandEncoder = this.device.createCommandEncoder();
     const workgroups = Math.ceil(this.activeCount / 64);
     const gridWorkgroups = Math.ceil((this.gridCols * this.gridRows) / 64);
-    const nowWallTime = performance.now();
+    const potWorkgroups = Math.ceil((this.potCols * this.potRows) / 64);
+    const pot2D_X = Math.ceil(this.potCols / 16);
+    const pot2D_Y = Math.ceil(this.potRows / 16);
 
     for (let step = 0; step < ticks; step++) {
       this.simulationTime += 0.016;
       this.dynamicFieldTimer += 0.016;
 
-      // Update dynamic density and refine potential field every 0.20s (or at tick 0) matching C#
-      // Throttled to at most ~12.5 Hz in real time (every >= 80ms) to prevent GPU overload at extreme time scales
-      const wallElapsed = nowWallTime - this.lastDynamicFieldWallTime;
-      const isInitial = this.activeTick === 0 && step === 0;
-      if (
-        !this.isMapScenario &&
-        (isInitial || (this.dynamicFieldTimer >= 0.2 && wallElapsed >= 80))
-      ) {
-        this.dynamicFieldTimer = 0.0;
-        this.lastDynamicFieldWallTime = nowWallTime;
-
-        // 1. Clear raw density grid
-        const passClearDensity = commandEncoder.beginComputePass();
-        passClearDensity.setPipeline(this.clearDensityPipeline!);
-        passClearDensity.setBindGroup(0, this.densityBindGroup!);
-        passClearDensity.dispatchWorkgroups(Math.ceil(10000 / 64));
-        passClearDensity.end();
-
-        // 2. Accumulate density from agent positions
-        const passAccDensity = commandEncoder.beginComputePass();
-        passAccDensity.setPipeline(this.accumulateDensityPipeline!);
-        passAccDensity.setBindGroup(0, this.accumulateDensityBindGroup!);
-        passAccDensity.dispatchWorkgroups(workgroups);
-        passAccDensity.end();
-
-        // 3. Smooth density & update dynamic crowd penalty (EMA + sink protection)
-        const passUpdatePenalty = commandEncoder.beginComputePass();
-        passUpdatePenalty.setPipeline(this.updatePenaltyPipeline!);
-        passUpdatePenalty.setBindGroup(0, this.penaltyBindGroup!);
-        passUpdatePenalty.dispatchWorkgroups(7, 7);
-        passUpdatePenalty.end();
-
-        // 4. Initialize relaxation: exit zone = 0.0, obstacles = 1e6, rest = 1e6
-        const passInitRelax = commandEncoder.beginComputePass();
-        passInitRelax.setPipeline(this.initRelaxPipeline!);
-        passInitRelax.setBindGroup(0, this.initRelaxBindGroup!);
-        passInitRelax.dispatchWorkgroups(7, 7);
-        passInitRelax.end();
-
-        // 5. Ping-pong 140 relaxation passes (starts A->B, ends in A)
-        for (let iter = 0; iter < 140; iter++) {
-          const passRelax = commandEncoder.beginComputePass();
-          passRelax.setPipeline(this.relaxStepPipeline!);
-          passRelax.setBindGroup(
-            0,
-            iter % 2 === 0 ? this.relaxBindGroupA! : this.relaxBindGroupB!,
+      const refine =
+        this.initialDensityPending ||
+        this.dynamicFieldTimer >= (this.isMapScenario ? 1.0 : 0.2) ||
+        (!this.isMapScenario && this.activeTick + step === 0);
+      if (refine || this.granulation > 1) {
+        const run = (
+          pipeline: GPUComputePipeline,
+          bindGroup: GPUBindGroup,
+          x: number,
+          y = 1,
+        ) => {
+          const pass = commandEncoder.beginComputePass();
+          pass.setPipeline(pipeline);
+          pass.setBindGroup(0, bindGroup);
+          pass.dispatchWorkgroups(x, y);
+          pass.end();
+        };
+        run(this.clearDensityPipeline!, this.densityBindGroup!, potWorkgroups);
+        run(
+          this.accumulateDensityPipeline!,
+          this.accumulateDensityBindGroup!,
+          workgroups,
+        );
+        run(
+          this.decodeDensityPipeline!,
+          this.decodeDensityBindGroup!,
+          potWorkgroups,
+        );
+        for (let pass = 0; pass < (this.granulation >= 16 ? 3 : 1); pass++) {
+          run(
+            this.smoothDensityOnlyPipeline!,
+            pass % 2 === 0
+              ? this.smoothDensityOnlyBindGroup!
+              : this.smoothDensityReverseBindGroup!,
+            pot2D_X,
+            pot2D_Y,
           );
-          passRelax.dispatchWorkgroups(7, 7);
-          passRelax.end();
         }
-      } else if (this.granulation > 1) {
-        // Continuous macro density update for granulation > 1
-        const passClearDensity = commandEncoder.beginComputePass();
-        passClearDensity.setPipeline(this.clearDensityPipeline!);
-        passClearDensity.setBindGroup(0, this.densityBindGroup!);
-        passClearDensity.dispatchWorkgroups(Math.ceil(10000 / 64));
-        passClearDensity.end();
-
-        const passAccDensity = commandEncoder.beginComputePass();
-        passAccDensity.setPipeline(this.accumulateDensityPipeline!);
-        passAccDensity.setBindGroup(0, this.accumulateDensityBindGroup!);
-        passAccDensity.dispatchWorkgroups(workgroups);
-        passAccDensity.end();
-
-        const passSmooth = commandEncoder.beginComputePass();
-        passSmooth.setPipeline(this.smoothDensityOnlyPipeline!);
-        passSmooth.setBindGroup(0, this.smoothDensityOnlyBindGroup!);
-        passSmooth.dispatchWorkgroups(7, 7);
-        passSmooth.end();
+        if (refine) {
+          this.dynamicFieldTimer = 0;
+          commandEncoder.clearBuffer(this.relaxStateBuffer!);
+          run(
+            this.updatePenaltyPipeline!,
+            this.penaltyBindGroup!,
+            pot2D_X,
+            pot2D_Y,
+          );
+          // WASM updates the EMA during InitializeAgents and again on the first
+          // physics tick. Both observe the initial positions before integration.
+          if (this.initialDensityPending) {
+            run(
+              this.updatePenaltyPipeline!,
+              this.penaltyBindGroup!,
+              pot2D_X,
+              pot2D_Y,
+            );
+            this.initialDensityPending = false;
+          }
+          run(
+            this.initRelaxPipeline!,
+            this.initRelaxBindGroup!,
+            pot2D_X,
+            pot2D_Y,
+          );
+          commandEncoder.copyBufferToBuffer(
+            this.relaxStateBuffer!,
+            0,
+            this.relaxStateStaging!,
+            0,
+            8,
+          );
+          this.device.queue.submit([commandEncoder.finish()]);
+          await this.relaxStateStaging!.mapAsync(GPUMapMode.READ);
+          const congested =
+            new Uint32Array(this.relaxStateStaging!.getMappedRange())[0] !== 0;
+          this.relaxStateStaging!.unmap();
+          commandEncoder = this.device.createCommandEncoder();
+          if (congested) {
+            // Positive edge costs imply convergence in at most V-1 edges.
+            // Check after batches of 32 pairs to avoid a readback on every pass.
+            const maxPairs =
+              Math.ceil((this.potCols * this.potRows - 1) / 2) + 1;
+            for (let pair = 0; pair < maxPairs; pair += 32) {
+              const batchPairs = Math.min(32, maxPairs - pair);
+              for (let j = 0; j < batchPairs; j++) {
+                commandEncoder.clearBuffer(this.relaxStateBuffer!, 4, 4);
+                run(
+                  this.relaxStepPipeline!,
+                  this.relaxBindGroupA!,
+                  pot2D_X,
+                  pot2D_Y,
+                );
+                run(
+                  this.relaxStepPipeline!,
+                  this.relaxBindGroupB!,
+                  pot2D_X,
+                  pot2D_Y,
+                );
+              }
+              commandEncoder.copyBufferToBuffer(
+                this.relaxStateBuffer!,
+                0,
+                this.relaxStateStaging!,
+                0,
+                8,
+              );
+              this.device.queue.submit([commandEncoder.finish()]);
+              await this.relaxStateStaging!.mapAsync(GPUMapMode.READ);
+              const changed =
+                new Uint32Array(this.relaxStateStaging!.getMappedRange())[1] !==
+                0;
+              this.relaxStateStaging!.unmap();
+              commandEncoder = this.device.createCommandEncoder();
+              if (!changed) break;
+            }
+          }
+        }
       }
 
       // Pass 1: Clear spatial hash grid
@@ -2971,20 +3409,31 @@ export class GpuSimulationEngine implements ISimulationEngine {
     this.device.queue.submit([commandEncoder.finish()]);
     this.activeTick += ticks;
     this.inFlightBatches++;
-    this.inFlightWorkPromise = this.device.queue
+    const completion = this.device.queue
       .onSubmittedWorkDone()
       .then(() => {
-        this.inFlightBatches = 0;
-        this.inFlightWorkPromise = null;
+        if (this.inFlightWorkPromise === completion) {
+          this.inFlightBatches = 0;
+          this.inFlightWorkPromise = null;
+        }
       })
       .catch(() => {
-        this.inFlightBatches = 0;
-        this.inFlightWorkPromise = null;
+        if (this.inFlightWorkPromise === completion) {
+          this.inFlightBatches = 0;
+          this.inFlightWorkPromise = null;
+        }
       });
+    this.inFlightWorkPromise = completion;
     return this.activeTick;
   }
 
   async syncInFlight(maxAllowed = 1): Promise<void> {
+    await this.tickWork;
+    if (this.device && maxAllowed === 0) {
+      // Configuration/reset also needs to wait for draws that consume agents.
+      await this.device.queue.onSubmittedWorkDone();
+      return;
+    }
     if (
       !this.device ||
       this.inFlightBatches <= maxAllowed ||
@@ -3000,6 +3449,7 @@ export class GpuSimulationEngine implements ISimulationEngine {
   }
 
   async capturePreview(): Promise<OwnedPreview> {
+    await this.tickWork;
     if (
       !this.device ||
       !this.agentsBuffer ||
@@ -3176,7 +3626,36 @@ export class GpuSimulationEngine implements ISimulationEngine {
     }
   }
 
-  loadMapScenario(data: Uint8Array): void {
+  initializeMap(snapshot: MapGpuSnapshot): void {
+    if (!this.device) throw new Error("GPU engine is not initialized.");
+    const dots = Math.ceil(snapshot.count / snapshot.granulation);
+    if (
+      snapshot.agents.byteLength !== dots * 32 ||
+      snapshot.fields.byteLength !== snapshot.columns * snapshot.rows * 16 ||
+      snapshot.blocked.byteLength !== snapshot.columns * snapshot.rows
+    ) {
+      throw new Error("Invalid map GPU snapshot.");
+    }
+    this.rawCount = snapshot.count;
+    this.granulation = snapshot.granulation;
+    this.socialWeight = snapshot.socialRepulsionWeight;
+    this.loadMapScenario(snapshot.scenario, snapshot);
+    this.totalPeople = snapshot.count;
+    this.activeSession = "plansafe-map";
+    this.activeRunGeneration++;
+    this.activeTick = 0;
+    this.dynamicFieldTimer = 0;
+    this.ensureSpatialGrid();
+    this.ensureKdeGrid();
+    this.reallocateAgents(
+      dots,
+      new Float32Array(snapshot.agents.slice().buffer),
+    );
+    this.initialDensityPending = false;
+    this.updateSimParams();
+  }
+
+  loadMapScenario(data: Uint8Array, snapshot?: MapGpuSnapshot): void {
     const scenario = parseMapScenario(data);
     this.mapScenario = scenario;
     this.isMapScenario = true;
@@ -3185,6 +3664,9 @@ export class GpuSimulationEngine implements ISimulationEngine {
     this.mapCols = scenario.columns;
     this.mapRows = scenario.rows;
     this.mapCellSize = scenario.cellSize;
+    this.potCols = snapshot?.columns ?? scenario.columns;
+    this.potRows = snapshot?.rows ?? scenario.rows;
+    this.potCellSize = snapshot?.cellSize ?? scenario.cellSize;
     this.numExits = scenario.exits.length;
     this.totalPeople = scenario.totalPeople;
 
@@ -3226,58 +3708,84 @@ export class GpuSimulationEngine implements ISimulationEngine {
         blockedU32.buffer,
       );
 
-      // 3. Static potential field Dijkstra
-      const staticField = buildMapPotentialField(scenario);
-      const potCells = scenario.columns * scenario.rows;
+      // A map's fine wall raster and potential grid can have different resolutions.
+      const potCells = this.potCols * this.potRows;
+      const allocate = (previous?: GPUBuffer): GPUBuffer => {
+        if (previous?.size === potCells * 4) return previous;
+        previous?.destroy();
+        return this.device!.createBuffer({
+          size: potCells * 4,
+          usage:
+            GPUBufferUsage.STORAGE |
+            GPUBufferUsage.COPY_SRC |
+            GPUBufferUsage.COPY_DST,
+        });
+      };
+      this.staticPotentialBuffer = allocate(this.staticPotentialBuffer);
+      this.potentialBufferA = allocate(this.potentialBufferA);
+      this.potentialBufferB = allocate(this.potentialBufferB);
+      this.penaltyBuffer = allocate(this.penaltyBuffer);
+      this.rawDensityBuffer = allocate(this.rawDensityBuffer);
+      this.smoothedDensityBuffer = allocate(this.smoothedDensityBuffer);
+      this.densityScratchBuffer = allocate(this.densityScratchBuffer);
+      this.seedBuffer = allocate(this.seedBuffer);
+      this.protectedBuffer = allocate(this.protectedBuffer);
+      this.blockedBuffer = allocate(this.blockedBuffer);
 
-      this.staticPotentialBuffer?.destroy();
-      this.potentialBufferA?.destroy();
-      this.potentialBufferB?.destroy();
-      this.penaltyBuffer?.destroy();
-      this.rawDensityBuffer?.destroy();
-      this.smoothedDensityBuffer?.destroy();
-
-      this.staticPotentialBuffer = this.device.createBuffer({
-        size: potCells * 4,
-        usage:
-          GPUBufferUsage.STORAGE |
-          GPUBufferUsage.COPY_SRC |
-          GPUBufferUsage.COPY_DST,
-      });
-      this.potentialBufferA = this.device.createBuffer({
-        size: potCells * 4,
-        usage:
-          GPUBufferUsage.STORAGE |
-          GPUBufferUsage.COPY_DST |
-          GPUBufferUsage.COPY_SRC,
-      });
-      this.potentialBufferB = this.device.createBuffer({
-        size: potCells * 4,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-      });
-      this.penaltyBuffer = this.device.createBuffer({
-        size: potCells * 4,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-      });
-      this.rawDensityBuffer = this.device.createBuffer({
-        size: potCells * 4,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-      });
-      this.smoothedDensityBuffer = this.device.createBuffer({
-        size: potCells * 4,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-      });
-
-      this.device.queue.writeBuffer(
-        this.staticPotentialBuffer,
-        0,
-        staticField.buffer,
+      const fields = snapshot
+        ? new Float32Array(snapshot.fields.slice().buffer)
+        : undefined;
+      const staticField =
+        fields?.subarray(0, potCells) ?? buildMapPotentialField(scenario);
+      const mask = Uint32Array.from(snapshot?.blocked ?? scenario.blocked);
+      const sinks: PotentialSink[] = scenario.exits.map((exit) => ({
+        zone: [
+          exit.x - exit.radius,
+          exit.y - exit.radius,
+          exit.radius * 2,
+          exit.radius * 2,
+        ],
+        potential: 0,
+      }));
+      const seeds = seedPotentialField(
+        this.potCols,
+        this.potRows,
+        this.potCellSize,
+        mask,
+        sinks,
       );
+      const protectedSeeds = seedPotentialField(
+        this.potCols,
+        this.potRows,
+        this.potCellSize,
+        mask,
+        sinks,
+        2.5,
+      );
+      const protectedMask = Uint32Array.from(protectedSeeds, (value) =>
+        value < impassablePotential ? 1 : 0,
+      );
+      const zero = new Float32Array(potCells);
+      this.device.queue.writeBuffer(this.staticPotentialBuffer, 0, staticField);
       this.device.queue.writeBuffer(
         this.potentialBufferA,
         0,
-        staticField.buffer,
+        fields?.subarray(potCells, potCells * 2) ?? staticField,
       );
+      this.device.queue.writeBuffer(
+        this.penaltyBuffer,
+        0,
+        fields?.subarray(potCells * 2, potCells * 3) ?? zero,
+      );
+      this.device.queue.writeBuffer(
+        this.smoothedDensityBuffer,
+        0,
+        fields?.subarray(potCells * 3, potCells * 4) ?? zero,
+      );
+      this.device.queue.writeBuffer(this.blockedBuffer, 0, mask);
+      this.device.queue.writeBuffer(this.seedBuffer, 0, seeds);
+      this.device.queue.writeBuffer(this.protectedBuffer, 0, protectedMask);
+      this.recreatePotentialBindGroups();
     }
   }
 
@@ -3322,6 +3830,14 @@ export class GpuSimulationEngine implements ISimulationEngine {
   }
 
   dispose(): void {
+    this.agentRenderer?.dispose();
+    this.telemetryBuffer?.destroy();
+    this.telemetryStaging?.destroy();
+    this.densityScratchBuffer?.destroy();
+    this.seedBuffer?.destroy();
+    this.protectedBuffer?.destroy();
+    this.relaxStateBuffer?.destroy();
+    this.relaxStateStaging?.destroy();
     this.agentsBuffer?.destroy();
     this.stagingBuffer?.destroy();
     this.cellCountsBuffer?.destroy();

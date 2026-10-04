@@ -1,0 +1,12 @@
+<button @attributes="AdditionalAttributes" type="button" class="app-button app-button--@Tone.ToString().ToLowerInvariant() @Class"
+        disabled="@Disabled" aria-pressed="@Pressed?.ToString().ToLowerInvariant()" @onclick="OnClick">@ChildContent</button>
+
+@code {
+    [Parameter] public ButtonTone Tone { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool? Pressed { get; set; }
+    [Parameter] public EventCallback<MouseEventArgs> OnClick { get; set; }
+    [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+}

@@ -270,6 +270,53 @@ public class SimulationStatsCollector
         Stats.DensityHistory.Add(new DensityTimeSeriesPoint(simTime, meanDensity, stdDev));
     }
 
+    /// <summary>Samples the active GPU simulation without running a second CPU simulation.</summary>
+    public void SampleTelemetry(GpuSimulationTelemetry sample)
+    {
+        if (Stats.IsComplete && Stats.ActiveAgents == 0 && Stats.SpeedHistory.Count > 0 && Stats.SpeedHistory[^1].MeanSpeed <= 0.001f)
+        {
+            return;
+        }
+
+        float simTime = sample.SimulationTime;
+        Stats.SimulationTime = simTime;
+        Stats.ActiveAgents = sample.ActiveAgents;
+        Stats.EvacuatedAgents = sample.EvacuatedAgents;
+        Stats.CurrentMeanSpeed = sample.MeanSpeed;
+        Stats.CurrentMeanDensity = sample.MeanDensity;
+        Stats.CurrentPeakDensity = sample.PeakDensity;
+
+        while (_currentCohortIndex < Stats.Cohorts.Count)
+        {
+            var cohort = Stats.Cohorts[_currentCohortIndex];
+            if (Stats.EvacuatedAgents < cohort.AgentThreshold) break;
+            cohort.IsCompleted = true;
+            cohort.CompletedTimeSeconds = simTime;
+            cohort.DurationSeconds = Math.Max(0.01f, simTime - _lastCohortCompletedTime);
+            cohort.CurrentElapsedSeconds = cohort.DurationSeconds;
+            _lastCohortCompletedTime = simTime;
+            _currentCohortIndex++;
+        }
+        if (_currentCohortIndex < Stats.Cohorts.Count)
+        {
+            Stats.Cohorts[_currentCohortIndex].CurrentElapsedSeconds = Math.Max(0f, simTime - _lastCohortCompletedTime);
+        }
+
+        if (sample.ActiveDots == 0)
+        {
+            if (Stats.SpeedHistory.Count > 0 && Stats.SpeedHistory[^1].MeanSpeed > 0.001f)
+            {
+                Stats.SpeedHistory.Add(new SpeedTimeSeriesPoint(simTime, 0f, 0f));
+                Stats.DensityHistory.Add(new DensityTimeSeriesPoint(simTime, 0f, 0f));
+            }
+            return;
+        }
+        if (_lastSampleTime >= 0f && simTime - _lastSampleTime < _sampleInterval) return;
+        _lastSampleTime = simTime;
+        Stats.SpeedHistory.Add(new SpeedTimeSeriesPoint(simTime, sample.MeanSpeed, sample.SpeedStdDev));
+        Stats.DensityHistory.Add(new DensityTimeSeriesPoint(simTime, sample.MeanDensity, sample.DensityStdDev));
+    }
+
     /// <summary>
     /// Creates realistic sample data representing the charts in the reference screenshots.
     /// Used for the Map view prior to full simulation integration.

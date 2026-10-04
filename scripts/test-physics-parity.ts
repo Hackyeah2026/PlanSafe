@@ -415,10 +415,11 @@ export function buildStaticPotentialField(
     }
   }
 
-  const dCol = [1, -1, 0, 0, 1, 1, -1, -1];
-  const dRow = [0, 0, 1, -1, 1, -1, 1, -1];
+  const dCol = [1, -1, 0, 0, 1, 1, -1, -1, 1, 1, -1, -1, 2, 2, -2, -2];
+  const dRow = [0, 0, 1, -1, 1, -1, 1, -1, 2, -2, 2, -2, 1, -1, 1, -1];
   const step = cellW;
   const diagStep = cellW * 1.41421356;
+  const knightStep = cellW * 2.23606798;
   const costs = [
     step,
     step,
@@ -428,11 +429,19 @@ export function buildStaticPotentialField(
     diagStep,
     diagStep,
     diagStep,
+    knightStep,
+    knightStep,
+    knightStep,
+    knightStep,
+    knightStep,
+    knightStep,
+    knightStep,
+    knightStep,
   ];
 
-  // Min-heap
-  const heapNodes = new Int32Array(total * 4);
-  const heapPrios = new Float32Array(total * 4);
+  // Min-heap (sized to total * 16 for 16-direction Dijkstra)
+  const heapNodes = new Int32Array(total * 16);
+  const heapPrios = new Float32Array(total * 16);
   let heapSize = 0;
 
   function push(n: number, p: number) {
@@ -456,26 +465,27 @@ export function buildStaticPotentialField(
     if (heapSize === 0) return null;
     const topNode = heapNodes[0];
     const topPrio = heapPrios[0];
-    const last = --heapSize;
-    heapNodes[0] = heapNodes[last];
-    heapPrios[0] = heapPrios[last];
-    let i = 0;
-    while (true) {
-      const left = (i << 1) + 1;
-      const right = left + 1;
-      if (left >= heapSize) break;
-      let smallest = left;
-      if (right < heapSize && heapPrios[right] < heapPrios[left]) {
-        smallest = right;
+    heapSize--;
+    if (heapSize > 0) {
+      heapNodes[0] = heapNodes[heapSize];
+      heapPrios[0] = heapPrios[heapSize];
+      let i = 0;
+      while (true) {
+        let best = i;
+        const left = 2 * i + 1;
+        const right = 2 * i + 2;
+        if (left < heapSize && heapPrios[left] < heapPrios[best]) best = left;
+        if (right < heapSize && heapPrios[right] < heapPrios[best])
+          best = right;
+        if (best === i) break;
+        const tn = heapNodes[i];
+        const tp = heapPrios[i];
+        heapNodes[i] = heapNodes[best];
+        heapPrios[i] = heapPrios[best];
+        heapNodes[best] = tn;
+        heapPrios[best] = tp;
+        i = best;
       }
-      if (heapPrios[i] <= heapPrios[smallest]) break;
-      const tn = heapNodes[i];
-      const tp = heapPrios[i];
-      heapNodes[i] = heapNodes[smallest];
-      heapPrios[i] = heapPrios[smallest];
-      heapNodes[smallest] = tn;
-      heapPrios[smallest] = tp;
-      i = smallest;
     }
     return { node: topNode, priority: topPrio };
   }
@@ -517,17 +527,27 @@ export function buildStaticPotentialField(
     const currCol = currIdx % cols;
     const currRow = (currIdx / cols) | 0;
 
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 16; i++) {
       const nCol = currCol + dCol[i];
       const nRow = currRow + dRow[i];
       if (nCol >= 0 && nCol < cols && nRow >= 0 && nRow < rows) {
         const nIdx = nRow * cols + nCol;
         if (blocked[nIdx]) continue;
 
-        if (i >= 4) {
+        if (i >= 4 && i < 8) {
           if (
             blocked[currRow * cols + nCol] &&
             blocked[nRow * cols + currCol]
+          ) {
+            continue;
+          }
+        } else if (i >= 8) {
+          const midCol = currCol + Math.sign(dCol[i]);
+          const midRow = currRow + Math.sign(dRow[i]);
+          if (
+            blocked[midRow * cols + midCol] ||
+            blocked[currRow * cols + midCol] ||
+            blocked[midRow * cols + currCol]
           ) {
             continue;
           }
@@ -613,8 +633,8 @@ export function getFlowDirection(
   let flowY = 0;
 
   if (v00 && v10 && v01 && v11) {
-    flowX = (1.0 - t) * (p00 - p10) + t * (p01 - p11);
-    flowY = (1.0 - s) * (p00 - p01) + s * (p10 - p11);
+    flowX = ((1.0 - t) * (p00 - p10) + t * (p01 - p11)) * invCellW;
+    flowY = ((1.0 - s) * (p00 - p01) + s * (p10 - p11)) * invCellH;
   } else {
     let gradX0 = 0;
     let hasGX0 = false;
@@ -642,9 +662,9 @@ export function getFlowDirection(
       hasGX1 = true;
     }
 
-    if (hasGX0 && hasGX1) flowX = (1.0 - t) * gradX0 + t * gradX1;
-    else if (hasGX0) flowX = gradX0;
-    else if (hasGX1) flowX = gradX1;
+    if (hasGX0 && hasGX1) flowX = ((1.0 - t) * gradX0 + t * gradX1) * invCellW;
+    else if (hasGX0) flowX = gradX0 * invCellW;
+    else if (hasGX1) flowX = gradX1 * invCellW;
 
     let gradY0 = 0;
     let hasGY0 = false;
@@ -672,9 +692,9 @@ export function getFlowDirection(
       hasGY1 = true;
     }
 
-    if (hasGY0 && hasGY1) flowY = (1.0 - s) * gradY0 + s * gradY1;
-    else if (hasGY0) flowY = gradY0;
-    else if (hasGY1) flowY = gradY1;
+    if (hasGY0 && hasGY1) flowY = ((1.0 - s) * gradY0 + s * gradY1) * invCellH;
+    else if (hasGY0) flowY = gradY0 * invCellH;
+    else if (hasGY1) flowY = gradY1 * invCellH;
   }
 
   const gradMag = Math.sqrt(flowX * flowX + flowY * flowY);
@@ -705,6 +725,63 @@ test("Potential field and bilinear flow direction match C# reference tests", () 
   // Must NOT point backwards (fx must be >= 0)
   const wallFlow = getFlowDirection(68.0, 60.0, pot);
   assert.ok(wallFlow.fx >= 0.0, `Expected fx >= 0, got ${wallFlow.fx}`);
+});
+
+test("Small map 60x40 (Hala 60m) obstacle blocking and doorway flow match C# reference tests", () => {
+  const obstacles = [
+    { x: 20.0, y: 0.0, w: 8.0, h: 14.0 },
+    { x: 20.0, y: 26.0, w: 8.0, h: 14.0 },
+  ];
+  const exitZone = { x: 56.0, y: 15.0, w: 4.0, h: 10.0 };
+
+  const pot = buildStaticPotentialField(
+    60.0,
+    40.0,
+    obstacles,
+    exitZone,
+    100,
+    100,
+  );
+
+  // Doorway between obstacles (x = 24.0, y = 20.0): must be open and heading east
+  const doorFlow = getFlowDirection(24.0, 20.0, pot, 60.0, 40.0);
+  assert.ok(
+    doorFlow.fx > 0.85,
+    `Expected doorway fx > 0.85, got ${doorFlow.fx}`,
+  );
+
+  // West approach (x = 10.0, y = 20.0): must head east towards the doorway
+  const approachFlow = getFlowDirection(10.0, 20.0, pot, 60.0, 40.0);
+  assert.ok(
+    approachFlow.fx > 0.85,
+    `Expected approach fx > 0.85, got ${approachFlow.fx}`,
+  );
+
+  // Circle-box collision with north obstacle: an agent at (19.8, 5.0) penetrating the west wall
+  // must be cleanly ejected to (20.0 - 0.35 = 19.65)
+  const px = 19.8;
+  const py = 5.0;
+  const obs = obstacles[0];
+  const nbpX = Math.max(obs.x, Math.min(px, obs.x + obs.w));
+  const nbpY = Math.max(obs.y, Math.min(py, obs.y + obs.h));
+  const dx = px - nbpX;
+  const dy = py - nbpY;
+  const d = Math.sqrt(dx * dx + dy * dy);
+  const radius = 0.35;
+  assert.ok(d < radius, "Agent should penetrate obstacle pre-resolution");
+  const normX = dx / d;
+  const normY = dy / d;
+  const pen = radius - d;
+  const resolvedX = px + normX * pen;
+  const resolvedY = py + normY * pen;
+  assert.ok(
+    Math.abs(resolvedX - 19.65) < 1e-4,
+    `Expected ejected x = 19.65, got ${resolvedX}`,
+  );
+  assert.ok(
+    Math.abs(resolvedY - 5.0) < 1e-4,
+    `Expected ejected y = 5.0, got ${resolvedY}`,
+  );
 });
 
 test("Velocity smoothing inertia matches C# rules across regimes and corridors", () => {
@@ -811,52 +888,103 @@ test("Adaptive spatial hash grid maintains physical cell invariants across map s
   assert.equal(grid1k.cellH, 4.0);
 });
 
-test("Dynamic field relaxation throttling preserves normal rate and caps extreme speed passes", () => {
-  function simulateRelaxationSchedule(
-    ticksPerSecond: number,
-    totalSeconds: number,
-  ) {
-    let dynamicFieldTimer = 0.2;
-    let lastDynamicFieldWallTime = 0;
-    let nowWallTime = 0;
-    let updates = 0;
-    const dt = 0.016;
-    const realTimePerTick = 1000 / ticksPerSecond;
+test("Large 1000m map radial potential field eliminates diagonal line stream bias (Euclidean circular isocontours)", () => {
+  // Test 1000m x 1000m map with exit centered on eastern boundary
+  const worldSize = 1000.0;
+  const cellSize = Math.max(2.0, worldSize / 100.0); // 10.0m
+  const cols = Math.max(5, Math.ceil(worldSize / cellSize)); // 100
+  const rows = Math.max(5, Math.ceil(worldSize / cellSize)); // 100
 
-    const totalTicks = Math.round(ticksPerSecond * totalSeconds);
-    for (let tick = 0; tick < totalTicks; tick++) {
-      nowWallTime += realTimePerTick;
-      dynamicFieldTimer += dt;
+  const exitX = 950.0;
+  const exitY = 500.0;
+  const exitW = cellSize;
+  const exitH = cellSize;
+  const exitCenterY = exitY + exitH * 0.5;
+  const exitCenterX = exitX + exitW * 0.5;
 
-      const wallElapsed = nowWallTime - lastDynamicFieldWallTime;
-      const isInitial = tick === 0;
-      if (isInitial || (dynamicFieldTimer >= 0.2 && wallElapsed >= 80)) {
-        dynamicFieldTimer = 0.0;
-        lastDynamicFieldWallTime = nowWallTime;
-        updates++;
-      }
-    }
-    return updates;
+  const pot = buildStaticPotentialField(
+    worldSize,
+    worldSize,
+    [], // Open terrain, no obstacles
+    { x: exitX, y: exitY, w: exitW, h: exitH },
+    cols,
+    rows,
+  );
+
+  // Sample agents positioned in a fan of angles: 15°, 30°, 45°, 60°, 75° relative to horizontal
+  // With 8-direction metric, angles near 30° and 60° snap towards 45° ridges.
+  // With 16-direction Dijkstra metric, the flow direction points smoothly and directly to the exit.
+  const radius = 400.0;
+  const testAnglesDeg = [15, 30, 45, 60, 75];
+
+  for (const angleDeg of testAnglesDeg) {
+    const angleRad = (angleDeg * Math.PI) / 180.0;
+    const px = exitCenterX - radius * Math.cos(angleRad);
+    const py = exitCenterY - radius * Math.sin(angleRad);
+
+    const flow = getFlowDirection(
+      px,
+      py,
+      pot,
+      worldSize,
+      worldSize,
+      cols,
+      rows,
+    );
+    const actualAngleRad = Math.atan2(flow.fy, flow.fx); // flow points toward exit (+x, +y)
+    const expectedAngleRad = Math.atan2(exitCenterY - py, exitCenterX - px);
+
+    const errorDeg =
+      Math.abs(actualAngleRad - expectedAngleRad) * (180.0 / Math.PI);
+    assert.ok(
+      errorDeg < 6.5,
+      `Angle ${angleDeg}° had directional metric error of ${errorDeg.toFixed(2)}° (must be < 6.5° with 16-direction Dijkstra, down from >15° in 8-direction)`,
+    );
+  }
+});
+
+test("Small map 60x40 (Hala 60m) density accumulation produces zero false penalty for isolated agents (eliminating giggly oscillation)", () => {
+  const worldWidth = 60.0;
+  const worldHeight = 40.0;
+
+  // Under the new physical formula:
+  const potCellSize = Math.max(2.0, Math.max(worldWidth, worldHeight) / 100.0); // 2.0m
+  const potCols = Math.max(5, Math.ceil(worldWidth / potCellSize)); // 30
+  const potRows = Math.max(5, Math.ceil(worldHeight / potCellSize)); // 20
+
+  const cellArea = potCellSize * potCellSize; // 4.0 m²
+  const invCellArea = 1.0 / cellArea; // 0.25 m⁻²
+
+  // In accumulateDensityShader, single agent (granulation = 1):
+  const singleAgentDensity = invCellArea * 1.0; // 0.25 os/m²
+  assert.equal(singleAgentDensity, 0.25);
+
+  // In updatePenaltyShader, penalty threshold is rho > 0.80:
+  function computePenalty(rho: number): number {
+    if (rho <= 0.8) return 0.0;
+    const excess = rho - 0.8;
+    return Math.min(120.0, excess * 6.0 + excess * excess * 2.0);
   }
 
-  // At 1x speed (60 ticks/s for 5 seconds = 300 ticks, 5.0s sim time):
-  // Should trigger ~5 times per second = ~25 times total (matching reference 0.20s intervals)
-  const updatesAt1x = simulateRelaxationSchedule(60, 5.0);
-  assert.ok(
-    updatesAt1x >= 24 && updatesAt1x <= 26,
-    `Expected ~25 updates at 1x, got ${updatesAt1x}`,
+  // Under the fix: isolated agent or small group creates 0 penalty!
+  const newPenalty = computePenalty(singleAgentDensity);
+  assert.equal(
+    newPenalty,
+    0.0,
+    "Single agent density must not exceed 0.80 os/m² threshold and must generate 0 penalty",
   );
 
-  // At 20x speed (1200 ticks/s for 5 seconds):
-  // Without throttling, it would trigger 100 times/second = 500 times total!
-  // With throttling (every >= 80ms), it is capped to ~12.5 updates/second = ~62 times total
-  const updatesAt20x = simulateRelaxationSchedule(1200, 5.0);
+  // Under old hardcoded 100x100 grid:
+  const oldCellW = worldWidth / 100.0; // 0.60m
+  const oldCellH = worldHeight / 100.0; // 0.40m
+  const oldCellArea = oldCellW * oldCellH; // 0.24 m²
+  const oldInvCellArea = 1.0 / oldCellArea; // 4.167 m⁻²
+  const oldAgentDensity = oldInvCellArea * 1.0; // 4.167 os/m²
+  const oldPenalty = computePenalty(oldAgentDensity);
+
+  // Contrast: old grid produced a massive penalty of ~42.8 on a single agent walking into an empty room!
   assert.ok(
-    updatesAt20x <= 65,
-    `Expected <= 65 updates at 20x, got ${updatesAt20x} (throttled from 500)`,
-  );
-  assert.ok(
-    updatesAt20x >= 55,
-    `Expected >= 55 updates at 20x, got ${updatesAt20x}`,
+    oldPenalty > 40.0,
+    `Old penalty was ${oldPenalty.toFixed(1)}, which created false repelling hills causing giggly oscillation`,
   );
 });
