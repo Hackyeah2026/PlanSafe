@@ -24,15 +24,10 @@
     </select>
     <label for="agent-count">@(L.Simulation.AgentCountValue(AgentCount))</label>
     <input id="agent-count" data-testid="agent-count" disabled="@(!Ready)" type="range" class="form-range" min="50" max="50000" step="50" @bind="AgentCount" @bind:after="() => AgentCountChanged.InvokeAsync(AgentCount)" />
-    <label for="granulation">@(L.Simulation.AgentsPerDotValue(Granulation))</label>
-    <input id="granulation" data-testid="granulation" disabled="@(!Ready)" type="range" class="form-range" min="1" max="25" step="1" @bind="Granulation" @bind:after="() => GranulationChanged.InvokeAsync(Granulation)" />
-    <label for="social-repulsion-weight">@(L.Simulation.RepulsionValue(Repulsion.ToString("F1")))</label>
-    <input id="social-repulsion-weight" data-testid="repulsion-weight" disabled="@(!Ready)" type="range" class="form-range" min="0" max="10" step="0.5" @bind="Repulsion" @bind:after="() => RepulsionChanged.InvokeAsync(Repulsion)" />
     <label for="render-mode">@L.Simulation.DisplayMode</label>
     <select id="render-mode" data-testid="render-mode" disabled="@(!Ready)" class="app-input w-100" @bind="RenderMode" @bind:after="() => RenderModeChanged.InvokeAsync(RenderMode)">
         <option value="agents">@L.Simulation.AgentPositions</option><option value="heatmap">@L.Simulation.SpeedMap</option><option value="density">@L.Simulation.DensityMap</option>
     </select>
-    <label class="parameter-check"><input id="showWhiskersCheck" type="checkbox" disabled="@(!Ready)" @bind="ShowWhiskers" @bind:after="() => ShowWhiskersChanged.InvokeAsync(ShowWhiskers)" /> @L.Simulation.ShowSensors</label>
     <label class="parameter-check"><input id="show-diagnostics" data-testid="diagnostics" type="checkbox" @bind="ShowDiagnostics" @bind:after="() => ShowDiagnosticsChanged.InvokeAsync(ShowDiagnostics)" /> @L.Simulation.Diagnostics</label>
     @if (ShowDiagnostics)
     {

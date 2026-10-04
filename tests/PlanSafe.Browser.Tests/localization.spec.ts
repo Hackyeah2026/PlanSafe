@@ -141,9 +141,7 @@ test("switching a running simulation preserves its state", async ({ page }) => {
   await menu.getByRole("button", { name: "Polski", exact: true }).click();
   await expect(page.getByTestId("status")).toContainText("Uruchomiona");
   await expect(page.locator('label[for="time-scale"]')).toContainText("Tempo");
-  await expect(page.locator('label[for="granulation"]')).toContainText(
-    "Agenci na punkt:",
-  );
+  await expect(page.getByTestId("granulation")).toHaveCount(0);
   await expect(
     page.getByRole("checkbox", { name: "Bez limitu", exact: true }),
   ).toBeVisible();
