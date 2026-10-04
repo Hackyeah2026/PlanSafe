@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using PlanSafe.Contracts.Models.Gus;
 using PlanSafe.Contracts.Models.Map;
+using PlanSafe.App.Simulation;
 
 namespace PlanSafe.App.Services.Gus;
 
@@ -17,14 +18,30 @@ public class GusOccupantGenerator : IGusOccupantGenerator
 
     public IReadOnlyList<OccupantAgent> GenerateOccupants(IEnumerable<MapZoneItem> evacZones, int? randomSeed = null)
     {
-        if (evacZones == null) return Array.Empty<OccupantAgent>();
+        var agents = new List<OccupantAgent>();
+        foreach (var _ in GenerateOccupantSteps(evacZones, randomSeed, agents)) { }
+        return agents;
+    }
+
+    public async Task<IReadOnlyList<OccupantAgent>> GenerateOccupantsAsync(IEnumerable<MapZoneItem> evacZones,
+        int? randomSeed = null, CancellationToken cancellationToken = default)
+    {
+        var agents = new List<OccupantAgent>();
+        var scheduler = new PreparationScheduler();
+        foreach (var _ in GenerateOccupantSteps(evacZones, randomSeed, agents))
+            await scheduler.YieldAsync(cancellationToken);
+        return agents;
+    }
+
+    private IEnumerable<int> GenerateOccupantSteps(IEnumerable<MapZoneItem> evacZones, int? randomSeed,
+        List<OccupantAgent> agents)
+    {
+        if (evacZones == null) yield break;
 
         var validZones = evacZones.Where(z => z.Category == ZoneCategory.EvacuationZone).ToList();
-        if (validZones.Count == 0) return Array.Empty<OccupantAgent>();
+        if (validZones.Count == 0) yield break;
 
         var rng = randomSeed.HasValue ? new Random(randomSeed.Value) : new Random();
-        var agents = new List<OccupantAgent>();
-        var generatedPositions = new HashSet<(long, long)>();
 
         foreach (var zone in validZones)
         {
@@ -54,6 +71,7 @@ public class GusOccupantGenerator : IGusOccupantGenerator
 
                 for (int i = 0; i < count; i++)
                 {
+                    if (i % 64 == 0) yield return i;
                     double agentLat = cell.Lat;
                     double agentLng = cell.Lng;
                     bool placed = false;
@@ -96,6 +114,5 @@ public class GusOccupantGenerator : IGusOccupantGenerator
             }
         }
 
-        return agents;
     }
 }

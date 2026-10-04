@@ -1491,6 +1491,9 @@ export interface ParsedMapExit {
   readonly x: number;
   readonly y: number;
   readonly radius: number;
+  readonly capacity?: number;
+  readonly initialOccupancy?: number;
+  readonly basePotential?: number;
 }
 
 export interface ParsedMapSpawnZone {
@@ -1525,7 +1528,8 @@ export function parseMapScenario(data: Uint8Array): ParsedMapScenario {
   let offset = 5;
   const version = view.getInt32(offset, true);
   offset += 4;
-  if (version !== 1) throw new Error(`Unsupported EFMAP version: ${version}`);
+  if (version !== 1 && version !== 2)
+    throw new Error(`Unsupported EFMAP version: ${version}`);
 
   const originLatitude = view.getFloat64(offset, true);
   offset += 8;
@@ -1568,7 +1572,16 @@ export function parseMapScenario(data: Uint8Array): ParsedMapScenario {
     offset += 8;
     const radius = view.getFloat64(offset, true);
     offset += 8;
-    exits.push({ x, y, radius });
+    let capacity = 1000,
+      initialOccupancy = 0,
+      basePotential = 0;
+    if (version >= 2) {
+      capacity = view.getInt32(offset, true);
+      initialOccupancy = view.getInt32(offset + 4, true);
+      basePotential = view.getFloat64(offset + 8, true);
+      offset += 16;
+    }
+    exits.push({ x, y, radius, capacity, initialOccupancy, basePotential });
   }
 
   const zoneCount = view.getInt32(offset, true);
@@ -1793,6 +1806,36 @@ export function spawnMapAgents(
 ): Float32Array {
   const { columns, rows, cellSize, spawnZones, blocked } = scenario;
   const spawnCells: number[][] = [];
+  const clearance = radius + 0.6;
+  const isSafeSpawn = (x: number, y: number): boolean => {
+    if (
+      x < clearance ||
+      y < clearance ||
+      x > scenario.worldWidth - clearance ||
+      y > scenario.worldHeight - clearance
+    )
+      return false;
+    const index = Math.floor(y / cellSize) * columns + Math.floor(x / cellSize);
+    if (!(potentialField[index] < 900000) || blocked[index] !== 0) return false;
+    const minCol = Math.max(0, Math.floor((x - clearance) / cellSize));
+    const maxCol = Math.min(
+      columns - 1,
+      Math.floor((x + clearance) / cellSize),
+    );
+    const minRow = Math.max(0, Math.floor((y - clearance) / cellSize));
+    const maxRow = Math.min(rows - 1, Math.floor((y + clearance) / cellSize));
+    for (let row = minRow; row <= maxRow; row++) {
+      for (let col = minCol; col <= maxCol; col++) {
+        if (blocked[row * columns + col] === 0) continue;
+        const dx =
+          x - Math.max(col * cellSize, Math.min(x, (col + 1) * cellSize));
+        const dy =
+          y - Math.max(row * cellSize, Math.min(y, (row + 1) * cellSize));
+        if (dx * dx + dy * dy < clearance * clearance) return false;
+      }
+    }
+    return true;
+  };
 
   for (let z = 0; z < spawnZones.length; z++) {
     const zone = spawnZones[z];
@@ -1824,11 +1867,7 @@ export function spawnMapAgents(
       for (let c = minCol; c <= maxCol; c++) {
         const cx = (c + 0.5) * cellSize;
         const idx = r * columns + c;
-        if (
-          potentialField[idx] < 900000 &&
-          blocked[idx] === 0 &&
-          isPointInPolygon(cx, cy, zone.xs, zone.ys)
-        ) {
+        if (isSafeSpawn(cx, cy) && isPointInPolygon(cx, cy, zone.xs, zone.ys)) {
           cells.push(idx);
         }
       }
@@ -1858,7 +1897,7 @@ export function spawnMapAgents(
 
   if (totalWeight <= 0) {
     throw new Error(
-      "No walkable street inside the evacuation zones is connected to an evacuation point.",
+      "No street inside the evacuation zones is connected to an evacuation point with sufficient spawn clearance.",
     );
   }
 
@@ -1903,14 +1942,9 @@ export function spawnMapAgents(
       for (let attempt = 0; attempt < 8; attempt++) {
         const candX = (c + nextRandom()) * cellSize;
         const candY = (r + nextRandom()) * cellSize;
-        const cc = Math.floor(candX / cellSize);
-        const cr = Math.floor(candY / cellSize);
         if (
-          cc >= 0 &&
-          cc < columns &&
-          cr >= 0 &&
-          cr < rows &&
-          blocked[cr * columns + cc] === 0
+          isSafeSpawn(candX, candY) &&
+          isPointInPolygon(candX, candY, spawnZones[z].xs, spawnZones[z].ys)
         ) {
           x = candX;
           y = candY;
@@ -3266,9 +3300,10 @@ export class GpuSimulationEngine implements ISimulationEngine {
       this.dynamicFieldTimer += 0.016;
 
       const refine =
-        this.initialDensityPending ||
-        this.dynamicFieldTimer >= (this.isMapScenario ? 1.0 : 0.2) ||
-        (!this.isMapScenario && this.activeTick + step === 0);
+        !this.isMapScenario &&
+        (this.initialDensityPending ||
+          this.dynamicFieldTimer >= 0.2 ||
+          this.activeTick + step === 0);
       if (refine || this.granulation > 1) {
         const run = (
           pipeline: GPUComputePipeline,

@@ -78,6 +78,30 @@ test(
           gpuErrors.push(e.error.message),
         );
         engine.device.pushErrorScope("validation");
+        let relaxDispatches = 0;
+        const createEncoder = engine.device.createCommandEncoder.bind(
+          engine.device,
+        );
+        engine.device.createCommandEncoder = (...args) => {
+          const encoder = createEncoder(...args);
+          const beginPass = encoder.beginComputePass.bind(encoder);
+          encoder.beginComputePass = (...args) => {
+            const pass = beginPass(...args);
+            const setPipeline = pass.setPipeline.bind(pass);
+            const dispatch = pass.dispatchWorkgroups.bind(pass);
+            let pipeline;
+            pass.setPipeline = (value) => {
+              pipeline = value;
+              return setPipeline(value);
+            };
+            pass.dispatchWorkgroups = (...args) => {
+              if (pipeline === engine.relaxStepPipeline) relaxDispatches++;
+              return dispatch(...args);
+            };
+            return pass;
+          };
+          return encoder;
+        };
         const decode = (snapshot) =>
           Object.fromEntries(
             Object.entries(snapshot).map(([k, v]) => [
@@ -139,6 +163,7 @@ test(
             (value, i) => value === snapshot.agents[i],
           );
           const initialFieldError = await fieldError(snapshot);
+          const preparedRouteField = await read(engine.potentialBufferA);
           const exitCount = engine.numExits;
           const coarseGrid = engine.potCols < engine.mapCols;
           await engine.advanceFixedTicks(1);
@@ -163,6 +188,9 @@ test(
             decode(fixture.afterRefinement),
           );
           const final = await engine.captureTelemetry();
+          const routeFieldUnchanged = (
+            await read(engine.potentialBufferA)
+          ).every((value, i) => value === preparedRouteField[i]);
           const wallsClear = activePositions(
             await read(engine.agentsBuffer),
           ).every(
@@ -209,6 +237,7 @@ test(
             telemetry,
             positionError,
             refinedFieldError,
+            routeFieldUnchanged,
             final,
             wallsClear,
             reset,
@@ -216,14 +245,25 @@ test(
         }
         const validation = await engine.device.popErrorScope();
         engine.dispose();
-        return { cases, gpuErrors, validation: validation?.message };
+        return {
+          cases,
+          gpuErrors,
+          validation: validation?.message,
+          relaxDispatches,
+        };
       }, fixtures);
       assert.deepEqual(errors, []);
       assert.deepEqual(results.gpuErrors, []);
       assert.equal(results.validation, undefined);
+      assert.equal(
+        results.relaxDispatches,
+        0,
+        "Map playback must not recalculate routing",
+      );
       for (const result of results.cases) {
         assert.equal(result.initialAgentsEqual, true, result.name);
         assert.equal(result.initialFieldError, 0, result.name);
+        assert.equal(result.routeFieldUnchanged, true, result.name);
         assert.equal(result.exitCount, 2);
         assert.equal(result.coarseGrid, result.name === "coarse-potential");
         assert.equal(result.telemetry.evacuatedAgents, 3);

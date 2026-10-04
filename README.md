@@ -52,3 +52,52 @@ the solution build with warnings treated as errors. Enable it in an existing
 checkout with `npm run hooks:install`.
 
 Run the full CI checks with `bash infra/ci/check.sh`.
+Potential-field parity tests compare every cell against the C# engine:
+
+```sh
+npm run test:potential
+```
+
+To also run the production WGSL shaders and compare density, penalties, fields,
+and flow directions in headless Chrome, set `PLANSAFE_PLAYWRIGHT_MODULE` to a
+Playwright module URL and `PLANSAFE_BROWSER_PATH` to the Chrome executable before
+running the same command. GPU comparisons allow float32 rounding differences;
+the static TypeScript field comparison is exact.
+
+GPU runtime tests verify compact telemetry, direct agent rendering, reset,
+camera transforms, and map state/field parity with the same Chrome/Playwright
+environment variables:
+
+```sh
+npm run test:gpu
+```
+
+Set `PLANSAFE_APP_URL` to a running app (for example `http://127.0.0.1:5000`) to
+also check the map's engine indicator, playback, reset, mobile layout, and WASM
+fallback through real Blazor interop.
+
+The demo and map prefer WebGPU when available and respect a saved manual WASM
+selection. The map displays its active engine in the simulation controls and
+falls back to WASM if GPU initialization fails. Map preparation transfers the
+same starting agents, terrain, and potential fields to the GPU once; subsequent
+physics and compact telemetry run on the GPU.
+
+Map routing is calculated once from terrain, obstacles, and exits and stays fixed
+through playback and reset in both engines. Local density, crowd forces, and
+collision avoidance still respond to moving agents. Preparation creates the
+requested agents once and yields between terrain, field, and spawning batches
+so the browser can render the preparation indicator and remain responsive.
+
+Both views run only the selected physics engine. Both engines integrate in 16 ms
+ticks; playback speed controls how many ticks run, and actual speed measures
+simulation seconds per wall-clock second. Unlimited mode measures throughput.
+The GPU agent view renders from the physics storage buffer and samples reduced
+statistics at 10 Hz. Heatmap views retain the existing Canvas renderer and agent
+readback. Demo congestion routing still solves potential fields to convergence.
+
+For an opt-in performance regression on a hardware WebGPU adapter, set
+`PLANSAFE_MAP_PERFORMANCE=1` along with the browser-test environment variables
+above and run `node --test scripts/test-map-view.mjs`. This adds a 10,000-agent,
+roughly 1 km city map at 20x playback, checks UI responsiveness and throughput,
+and prints measured playback speed and render FPS. Run it without competing GPU
+work; software adapters and low-end GPUs may not meet its throughput thresholds.

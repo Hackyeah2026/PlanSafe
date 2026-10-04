@@ -25,6 +25,9 @@ test(
         "unsupported",
         "adapter-failure",
         "mobile",
+        ...(process.env.PLANSAFE_MAP_PERFORMANCE === "1"
+          ? ["performance"]
+          : []),
       ]) {
         const context = await browser.newContext({
           viewport:
@@ -73,6 +76,47 @@ test(
             ]),
           );
           localStorage.setItem("plansafe_active_session_id", "gpu-map-test");
+          if (mode === "performance") {
+            const geo = (x, y) => [
+              50.0614 - y / 111320,
+              19.9366 + x / (111320 * Math.cos((50.0614 * Math.PI) / 180)),
+            ];
+            const [session] = JSON.parse(
+              localStorage.getItem("plansafe_sessions_v1"),
+            );
+            session.mapCenter = geo(0, 0);
+            session.zoomLevel = 15;
+            session.items = [
+              {
+                id: "spawn",
+                type: "polygon_zone",
+                name: "Crowd",
+                color: "#f97316",
+                coordinates: [
+                  geo(-450, -400),
+                  geo(-250, -400),
+                  geo(-250, 400),
+                  geo(-450, 400),
+                ],
+              },
+              ...[-300, 300].map((y, i) => ({
+                id: `exit-${i}`,
+                type: "safe_point",
+                name: `Exit ${i}`,
+                position: geo(450, y),
+                color: "#10b981",
+              })),
+            ];
+            Object.assign(session.simulationConfig, {
+              agentCount: 10000,
+              granulation: 1,
+              timeScale: 20,
+            });
+            localStorage.setItem(
+              "plansafe_sessions_v1",
+              JSON.stringify([session]),
+            );
+          }
           if (mode === "wasm")
             localStorage.setItem("plansafe_simulation_engine", "wasm");
           if (mode === "unsupported")
@@ -106,9 +150,33 @@ test(
           name: "Start simulation",
           exact: true,
         });
+        if (mode === "performance") {
+          await page.evaluate(async () => {
+            const { GpuSimulationEngine } =
+              await import("/js/crowdSimulatorGpu.js");
+            window.mapPerformance = { maxHeartbeatMs: 0, draws: 0 };
+            let previous = performance.now();
+            window.mapHeartbeat = setInterval(() => {
+              const now = performance.now();
+              window.mapPerformance.maxHeartbeatMs = Math.max(
+                window.mapPerformance.maxHeartbeatMs,
+                now - previous,
+              );
+              previous = now;
+            }, 50);
+            const draw = GpuSimulationEngine.prototype.drawAgents;
+            GpuSimulationEngine.prototype.drawAgents = function (...args) {
+              window.mapPerformance.draws++;
+              return draw.apply(this, args);
+            };
+          });
+        }
         if (mode === "mobile" || !(await start.isVisible()))
           await page
-            .getByRole("button", { name: "Open Control Panel", exact: true })
+            .getByRole("button", {
+              name: "Expand zone information",
+              exact: true,
+            })
             .click();
         await start.click();
         const badge = page.getByTestId("map-simulation-engine");
@@ -124,13 +192,57 @@ test(
           );
         await ready();
         const expectedEngine =
-          mode === "default" || mode === "mobile" ? "webgpu" : "wasm";
+          mode === "default" || mode === "mobile" || mode === "performance"
+            ? "webgpu"
+            : "wasm";
         assert.equal(await badge.getAttribute("data-engine"), expectedEngine);
         assert.ok(await badge.isVisible());
+        if (mode === "performance") {
+          const before = await page.evaluate(() => ({
+            now: performance.now(),
+            draws: window.mapPerformance.draws,
+            time: parseFloat(
+              document.querySelector(".sim-time-text").textContent,
+            ),
+          }));
+          await page.waitForTimeout(5000);
+          const result = await page.evaluate((before) => {
+            clearInterval(window.mapHeartbeat);
+            const seconds = (performance.now() - before.now) / 1000;
+            return {
+              maxHeartbeatMs: window.mapPerformance.maxHeartbeatMs,
+              actualSpeed:
+                (parseFloat(
+                  document.querySelector(".sim-time-text").textContent,
+                ) -
+                  before.time) /
+                seconds,
+              fps: (window.mapPerformance.draws - before.draws) / seconds,
+            };
+          }, before);
+          console.log("10,000-agent map, 20x:", result);
+          assert.ok(
+            result.maxHeartbeatMs < 1000,
+            `UI blocked for ${result.maxHeartbeatMs} ms`,
+          );
+          assert.ok(
+            result.actualSpeed > 15,
+            `Playback reached only ${result.actualSpeed}x`,
+          );
+          assert.ok(
+            result.fps > 15,
+            `Rendering reached only ${result.fps} FPS`,
+          );
+          await context.close();
+          continue;
+        }
         // Close the mobile drawer before using the floating simulation controls.
         if (mode === "mobile")
           await page
-            .getByRole("button", { name: "Close panel", exact: true })
+            .getByRole("button", {
+              name: "Collapse zone information",
+              exact: true,
+            })
             .click();
         await page.waitForFunction(
           () =>
@@ -172,7 +284,10 @@ test(
         await badge.waitFor({ state: "detached" });
         if (mode === "mobile")
           await page
-            .getByRole("button", { name: "Open Control Panel", exact: true })
+            .getByRole("button", {
+              name: "Expand zone information",
+              exact: true,
+            })
             .click();
         await start.click();
         await ready();

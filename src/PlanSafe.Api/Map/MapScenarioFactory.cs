@@ -184,11 +184,20 @@ public sealed class MapScenarioFactory
         builder.Fill(isWalkable: true);
         SetAreas(builder, OsmAreaKind.Water, isWalkable: false);
 
+        // Keep raster-width fences beside mapped streets from closing their centre
+        // lane. Match the browser terrain raster without reopening water or railways.
+        var streetCells = new MapScenarioBuilder(builder.Columns * cellSize, builder.Rows * cellSize, cellSize);
+        foreach (var (_, (xs, ys)) in roads)
+            streetCells.SetCorridor(xs, ys, Math.Max(PassageHalfWidthMeters, minimumHalfWidth));
+        var outsideStreets = streetCells.ToMask();
+        for (int i = 0; i < outsideStreets.Length; i++) outsideStreets[i] = !outsideStreets[i];
+
         var obstacles = new SegmentIndex(20.0);
         foreach (var line in lines)
         {
             var (xs, ys) = Line(line.Nodes);
-            builder.SetCorridor(xs, ys, Math.Max(line.HalfWidth, minimumHalfWidth), isWalkable: false);
+            builder.SetCorridor(xs, ys, Math.Max(line.HalfWidth, minimumHalfWidth), isWalkable: false,
+                onlyWhere: line.Kind == OsmLineKind.Barrier ? outsideStreets : null);
             for (int i = 0; i + 1 < xs.Length; i++) obstacles.Add(xs[i], ys[i], xs[i + 1], ys[i + 1], line.Kind);
         }
         foreach (var gate in _osm.GetGatesInBbox(south, west, north, east))

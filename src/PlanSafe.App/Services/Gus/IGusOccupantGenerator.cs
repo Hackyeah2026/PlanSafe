@@ -15,4 +15,7 @@ public interface IGusOccupantGenerator
     /// inside the provided evacuation zones.
     /// </summary>
     IReadOnlyList<OccupantAgent> GenerateOccupants(IEnumerable<MapZoneItem> evacZones, int? randomSeed = null);
+
+    Task<IReadOnlyList<OccupantAgent>> GenerateOccupantsAsync(IEnumerable<MapZoneItem> evacZones,
+        int? randomSeed = null, CancellationToken cancellationToken = default);
 }
