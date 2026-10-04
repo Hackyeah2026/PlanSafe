@@ -12,7 +12,7 @@
              @onpointercancel="EndDrag"></div>
     }
 
-    <div class="stats-floating-overlay ui-workspace" style="@GetOverlayStyle()" role="region" aria-label="Analytics and statistics">
+    <div class="stats-floating-overlay ui-workspace" style="@GetOverlayStyle()" role="region" aria-label="@L.Statistics.Title">
         <div class="stats-panel @(_isMinimized ? "minimized" : "") @(_isMaximized ? "maximized" : "")">
             
             <!-- Window Drag & Action Header -->
@@ -28,7 +28,7 @@
                         <line x1="12" y1="20" x2="12" y2="4"></line>
                         <line x1="6" y1="20" x2="6" y2="14"></line>
                     </svg>
-                    <span class="header-title">Analytics & Statistics</span>
+                    <span class="header-title">@L.Statistics.Title</span>
                     
                     @if (IsLive)
                     {
@@ -36,27 +36,27 @@
                         {
                             <span class="live-pill completed">
                                 <span class="check-icon">✓</span>
-                                SIMULATION ENDED
+                                @L.Simulation.Ended
                             </span>
                         }
                         else
                         {
                             <span class="live-pill live">
                                 <span class="pulse-dot"></span>
-                                LIVE SIMULATION
+                                @L.Simulation.Live
                             </span>
                         }
                     }
                     else
                     {
                         <span class="live-pill sample">
-                            SAMPLE DATA (MAP)
+                            @L.Demo.SampleData
                         </span>
                     }
                 </div>
 
                 <div class="header-actions" @onmousedown:stopPropagation @onpointerdown:stopPropagation @ondblclick:stopPropagation>
-                    <button type="button" class="btn-stat-action" @onclick="ToggleMinimize" aria-label="@(_isMinimized ? "Expand" : "Minimize")" title="@(_isMinimized ? "Expand" : "Minimize")">
+                    <button type="button" class="btn-stat-action" @onclick="ToggleMinimize" aria-label="@(_isMinimized ? L.Common.Expand : L.Common.Minimize)" title="@(_isMinimized ? L.Common.Expand : L.Common.Minimize)">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             @if (_isMinimized)
                             {
@@ -68,7 +68,7 @@
                             }
                         </svg>
                     </button>
-                    <button type="button" class="btn-stat-action" @onclick="ToggleMaximize" aria-label="@(_isMaximized ? "Restore" : "Maximize")" title="@(_isMaximized ? "Restore" : "Maximize")">
+                    <button type="button" class="btn-stat-action" @onclick="ToggleMaximize" aria-label="@(_isMaximized ? L.Common.Restore : L.Common.Maximize)" title="@(_isMaximized ? L.Common.Restore : L.Common.Maximize)">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             @if (_isMaximized)
                             {
@@ -80,8 +80,8 @@
                             }
                         </svg>
                     </button>
-                    <button type="button" class="btn-stat-action" @onclick="ResetPosition" aria-label="Reset window position" title="Reset window position"><UiIcon Kind="UiIconKind.Reset" /></button>
-                    <button type="button" class="btn-stat-action btn-stat-close" @onclick="Close" aria-label="Close" title="Close">
+                    <button type="button" class="btn-stat-action" @onclick="ResetPosition" aria-label="@L.Statistics.ResetPosition" title="@L.Statistics.ResetPosition"><UiIcon Kind="UiIconKind.Reset" /></button>
+                    <button type="button" class="btn-stat-action btn-stat-close" @onclick="Close" aria-label="@L.Common.Close" title="@L.Common.Close">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
                             <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -95,20 +95,20 @@
             {
                 <div class="minimized-strip" @onclick="ToggleMinimize">
                     <div class="mini-kpi">
-                        <span class="mini-kpi-lbl">EVACUATED:</span>
+                        <span class="mini-kpi-lbl">@L.Statistics.EvacuatedLabel</span>
                         <span class="mini-kpi-val text-success">@Stats.EvacuatedAgents / @Stats.TotalAgents (@Stats.EvacuationPercent%)</span>
                     </div>
                     <div class="mini-kpi">
-                        <span class="mini-kpi-lbl">TIME:</span>
-                        <span class="mini-kpi-val text-light">@Stats.SimulationTime.ToString("0.0", CultureInfo.InvariantCulture)s</span>
+                        <span class="mini-kpi-lbl">@L.Statistics.TimeLabel</span>
+                        <span class="mini-kpi-val text-light">@Stats.SimulationTime.ToString("0.0")s</span>
                     </div>
                     <div class="mini-kpi">
-                        <span class="mini-kpi-lbl">MEAN SPEED:</span>
-                        <span class="mini-kpi-val text-info">@Stats.CurrentMeanSpeed.ToString("0.00", CultureInfo.InvariantCulture) m/s</span>
+                        <span class="mini-kpi-lbl">@L.Statistics.MeanSpeedLabel</span>
+                        <span class="mini-kpi-val text-info">@Stats.CurrentMeanSpeed.ToString("0.00") m/s</span>
                     </div>
                     <div class="mini-kpi">
-                        <span class="mini-kpi-lbl">PEAK DENSITY:</span>
-                        <span class="mini-kpi-val text-warning">@Stats.CurrentPeakDensity.ToString("0.0", CultureInfo.InvariantCulture) ped/m²</span>
+                        <span class="mini-kpi-lbl">@L.Statistics.PeakDensityLabel</span>
+                        <span class="mini-kpi-val text-warning">@Stats.CurrentPeakDensity.ToString("0.0") @L.Statistics.DensityUnit</span>
                     </div>
                 </div>
             }
@@ -117,20 +117,20 @@
                 <!-- KPI Ribbon -->
                 <div class="stats-kpi-bar">
                     <div class="kpi-block border-success">
-                        <span class="kpi-label">EVACUATED</span>
+                        <span class="kpi-label">@L.Statistics.Evacuated</span>
                         <span class="kpi-val text-success">@Stats.EvacuatedAgents / @Stats.TotalAgents (@Stats.EvacuationPercent%)</span>
                     </div>
                     <div class="kpi-block border-primary">
-                        <span class="kpi-label">SIMULATION TIME</span>
-                        <span class="kpi-val text-light">@Stats.SimulationTime.ToString("0.0", CultureInfo.InvariantCulture)s <small class="text-secondary">(@((Stats.SimulationTime / 60f).ToString("0.0", CultureInfo.InvariantCulture))m)</small></span>
+                        <span class="kpi-label">@L.Statistics.SimulationTime</span>
+                        <span class="kpi-val text-light">@Stats.SimulationTime.ToString("0.0")s <small class="text-secondary">(@((Stats.SimulationTime / 60f).ToString("0.0"))m)</small></span>
                     </div>
                     <div class="kpi-block border-info">
-                        <span class="kpi-label">MEAN SPEED</span>
-                        <span class="kpi-val text-info">@Stats.CurrentMeanSpeed.ToString("0.00", CultureInfo.InvariantCulture) m/s</span>
+                        <span class="kpi-label">@L.Statistics.MeanSpeed</span>
+                        <span class="kpi-val text-info">@Stats.CurrentMeanSpeed.ToString("0.00") m/s</span>
                     </div>
                     <div class="kpi-block border-warning">
-                        <span class="kpi-label">MEAN / PEAK DENSITY</span>
-                        <span class="kpi-val text-warning">@Stats.CurrentMeanDensity.ToString("0.0", CultureInfo.InvariantCulture) / @Stats.CurrentPeakDensity.ToString("0.0", CultureInfo.InvariantCulture) ped/m²</span>
+                        <span class="kpi-label">@L.Statistics.DensitySummary</span>
+                        <span class="kpi-val text-warning">@Stats.CurrentMeanDensity.ToString("0.0") / @Stats.CurrentPeakDensity.ToString("0.0") @L.Statistics.DensityUnit</span>
                     </div>
                 </div>
 
@@ -145,20 +145,20 @@
                                 <rect x="3" y="14" width="7" height="7" rx="1"></rect>
                                 <rect x="14" y="14" width="7" height="7" rx="1"></rect>
                             </svg>
-                            <span>All Stats (Grid)</span>
+                            <span>@L.Statistics.AllCharts</span>
                         </button>
                     }
                     <button type="button" class="tab-btn @(_activeTab == "cohorts" ? "active" : "")" @onclick='() => _activeTab = "cohorts"'>
                         <span class="tab-num">1</span>
-                        <span>Cohorts (10%)</span>
+                        <span>@L.Statistics.Cohorts</span>
                     </button>
                     <button type="button" class="tab-btn @(_activeTab == "speed" ? "active" : "")" @onclick='() => _activeTab = "speed"'>
                         <span class="tab-num">2</span>
-                        <span>Speed Profile</span>
+                        <span>@L.Statistics.SpeedProfile</span>
                     </button>
                     <button type="button" class="tab-btn @(_activeTab == "density" ? "active" : "")" @onclick='() => _activeTab = "density"'>
                         <span class="tab-num">3</span>
-                        <span>Crowd Density (μ ± σ)</span>
+                        <span>@L.Statistics.DensityBand</span>
                     </button>
                 </div>
 

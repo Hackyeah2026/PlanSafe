@@ -1,0 +1,1239 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="Appearance.Dark" xml:space="preserve">
+    <value>Ciemny</value>
+  </data>
+  <data name="Appearance.Language" xml:space="preserve">
+    <value>Język</value>
+  </data>
+  <data name="Appearance.Light" xml:space="preserve">
+    <value>Jasny</value>
+  </data>
+  <data name="Appearance.System" xml:space="preserve">
+    <value>Systemowy</value>
+  </data>
+  <data name="Appearance.Theme" xml:space="preserve">
+    <value>Motyw</value>
+  </data>
+  <data name="Census.Attribution" xml:space="preserve">
+    <value>Źródło: GUS, spis powszechny 2021</value>
+  </data>
+  <data name="Census.CustomCount" xml:space="preserve">
+    <value>Własna liczba</value>
+  </data>
+  <data name="Census.DrawingHint" xml:space="preserve">
+    <value>Możesz kontynuować rysowanie podczas ładowania danych spisowych.</value>
+  </data>
+  <data name="Census.Estimate" xml:space="preserve">
+    <value>Szacowana liczba mieszkańców</value>
+  </data>
+  <data name="Census.GridResidents" xml:space="preserve">
+    <value>Siatka GUS 125 m · Mieszkańcy: {0}</value>
+  </data>
+  <data name="Census.LoadFailed" xml:space="preserve">
+    <value>Nie udało się wczytać danych spisowych dla tej strefy.</value>
+  </data>
+  <data name="Census.Loading" xml:space="preserve">
+    <value>Ładowanie danych ludności...</value>
+  </data>
+  <data name="Census.Population" xml:space="preserve">
+    <value>Ludność według spisu</value>
+  </data>
+  <data name="Census.Source" xml:space="preserve">
+    <value>Źródło populacji:</value>
+  </data>
+  <data name="Census.SourcePopulation" xml:space="preserve">
+    <value>GUS NSP 2021 ({0} os.)</value>
+  </data>
+  <data name="Census.Unavailable" xml:space="preserve">
+    <value>Dane ludności niedostępne</value>
+  </data>
+  <data name="Census.Wait" xml:space="preserve">
+    <value>Dane ludności są jeszcze ładowane. Spróbuj ponownie za chwilę.</value>
+  </data>
+  <data name="Common.ApiError" xml:space="preserve">
+    <value>Nie udało się połączyć z API: {0}</value>
+  </data>
+  <data name="Common.Cancel" xml:space="preserve">
+    <value>Anuluj</value>
+  </data>
+  <data name="Common.Close" xml:space="preserve">
+    <value>Zamknij</value>
+  </data>
+  <data name="Common.Collapse" xml:space="preserve">
+    <value>Zwiń</value>
+  </data>
+  <data name="Common.CommunicationError" xml:space="preserve">
+    <value>Błąd komunikacji: {0}</value>
+  </data>
+  <data name="Common.Copied" xml:space="preserve">
+    <value>Skopiowano</value>
+  </data>
+  <data name="Common.Copy" xml:space="preserve">
+    <value>Kopiuj</value>
+  </data>
+  <data name="Common.DismissError" xml:space="preserve">
+    <value>Zamknij komunikat błędu</value>
+  </data>
+  <data name="Common.Error" xml:space="preserve">
+    <value>Wystąpił błąd.</value>
+  </data>
+  <data name="Common.ErrorDetails" xml:space="preserve">
+    <value>Błąd: {0}</value>
+  </data>
+  <data name="Common.Expand" xml:space="preserve">
+    <value>Rozwiń</value>
+  </data>
+  <data name="Common.HoursAgo" xml:space="preserve">
+    <value>{0} godz. temu</value>
+  </data>
+  <data name="Common.JustNow" xml:space="preserve">
+    <value>przed chwilą</value>
+  </data>
+  <data name="Common.Loading" xml:space="preserve">
+    <value>Ładowanie</value>
+  </data>
+  <data name="Common.Maximize" xml:space="preserve">
+    <value>Maksymalizuj</value>
+  </data>
+  <data name="Common.Minimize" xml:space="preserve">
+    <value>Zminimalizuj</value>
+  </data>
+  <data name="Common.MinutesAgo" xml:space="preserve">
+    <value>{0} min temu</value>
+  </data>
+  <data name="Common.Open" xml:space="preserve">
+    <value>Otwórz</value>
+  </data>
+  <data name="Common.Optional" xml:space="preserve">
+    <value>(Opcjonalnie)</value>
+  </data>
+  <data name="Common.Refresh" xml:space="preserve">
+    <value>Odśwież</value>
+  </data>
+  <data name="Common.Reload" xml:space="preserve">
+    <value>Odśwież</value>
+  </data>
+  <data name="Common.Remove" xml:space="preserve">
+    <value>Usuń</value>
+  </data>
+  <data name="Common.Restore" xml:space="preserve">
+    <value>Przywróć</value>
+  </data>
+  <data name="Common.Retry" xml:space="preserve">
+    <value>Spróbuj ponownie</value>
+  </data>
+  <data name="Common.Save" xml:space="preserve">
+    <value>Zapisz</value>
+  </data>
+  <data name="Common.UnhandledError" xml:space="preserve">
+    <value>Wystąpił nieoczekiwany błąd.</value>
+  </data>
+  <data name="Common.View" xml:space="preserve">
+    <value>Widok</value>
+  </data>
+  <data name="Common.ViewFailed" xml:space="preserve">
+    <value>Nie udało się zainicjować widoku: {0}</value>
+  </data>
+  <data name="Demo.BackupShelter" xml:space="preserve">
+    <value>Schron Zapasowy (Planty)</value>
+  </data>
+  <data name="Demo.Coordinates" xml:space="preserve">
+    <value>Rzeczywiste współrzędne GPS • Kraków</value>
+  </data>
+  <data name="Demo.Description" xml:space="preserve">
+    <value>Rzeczywisty układ współrzędnych (metry) • Pole Potencjału + Siły Społeczne • Weidmann &amp; Seyfried</value>
+  </data>
+  <data name="Demo.EastExit" xml:space="preserve">
+    <value>Wyjście Główne (Wschód)</value>
+  </data>
+  <data name="Demo.Exit" xml:space="preserve">
+    <value>Wyjście</value>
+  </data>
+  <data name="Demo.MainExit" xml:space="preserve">
+    <value>Wyjście Główne</value>
+  </data>
+  <data name="Demo.MainShelter" xml:space="preserve">
+    <value>Schron Główny (Park Krakowski)</value>
+  </data>
+  <data name="Demo.NorthAssembly" xml:space="preserve">
+    <value>Punkt Zbiórki Północ (Park Krakowski)</value>
+  </data>
+  <data name="Demo.NorthShelter" xml:space="preserve">
+    <value>Schron Północny (Bramka A)</value>
+  </data>
+  <data name="Demo.SampleData" xml:space="preserve">
+    <value>DANE PRZYKŁADOWE (MAPA)</value>
+  </data>
+  <data name="Demo.SouthAssembly" xml:space="preserve">
+    <value>Punkt Zbiórki Południe (Planty)</value>
+  </data>
+  <data name="Demo.SouthShelter" xml:space="preserve">
+    <value>Schron Południowy (Bramka B)</value>
+  </data>
+  <data name="Demo.Title" xml:space="preserve">
+    <value>Metryczny symulator tłumu</value>
+  </data>
+  <data name="Direction.East" xml:space="preserve">
+    <value>E (Wschód)</value>
+  </data>
+  <data name="Direction.North" xml:space="preserve">
+    <value>N (Północ)</value>
+  </data>
+  <data name="Direction.NorthEast" xml:space="preserve">
+    <value>NE (Północny Wschód)</value>
+  </data>
+  <data name="Direction.NorthWest" xml:space="preserve">
+    <value>NW (Północny Zachód)</value>
+  </data>
+  <data name="Direction.South" xml:space="preserve">
+    <value>S (Południe)</value>
+  </data>
+  <data name="Direction.SouthEast" xml:space="preserve">
+    <value>SE (Południowy Wschód)</value>
+  </data>
+  <data name="Direction.SouthWest" xml:space="preserve">
+    <value>SW (Południowy Zachód)</value>
+  </data>
+  <data name="Direction.West" xml:space="preserve">
+    <value>W (Zachód)</value>
+  </data>
+  <data name="Drawing.BlockadeEnd" xml:space="preserve">
+    <value>Kliknij, aby ustawić koniec blokady</value>
+  </data>
+  <data name="Drawing.BlockadeStart" xml:space="preserve">
+    <value>Kliknij na mapie, aby ustawić początek blokady</value>
+  </data>
+  <data name="Drawing.Cancel" xml:space="preserve">
+    <value>Anuluj (Esc)</value>
+  </data>
+  <data name="Drawing.Category" xml:space="preserve">
+    <value>Kategoria rysowania</value>
+  </data>
+  <data name="Drawing.Circle" xml:space="preserve">
+    <value>Koło</value>
+  </data>
+  <data name="Drawing.Done" xml:space="preserve">
+    <value>Gotowe</value>
+  </data>
+  <data name="Drawing.EvacuationCenter" xml:space="preserve">
+    <value>Kliknij na mapie, aby ustawić środek strefy ewakuacji</value>
+  </data>
+  <data name="Drawing.EvacuationPolygon" xml:space="preserve">
+    <value>Klikaj punkty na mapie, aby narysować strefę ewakuacji</value>
+  </data>
+  <data name="Drawing.EvacuationZone" xml:space="preserve">
+    <value>Strefa ewakuacji</value>
+  </data>
+  <data name="Drawing.FirstPoint" xml:space="preserve">
+    <value>Dodano pierwszy punkt. Kliknij, aby dodać drugi</value>
+  </data>
+  <data name="Drawing.Instructions" xml:space="preserve">
+    <value>Instrukcje rysowania</value>
+  </data>
+  <data name="Drawing.Navigate" xml:space="preserve">
+    <value>Przesuwanie mapy</value>
+  </data>
+  <data name="Drawing.Polygon" xml:space="preserve">
+    <value>Wielokąt</value>
+  </data>
+  <data name="Drawing.PolygonAdded" xml:space="preserve">
+    <value>Dodano wielokąt. Dodaj kolejne punkty lub kliknij Gotowe</value>
+  </data>
+  <data name="Drawing.PolygonMinimum" xml:space="preserve">
+    <value>Strefa wielokątna wymaga co najmniej 3 punktów.</value>
+  </data>
+  <data name="Drawing.PolygonVertices" xml:space="preserve">
+    <value>Dodano wielokąt (wierzchołki: {0}). Dodaj kolejne punkty lub kliknij Gotowe</value>
+  </data>
+  <data name="Drawing.RadiusHint" xml:space="preserve">
+    <value>Przesuń kursor, aby ustawić promień, i kliknij, aby zatwierdzić</value>
+  </data>
+  <data name="Drawing.SafeCenter" xml:space="preserve">
+    <value>Kliknij na mapie, aby ustawić środek bezpiecznej strefy</value>
+  </data>
+  <data name="Drawing.SafePolygon" xml:space="preserve">
+    <value>Klikaj punkty na mapie, aby narysować bezpieczną strefę</value>
+  </data>
+  <data name="Drawing.SecondPoint" xml:space="preserve">
+    <value>Dodano drugi punkt. Kliknij, aby dodać trzeci i utworzyć wielokąt</value>
+  </data>
+  <data name="Drawing.Shape" xml:space="preserve">
+    <value>Kształt</value>
+  </data>
+  <data name="Drawing.ShapeHint" xml:space="preserve">
+    <value>Kliknij na mapie, aby narysować kształt</value>
+  </data>
+  <data name="Drawing.StartHint" xml:space="preserve">
+    <value>Narysuj strefę ewakuacji na mapie za pomocą wielokąta lub koła.</value>
+  </data>
+  <data name="Drawing.Tools" xml:space="preserve">
+    <value>Narzędzia rysowania mapy</value>
+  </data>
+  <data name="Evacuation.ActiveSession" xml:space="preserve">
+    <value>● Aktywna sesja:</value>
+  </data>
+  <data name="Evacuation.Analyzing" xml:space="preserve">
+    <value>Analizowanie obłożenia, odległości i blokad drogowych</value>
+  </data>
+  <data name="Evacuation.AssignedShelter" xml:space="preserve">
+    <value>Twój przydzielony schron</value>
+  </data>
+  <data name="Evacuation.Assigning" xml:space="preserve">
+    <value>Przydzielanie schronu...</value>
+  </data>
+  <data name="Evacuation.Description" xml:space="preserve">
+    <value>Sprawdź przydzielony schron i trasę</value>
+  </data>
+  <data name="Evacuation.Direction" xml:space="preserve">
+    <value>Kierunek marszu</value>
+  </data>
+  <data name="Evacuation.GoogleMaps" xml:space="preserve">
+    <value>Nawiguj pieszo w Google Maps</value>
+  </data>
+  <data name="Evacuation.Loading" xml:space="preserve">
+    <value>Wczytywanie planu ewakuacji...</value>
+  </data>
+  <data name="Evacuation.LoadingDetails" xml:space="preserve">
+    <value>Pobieranie parametrów sesji, schronów i blokad</value>
+  </data>
+  <data name="Evacuation.NoAssignment" xml:space="preserve">
+    <value>Nie przydzielono schronu.</value>
+  </data>
+  <data name="Evacuation.OutsideDescription" xml:space="preserve">
+    <value>Wskazana lokalizacja znajduje się poza strefą ewakuacji. Przydział schronu jest dostępny tylko w tej strefie. Jeśli lokalizacja jest błędna, popraw ją na mapie.</value>
+  </data>
+  <data name="Evacuation.OutsideTitle" xml:space="preserve">
+    <value>Poza strefą ewakuacji</value>
+  </data>
+  <data name="Evacuation.PageTitle" xml:space="preserve">
+    <value>PlanSafe · Asystent ewakuacji</value>
+  </data>
+  <data name="Evacuation.Plan" xml:space="preserve">
+    <value>Plan ewakuacji</value>
+  </data>
+  <data name="Evacuation.Refresh" xml:space="preserve">
+    <value>Odśwież przydział</value>
+  </data>
+  <data name="Evacuation.RouteInstructions" xml:space="preserve">
+    <value>Wskaż swoją lokalizację w strefie ewakuacji, aby wyznaczyć trasę do przydzielonego schronu.</value>
+  </data>
+  <data name="Evacuation.Routing" xml:space="preserve">
+    <value>Wyznaczanie trasy...</value>
+  </data>
+  <data name="Evacuation.Session" xml:space="preserve">
+    <value>SESJA: {0}</value>
+  </data>
+  <data name="Evacuation.SessionExpired" xml:space="preserve">
+    <value>Sesja ewakuacji wygasła lub jest nieaktywna. Skontaktuj się ze służbami ratunkowymi.</value>
+  </data>
+  <data name="Evacuation.SessionId" xml:space="preserve">
+    <value>Identyfikator aktywnej sesji ewakuacji</value>
+  </data>
+  <data name="Evacuation.Start" xml:space="preserve">
+    <value>Rozpocznij ewakuację</value>
+  </data>
+  <data name="Evacuation.Title" xml:space="preserve">
+    <value>Asystent ewakuacji</value>
+  </data>
+  <data name="Evacuation.WalkingTime" xml:space="preserve">
+    <value>~{0} min pieszo</value>
+  </data>
+  <data name="Location.Acquired" xml:space="preserve">
+    <value>Pobrano pozycję GPS.</value>
+  </data>
+  <data name="Location.Active" xml:space="preserve">
+    <value>GPS AKTYWNY</value>
+  </data>
+  <data name="Location.BrowserMessage" xml:space="preserve">
+    <value>Komunikat przeglądarki:</value>
+  </data>
+  <data name="Location.Coordinates" xml:space="preserve">
+    <value>Współrzędne lokalizacji:</value>
+  </data>
+  <data name="Location.Correct" xml:space="preserve">
+    <value>Popraw lokalizację</value>
+  </data>
+  <data name="Location.DefaultPosition" xml:space="preserve">
+    <value>Pozycja domyślna strefy (Kraków Rynek)</value>
+  </data>
+  <data name="Location.Denied" xml:space="preserve">
+    <value>Odmowa dostępu do lokalizacji.</value>
+  </data>
+  <data name="Location.Error" xml:space="preserve">
+    <value>Błąd GPS.</value>
+  </data>
+  <data name="Location.ErrorTitle" xml:space="preserve">
+    <value>Błąd lokalizacji</value>
+  </data>
+  <data name="Location.Get" xml:space="preserve">
+    <value>Pobierz pozycję GPS</value>
+  </data>
+  <data name="Location.Getting" xml:space="preserve">
+    <value>Pobieranie pozycji GPS...</value>
+  </data>
+  <data name="Location.GpsPosition" xml:space="preserve">
+    <value>Twoja lokalizacja (GPS)</value>
+  </data>
+  <data name="Location.HttpsRequired" xml:space="preserve">
+    <value>Brak dostępu do GPS (wymagane HTTPS)</value>
+  </data>
+  <data name="Location.InsecureConnection" xml:space="preserve">
+    <value>Dostęp do lokalizacji jest zablokowany przez HTTP. Użyj HTTPS lub wskaż lokalizację na mapie.</value>
+  </data>
+  <data name="Location.InsecureHost" xml:space="preserve">
+    <value>Dostęp do lokalizacji na {0} (HTTP) jest zablokowany. Użyj HTTPS lub localhost.</value>
+  </data>
+  <data name="Location.LocalhostHint" xml:space="preserve">
+    <value>Dostęp do lokalizacji wymaga HTTPS lub localhost. Otwórz</value>
+  </data>
+  <data name="Location.ManualFallback" xml:space="preserve">
+    <value>GPS niedostępny (wskaż na mapie)</value>
+  </data>
+  <data name="Location.Mark" xml:space="preserve">
+    <value>Wskaż pozycję na mapie</value>
+  </data>
+  <data name="Location.MarkTitle" xml:space="preserve">
+    <value>Wskaż swoją lokalizację na mapie</value>
+  </data>
+  <data name="Location.NavigationHint" xml:space="preserve">
+    <value>Wskaż swoją pozycję wewnątrz strefy ewakuacji, aby rozpocząć nawigację.</value>
+  </data>
+  <data name="Location.NetworkAcquired" xml:space="preserve">
+    <value>Pobrano pozycję przez sieć/Wi-Fi.</value>
+  </data>
+  <data name="Location.OrMark" xml:space="preserve">
+    <value>lub wskaż pozycję na mapie.</value>
+  </data>
+  <data name="Location.PermissionHint" xml:space="preserve">
+    <value>Zezwól przeglądarce na dostęp do lokalizacji lub wskaż ją na mapie.</value>
+  </data>
+  <data name="Location.Refresh" xml:space="preserve">
+    <value>Odśwież pozycję GPS</value>
+  </data>
+  <data name="Location.SelectHint" xml:space="preserve">
+    <value>Kliknij na mapie, by wskazać pozycję •</value>
+  </data>
+  <data name="Location.SelectInZone" xml:space="preserve">
+    <value>Kliknij na mapie wewnątrz wyznaczonej strefy, aby ustawić lokalizację.</value>
+  </data>
+  <data name="Location.SelectedCoordinates" xml:space="preserve">
+    <value>{0}°N, {1}°E (wybrano na mapie)</value>
+  </data>
+  <data name="Location.SelectionMode" xml:space="preserve">
+    <value>Tryb wskazywania pozycji:</value>
+  </data>
+  <data name="Location.Timeout" xml:space="preserve">
+    <value>Przekroczono limit czasu oczekiwania na GPS.</value>
+  </data>
+  <data name="Location.Unavailable" xml:space="preserve">
+    <value>Pozycja niedostępna (brak sygnału GPS/sieci).</value>
+  </data>
+  <data name="Location.Unsupported" xml:space="preserve">
+    <value>Przeglądarka nie obsługuje geolokalizacji GPS.</value>
+  </data>
+  <data name="Location.YourPosition" xml:space="preserve">
+    <value>Twoja lokalizacja</value>
+  </data>
+  <data name="Map.Blockade" xml:space="preserve">
+    <value>Blokada</value>
+  </data>
+  <data name="Map.BlockadeName" xml:space="preserve">
+    <value>Blokada {0}</value>
+  </data>
+  <data name="Map.BlockadePosition" xml:space="preserve">
+    <value>Blokada ({0}, {1})</value>
+  </data>
+  <data name="Map.Blockades" xml:space="preserve">
+    <value>Blokady dróg</value>
+  </data>
+  <data name="Map.Center" xml:space="preserve">
+    <value>Wyśrodkuj mapę</value>
+  </data>
+  <data name="Map.CollapseInfo" xml:space="preserve">
+    <value>Zwiń informacje o strefie</value>
+  </data>
+  <data name="Map.Contributors" xml:space="preserve">
+    <value>współtwórcy</value>
+  </data>
+  <data name="Map.EvacuationZone" xml:space="preserve">
+    <value>Strefa ewakuacji</value>
+  </data>
+  <data name="Map.EvacuationZoneName" xml:space="preserve">
+    <value>Strefa ewakuacji {0}</value>
+  </data>
+  <data name="Map.EvacuationZones" xml:space="preserve">
+    <value>Strefy ewakuacji</value>
+  </data>
+  <data name="Map.ExpandInfo" xml:space="preserve">
+    <value>Rozwiń informacje o strefie</value>
+  </data>
+  <data name="Map.FeatureSummary" xml:space="preserve">
+    <value>Blokady: {0} · Punkty zbiórki: {1}</value>
+  </data>
+  <data name="Map.Features" xml:space="preserve">
+    <value>Obiekty na mapie</value>
+  </data>
+  <data name="Map.FitShelters" xml:space="preserve">
+    <value>Dopasuj widok do wszystkich schronów</value>
+  </data>
+  <data name="Map.GestureHint" xml:space="preserve">
+    <value>Przeciągnij, aby przesunąć mapę · Przewiń, aby zmienić skalę · Kliknij dwukrotnie, aby przywrócić widok</value>
+  </data>
+  <data name="Map.HideZone" xml:space="preserve">
+    <value>Ukryj mapę strefy</value>
+  </data>
+  <data name="Map.Length" xml:space="preserve">
+    <value>Długość: {0} m</value>
+  </data>
+  <data name="Map.NoZone" xml:space="preserve">
+    <value>Nie narysowano strefy ewakuacji.</value>
+  </data>
+  <data name="Map.Radius" xml:space="preserve">
+    <value>Promień: {0} m</value>
+  </data>
+  <data name="Map.ResetView" xml:space="preserve">
+    <value>Przywróć widok</value>
+  </data>
+  <data name="Map.SafeLocation" xml:space="preserve">
+    <value>Bezpieczne miejsce</value>
+  </data>
+  <data name="Map.SafeLocations" xml:space="preserve">
+    <value>Bezpieczne miejsca</value>
+  </data>
+  <data name="Map.SafePoint" xml:space="preserve">
+    <value>Bezpieczny punkt</value>
+  </data>
+  <data name="Map.SafeZone" xml:space="preserve">
+    <value>Bezpieczna strefa</value>
+  </data>
+  <data name="Map.SafeZoneName" xml:space="preserve">
+    <value>Bezpieczna strefa {0}</value>
+  </data>
+  <data name="Map.Vertices" xml:space="preserve">
+    <value>Wierzchołki: {0}</value>
+  </data>
+  <data name="Map.ZoneInfo" xml:space="preserve">
+    <value>Informacje o strefie</value>
+  </data>
+  <data name="Map.ZoomIn" xml:space="preserve">
+    <value>Przybliż</value>
+  </data>
+  <data name="Map.ZoomOut" xml:space="preserve">
+    <value>Oddal</value>
+  </data>
+  <data name="Navigation.Demo" xml:space="preserve">
+    <value>Demonstracja symulacji</value>
+  </data>
+  <data name="Navigation.DemoTitle" xml:space="preserve">
+    <value>Demonstracja symulacji - PlanSafe</value>
+  </data>
+  <data name="Navigation.Label" xml:space="preserve">
+    <value>Nawigacja aplikacji</value>
+  </data>
+  <data name="Navigation.Map" xml:space="preserve">
+    <value>Mapa</value>
+  </data>
+  <data name="Navigation.MapTitle" xml:space="preserve">
+    <value>Mapa - PlanSafe</value>
+  </data>
+  <data name="Navigation.Menu" xml:space="preserve">
+    <value>Menu nawigacji i wyglądu</value>
+  </data>
+  <data name="Navigation.NotFound" xml:space="preserve">
+    <value>Nie znaleziono</value>
+  </data>
+  <data name="Navigation.NotFoundDescription" xml:space="preserve">
+    <value>Nie znaleziono strony.</value>
+  </data>
+  <data name="Navigation.Simulator" xml:space="preserve">
+    <value>Symulator</value>
+  </data>
+  <data name="Publish.Address" xml:space="preserve">
+    <value>Adres asystenta ewakuacji:</value>
+  </data>
+  <data name="Publish.AssemblyPoints" xml:space="preserve">
+    <value>PUNKTY ZBIÓRKI</value>
+  </data>
+  <data name="Publish.Blockades" xml:space="preserve">
+    <value>BLOKADY DRÓG</value>
+  </data>
+  <data name="Publish.ChangeSettings" xml:space="preserve">
+    <value>Zmień ustawienia</value>
+  </data>
+  <data name="Publish.CitizenView" xml:space="preserve">
+    <value>Widok obywatela:</value>
+  </data>
+  <data name="Publish.CloseProjector" xml:space="preserve">
+    <value>Zamknij projektor</value>
+  </data>
+  <data name="Publish.Description" xml:space="preserve">
+    <value>Opublikuj plan, aby otrzymać link i kod QR. Po zeskanowaniu kodu można sprawdzić przydzielony schron i trasę w przeglądarce.</value>
+  </data>
+  <data name="Publish.HttpError" xml:space="preserve">
+    <value>Błąd publikowania planu: HTTP {0}</value>
+  </data>
+  <data name="Publish.Plan" xml:space="preserve">
+    <value>Opublikuj plan</value>
+  </data>
+  <data name="Publish.Projector" xml:space="preserve">
+    <value>Projektor</value>
+  </data>
+  <data name="Publish.ProjectorHint" xml:space="preserve">
+    <value>Przełącz tryb projektora / duży ekran</value>
+  </data>
+  <data name="Publish.ProjectorTitle" xml:space="preserve">
+    <value>Plan ewakuacji</value>
+  </data>
+  <data name="Publish.Publishing" xml:space="preserve">
+    <value>Publikowanie...</value>
+  </data>
+  <data name="Publish.PublishingPlan" xml:space="preserve">
+    <value>Publikowanie planu...</value>
+  </data>
+  <data name="Publish.SessionCode" xml:space="preserve">
+    <value>KOD SESJI: {0}</value>
+  </data>
+  <data name="Publish.SettingsDescription" xml:space="preserve">
+    <value>Przydział schronów i udostępnianie planu</value>
+  </data>
+  <data name="Publish.ShareHint" xml:space="preserve">
+    <value>Udostępnij link lub kod QR osobom w strefie ewakuacji.</value>
+  </data>
+  <data name="Publish.ShareInstructions" xml:space="preserve">
+    <value>Udostępnij link lub kod QR osobom w strefie ewakuacji.</value>
+  </data>
+  <data name="Publish.Submit" xml:space="preserve">
+    <value>Opublikuj plan</value>
+  </data>
+  <data name="Publish.Success" xml:space="preserve">
+    <value>Plan ewakuacji opublikowany</value>
+  </data>
+  <data name="Publish.Summary" xml:space="preserve">
+    <value>Schrony: {0} · Blokady: {1} · Szerokość mapy: {2} m</value>
+  </data>
+  <data name="Publish.Title" xml:space="preserve">
+    <value>Opublikuj plan ewakuacji</value>
+  </data>
+  <data name="Publish.Zones" xml:space="preserve">
+    <value>STREFY ALARMU</value>
+  </data>
+  <data name="Scenario.Actions" xml:space="preserve">
+    <value>Działania na scenariuszach</value>
+  </data>
+  <data name="Scenario.Active" xml:space="preserve">
+    <value>Aktywna</value>
+  </data>
+  <data name="Scenario.Branch" xml:space="preserve">
+    <value>Gałąź</value>
+  </data>
+  <data name="Scenario.BranchCurrent" xml:space="preserve">
+    <value>Utwórz gałąź z bieżącego scenariusza</value>
+  </data>
+  <data name="Scenario.BranchFrom" xml:space="preserve">
+    <value>Utwórz gałąź z tego scenariusza</value>
+  </data>
+  <data name="Scenario.BranchName" xml:space="preserve">
+    <value>Nazwa gałęzi</value>
+  </data>
+  <data name="Scenario.ClearFilter" xml:space="preserve">
+    <value>Wyczyść filtr gałęzi</value>
+  </data>
+  <data name="Scenario.CopyDescription" xml:space="preserve">
+    <value>Edytuj skopiowane strefy i blokady bez zmieniania gałęzi nadrzędnej.</value>
+  </data>
+  <data name="Scenario.CopyFeatures" xml:space="preserve">
+    <value>Kopiuj strefy i blokady</value>
+  </data>
+  <data name="Scenario.CopyTree" xml:space="preserve">
+    <value>Kopiuj drzewo scenariuszy jako JSON</value>
+  </data>
+  <data name="Scenario.Count" xml:space="preserve">
+    <value>Scenariusze: {0}</value>
+  </data>
+  <data name="Scenario.CreateAndSwitch" xml:space="preserve">
+    <value>Utwórz i przełącz</value>
+  </data>
+  <data name="Scenario.CreateDescription" xml:space="preserve">
+    <value>Utwórz gałąź, aby przetestować inne ustawienia ewakuacji</value>
+  </data>
+  <data name="Scenario.CreateTitle" xml:space="preserve">
+    <value>Utwórz gałąź scenariusza</value>
+  </data>
+  <data name="Scenario.Creating" xml:space="preserve">
+    <value>Tworzenie gałęzi...</value>
+  </data>
+  <data name="Scenario.Current" xml:space="preserve">
+    <value>Bieżąca</value>
+  </data>
+  <data name="Scenario.Delete" xml:space="preserve">
+    <value>Usuń gałąź</value>
+  </data>
+  <data name="Scenario.DeleteConfirm" xml:space="preserve">
+    <value>Usunąć gałąź '{0}'?</value>
+  </data>
+  <data name="Scenario.DeleteNamed" xml:space="preserve">
+    <value>Usuń gałąź {0}</value>
+  </data>
+  <data name="Scenario.Description" xml:space="preserve">
+    <value>Opis scenariusza</value>
+  </data>
+  <data name="Scenario.DescriptionHint" xml:space="preserve">
+    <value>Co sprawdza ten scenariusz?</value>
+  </data>
+  <data name="Scenario.FeatureSummary" xml:space="preserve">
+    <value>Strefy ewakuacji: {0} · Bezpieczne miejsca: {1} · Blokady: {2}</value>
+  </data>
+  <data name="Scenario.Features" xml:space="preserve">
+    <value>Elementy aktywnego scenariusza:</value>
+  </data>
+  <data name="Scenario.Filter" xml:space="preserve">
+    <value>Filtruj gałęzie</value>
+  </data>
+  <data name="Scenario.FilterHint" xml:space="preserve">
+    <value>Filtruj gałęzie...</value>
+  </data>
+  <data name="Scenario.Label" xml:space="preserve">
+    <value>Scenariusz</value>
+  </data>
+  <data name="Scenario.Loading" xml:space="preserve">
+    <value>Ładowanie drzewa scenariuszy...</value>
+  </data>
+  <data name="Scenario.NameExample" xml:space="preserve">
+    <value>np. scenariusz/zamkniecie-mostu, test/blokada-florianskiej</value>
+  </data>
+  <data name="Scenario.NamePlaceholder" xml:space="preserve">
+    <value>scenariusz/moja-hipoteza</value>
+  </data>
+  <data name="Scenario.NameRequired" xml:space="preserve">
+    <value>Podaj nazwę gałęzi (np. scenariusz/nowa-blokada).</value>
+  </data>
+  <data name="Scenario.NewBranch" xml:space="preserve">
+    <value>Nowa gałąź</value>
+  </data>
+  <data name="Scenario.NoMatches" xml:space="preserve">
+    <value>Nie znaleziono pasujących gałęzi.</value>
+  </data>
+  <data name="Scenario.OpenTree" xml:space="preserve">
+    <value>Otwórz drzewo scenariuszy: {0}</value>
+  </data>
+  <data name="Scenario.Parent" xml:space="preserve">
+    <value>Gałąź nadrzędna:</value>
+  </data>
+  <data name="Scenario.Root" xml:space="preserve">
+    <value>Główna</value>
+  </data>
+  <data name="Scenario.Session" xml:space="preserve">
+    <value>Sesja: {0}</value>
+  </data>
+  <data name="Scenario.Switch" xml:space="preserve">
+    <value>Przełącz</value>
+  </data>
+  <data name="Scenario.SwitchHint" xml:space="preserve">
+    <value>Przełącz na ten scenariusz</value>
+  </data>
+  <data name="Scenario.Tree" xml:space="preserve">
+    <value>Drzewo scenariuszy</value>
+  </data>
+  <data name="Scenario.TreeCopied" xml:space="preserve">
+    <value>Skopiowano drzewo scenariuszy jako JSON.</value>
+  </data>
+  <data name="Shelter.Allocation" xml:space="preserve">
+    <value>Przydział schronów</value>
+  </data>
+  <data name="Shelter.AllocationTitle" xml:space="preserve">
+    <value>Przydział schronów</value>
+  </data>
+  <data name="Shelter.Criterion" xml:space="preserve">
+    <value>Kryterium przydziału schronu:</value>
+  </data>
+  <data name="Shelter.DecreaseDistance" xml:space="preserve">
+    <value>Zmniejsz wagę odległości</value>
+  </data>
+  <data name="Shelter.DecreaseOccupancy" xml:space="preserve">
+    <value>Zmniejsz wagę obłożenia</value>
+  </data>
+  <data name="Shelter.DefaultName" xml:space="preserve">
+    <value>Schron ewakuacyjny</value>
+  </data>
+  <data name="Shelter.Distance" xml:space="preserve">
+    <value>Odległość</value>
+  </data>
+  <data name="Shelter.DistanceArrow" xml:space="preserve">
+    <value>← Odległość</value>
+  </data>
+  <data name="Shelter.DistanceLabel" xml:space="preserve">
+    <value>Waga odległości:</value>
+  </data>
+  <data name="Shelter.DistanceOnly" xml:space="preserve">
+    <value>Tylko odległość (waga 100%)</value>
+  </data>
+  <data name="Shelter.DistancePercent" xml:space="preserve">
+    <value>{0}% odległość</value>
+  </data>
+  <data name="Shelter.DistanceValue" xml:space="preserve">
+    <value>Waga odległości: {0}</value>
+  </data>
+  <data name="Shelter.DistanceWeight" xml:space="preserve">
+    <value>Waga odległości</value>
+  </data>
+  <data name="Shelter.Full" xml:space="preserve">
+    <value>Pełny</value>
+  </data>
+  <data name="Shelter.IncreaseDistance" xml:space="preserve">
+    <value>Zwiększ wagę odległości</value>
+  </data>
+  <data name="Shelter.IncreaseOccupancy" xml:space="preserve">
+    <value>Zwiększ wagę obłożenia</value>
+  </data>
+  <data name="Shelter.Label" xml:space="preserve">
+    <value>Schron</value>
+  </data>
+  <data name="Shelter.Occupancy" xml:space="preserve">
+    <value>Obłożenie</value>
+  </data>
+  <data name="Shelter.OccupancyArrow" xml:space="preserve">
+    <value>Obłożenie →</value>
+  </data>
+  <data name="Shelter.OccupancyLabel" xml:space="preserve">
+    <value>Waga obłożenia:</value>
+  </data>
+  <data name="Shelter.OccupancyOnly" xml:space="preserve">
+    <value>Tylko obłożenie (waga 100%)</value>
+  </data>
+  <data name="Shelter.OccupancyPercent" xml:space="preserve">
+    <value>{0}% obłożenie</value>
+  </data>
+  <data name="Shelter.OccupancySummary" xml:space="preserve">
+    <value>Obłożenie: {0} / {1} ({2}%)</value>
+  </data>
+  <data name="Shelter.OccupancyValue" xml:space="preserve">
+    <value>Waga obłożenia: {0}</value>
+  </data>
+  <data name="Shelter.OccupancyWeight" xml:space="preserve">
+    <value>Waga obłożenia</value>
+  </data>
+  <data name="Shelter.Places" xml:space="preserve">
+    <value>{0} / {1} miejsc</value>
+  </data>
+  <data name="Shelter.PresetA" xml:space="preserve">
+    <value>Scenariusz A (1:0)</value>
+  </data>
+  <data name="Shelter.PresetB" xml:space="preserve">
+    <value>Scenariusz B (0.5:0.5)</value>
+  </data>
+  <data name="Shelter.PresetC" xml:space="preserve">
+    <value>Scenariusz C (0.2:0.8)</value>
+  </data>
+  <data name="Shelter.Presets" xml:space="preserve">
+    <value>Gotowe ustawienia:</value>
+  </data>
+  <data name="Shelter.ResetOccupancy" xml:space="preserve">
+    <value>Resetuj obłożenie</value>
+  </data>
+  <data name="Shelter.SelectHint" xml:space="preserve">
+    <value>Kliknij, aby wybrać ten schron</value>
+  </data>
+  <data name="Shelter.WeightsLabel" xml:space="preserve">
+    <value>Wagi odległości / obłożenia:</value>
+  </data>
+  <data name="Shelter.WeightsValue" xml:space="preserve">
+    <value>Wagi odległości / obłożenia: {0}% / {1}%</value>
+  </data>
+  <data name="Simulation.ActualSpeed" xml:space="preserve">
+    <value>Rzeczywiste tempo: {0}× ({1})</value>
+  </data>
+  <data name="Simulation.AgentCount" xml:space="preserve">
+    <value>Liczba agentów</value>
+  </data>
+  <data name="Simulation.AgentCountLabel" xml:space="preserve">
+    <value>Agenci:</value>
+  </data>
+  <data name="Simulation.AgentCountValue" xml:space="preserve">
+    <value>Agenci: {0}</value>
+  </data>
+  <data name="Simulation.AgentPerDotUnit" xml:space="preserve">
+    <value>agent na punkt</value>
+  </data>
+  <data name="Simulation.AgentPositions" xml:space="preserve">
+    <value>Agenci</value>
+  </data>
+  <data name="Simulation.AgentSpeed" xml:space="preserve">
+    <value>Prędkość</value>
+  </data>
+  <data name="Simulation.AgentSummary" xml:space="preserve">
+    <value>Aktywni agenci: {0} (Ewakuowani: {1})</value>
+  </data>
+  <data name="Simulation.AgentViewHint" xml:space="preserve">
+    <value>Jednostki (agenci na mapie)</value>
+  </data>
+  <data name="Simulation.Agents" xml:space="preserve">
+    <value>Agenci</value>
+  </data>
+  <data name="Simulation.AgentsPerDot" xml:space="preserve">
+    <value>Agenci na punkt</value>
+  </data>
+  <data name="Simulation.AgentsPerDotLabel" xml:space="preserve">
+    <value>Agenci na punkt:</value>
+  </data>
+  <data name="Simulation.AgentsPerDotUnit" xml:space="preserve">
+    <value>agentów na punkt</value>
+  </data>
+  <data name="Simulation.AgentsPerDotValue" xml:space="preserve">
+    <value>Agenci na punkt: {0}</value>
+  </data>
+  <data name="Simulation.ChangeSpeed" xml:space="preserve">
+    <value>Kliknij, aby zmienić tempo symulacji</value>
+  </data>
+  <data name="Simulation.Close" xml:space="preserve">
+    <value>Zamknij symulację</value>
+  </data>
+  <data name="Simulation.CloseHint" xml:space="preserve">
+    <value>Zakończ symulację i wróć do edycji mapy</value>
+  </data>
+  <data name="Simulation.Completed" xml:space="preserve">
+    <value>Zakończona</value>
+  </data>
+  <data name="Simulation.Controls" xml:space="preserve">
+    <value>Sterowanie symulacją</value>
+  </data>
+  <data name="Simulation.Coordinates" xml:space="preserve">
+    <value>Warstwa mapowa: Współrzędne w metrach [0, {0}] × [0, {1}]</value>
+  </data>
+  <data name="Simulation.Current" xml:space="preserve">
+    <value>Bieżąca symulacja</value>
+  </data>
+  <data name="Simulation.Defaults" xml:space="preserve">
+    <value>Przywróć domyślne</value>
+  </data>
+  <data name="Simulation.Density" xml:space="preserve">
+    <value>Gęstość</value>
+  </data>
+  <data name="Simulation.DensityMap" xml:space="preserve">
+    <value>Mapa gęstości</value>
+  </data>
+  <data name="Simulation.DestinationRequired" xml:space="preserve">
+    <value>Narysuj co najmniej jedno bezpieczne miejsce jako cel ewakuacji.</value>
+  </data>
+  <data name="Simulation.Diagnostics" xml:space="preserve">
+    <value>Pokaż diagnostykę</value>
+  </data>
+  <data name="Simulation.Dimensions" xml:space="preserve">
+    <value>Wymiary symulacji</value>
+  </data>
+  <data name="Simulation.DimensionsValue" xml:space="preserve">
+    <value>Wymiary symulacji: {0} m × {1} m</value>
+  </data>
+  <data name="Simulation.DismissMessage" xml:space="preserve">
+    <value>Zamknij komunikat symulacji</value>
+  </data>
+  <data name="Simulation.DisplayMode" xml:space="preserve">
+    <value>Tryb wyświetlania</value>
+  </data>
+  <data name="Simulation.DisplayRefresh" xml:space="preserve">
+    <value>Jak ekran</value>
+  </data>
+  <data name="Simulation.DisplayRefreshOption" xml:space="preserve">
+    <value>Jak ekran</value>
+  </data>
+  <data name="Simulation.DisplaySettings" xml:space="preserve">
+    <value>Tryb wyświetlania i czujniki</value>
+  </data>
+  <data name="Simulation.DotCount" xml:space="preserve">
+    <value>Liczba symulowanych punktów: {0}</value>
+  </data>
+  <data name="Simulation.Elapsed" xml:space="preserve">
+    <value>Czas trwania</value>
+  </data>
+  <data name="Simulation.Ended" xml:space="preserve">
+    <value>SYMULACJA ZAKOŃCZONA</value>
+  </data>
+  <data name="Simulation.Engine" xml:space="preserve">
+    <value>Silnik obliczeniowy</value>
+  </data>
+  <data name="Simulation.EngineHint" xml:space="preserve">
+    <value>Silnik obliczeniowy symulacji</value>
+  </data>
+  <data name="Simulation.Evacuated" xml:space="preserve">
+    <value>Ewakuowani</value>
+  </data>
+  <data name="Simulation.EvacuatedProgress" xml:space="preserve">
+    <value>/ {0} ewakuowanych ({1}%)</value>
+  </data>
+  <data name="Simulation.Evacuation" xml:space="preserve">
+    <value>Ewakuacja</value>
+  </data>
+  <data name="Simulation.FlowParticles" xml:space="preserve">
+    <value>Cząstki przepływu (wektory pola)</value>
+  </data>
+  <data name="Simulation.FpsLimit" xml:space="preserve">
+    <value>Limit FPS</value>
+  </data>
+  <data name="Simulation.Live" xml:space="preserve">
+    <value>SYMULACJA NA ŻYWO</value>
+  </data>
+  <data name="Simulation.LoadingParameters" xml:space="preserve">
+    <value>Ładowanie parametrów...</value>
+  </data>
+  <data name="Simulation.MapDisplay" xml:space="preserve">
+    <value>Widok mapy</value>
+  </data>
+  <data name="Simulation.MaxAgentsPerDot" xml:space="preserve">
+    <value>25 agentów na punkt</value>
+  </data>
+  <data name="Simulation.OneAgentPerDot" xml:space="preserve">
+    <value>1 agent na punkt</value>
+  </data>
+  <data name="Simulation.OpenSettings" xml:space="preserve">
+    <value>Otwórz ustawienia symulacji</value>
+  </data>
+  <data name="Simulation.Parameters" xml:space="preserve">
+    <value>Parametry symulacji</value>
+  </data>
+  <data name="Simulation.Pause" xml:space="preserve">
+    <value>Pauza</value>
+  </data>
+  <data name="Simulation.PauseHint" xml:space="preserve">
+    <value>Wstrzymaj symulację (Spacja)</value>
+  </data>
+  <data name="Simulation.Paused" xml:space="preserve">
+    <value>Wstrzymana</value>
+  </data>
+  <data name="Simulation.PhysicsDescription" xml:space="preserve">
+    <value>Fizyka tłumu: Diagram Weidmanna (gęstość-prędkość) • Asymetria lider-następca</value>
+  </data>
+  <data name="Simulation.PopulationSettings" xml:space="preserve">
+    <value>Populacja i agenci</value>
+  </data>
+  <data name="Simulation.Preparing" xml:space="preserve">
+    <value>Przygotowanie...</value>
+  </data>
+  <data name="Simulation.RayLength" xml:space="preserve">
+    <value>Długość promieni</value>
+  </data>
+  <data name="Simulation.RayLengthLabel" xml:space="preserve">
+    <value>Długość promieni:</value>
+  </data>
+  <data name="Simulation.RealTime" xml:space="preserve">
+    <value>1× (czas rzeczywisty)</value>
+  </data>
+  <data name="Simulation.RenderFps" xml:space="preserve">
+    <value>FPS renderowania: {0}</value>
+  </data>
+  <data name="Simulation.Repulsion" xml:space="preserve">
+    <value>Odpychanie</value>
+  </data>
+  <data name="Simulation.RepulsionLabel" xml:space="preserve">
+    <value>Odpychanie:</value>
+  </data>
+  <data name="Simulation.RepulsionValue" xml:space="preserve">
+    <value>Odpychanie: {0}</value>
+  </data>
+  <data name="Simulation.Reset" xml:space="preserve">
+    <value>Resetuj</value>
+  </data>
+  <data name="Simulation.ResetAgents" xml:space="preserve">
+    <value>Resetuj agentów</value>
+  </data>
+  <data name="Simulation.ResetHint" xml:space="preserve">
+    <value>Przywróć początkowe pozycje agentów</value>
+  </data>
+  <data name="Simulation.ResumeHint" xml:space="preserve">
+    <value>Wznów symulację (Spacja)</value>
+  </data>
+  <data name="Simulation.Run" xml:space="preserve">
+    <value>Uruchom</value>
+  </data>
+  <data name="Simulation.Running" xml:space="preserve">
+    <value>Uruchomiona</value>
+  </data>
+  <data name="Simulation.SensorHint" xml:space="preserve">
+    <value>Kierunkowe promienie czujników</value>
+  </data>
+  <data name="Simulation.Sensors" xml:space="preserve">
+    <value>Czujniki</value>
+  </data>
+  <data name="Simulation.Settings" xml:space="preserve">
+    <value>Ustawienia symulacji</value>
+  </data>
+  <data name="Simulation.SettingsDescription" xml:space="preserve">
+    <value>Ustaw zachowanie tłumu, przydział schronów i wygląd mapy</value>
+  </data>
+  <data name="Simulation.SettingsTitle" xml:space="preserve">
+    <value>Ustawienia symulacji</value>
+  </data>
+  <data name="Simulation.ShowSensors" xml:space="preserve">
+    <value>Pokaż promienie czujników</value>
+  </data>
+  <data name="Simulation.Speed" xml:space="preserve">
+    <value>Tempo</value>
+  </data>
+  <data name="Simulation.SpeedLabel" xml:space="preserve">
+    <value>Tempo:</value>
+  </data>
+  <data name="Simulation.SpeedMap" xml:space="preserve">
+    <value>Mapa prędkości</value>
+  </data>
+  <data name="Simulation.SpeedSettings" xml:space="preserve">
+    <value>Tempo i FPS</value>
+  </data>
+  <data name="Simulation.Start" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="Simulation.StartAction" xml:space="preserve">
+    <value>Uruchom symulację</value>
+  </data>
+  <data name="Simulation.StartFailed" xml:space="preserve">
+    <value>Nie udało się uruchomić symulacji: {0}</value>
+  </data>
+  <data name="Simulation.Status" xml:space="preserve">
+    <value>Status symulacji</value>
+  </data>
+  <data name="Simulation.StatusLabel" xml:space="preserve">
+    <value>Stan:</value>
+  </data>
+  <data name="Simulation.Step" xml:space="preserve">
+    <value>Krok</value>
+  </data>
+  <data name="Simulation.StepHint" xml:space="preserve">
+    <value>Jeden krok w przód (16 ms)</value>
+  </data>
+  <data name="Simulation.StepsPerSecond" xml:space="preserve">
+    <value>Kroki symulacji/s: {0}</value>
+  </data>
+  <data name="Simulation.Stop" xml:space="preserve">
+    <value>Zatrzymaj</value>
+  </data>
+  <data name="Simulation.StopAction" xml:space="preserve">
+    <value>Zatrzymaj symulację</value>
+  </data>
+  <data name="Simulation.Stopped" xml:space="preserve">
+    <value>Zatrzymana</value>
+  </data>
+  <data name="Simulation.StreetPositions" xml:space="preserve">
+    <value>Agenci</value>
+  </data>
+  <data name="Simulation.TargetSpeed" xml:space="preserve">
+    <value>Cel: {0}</value>
+  </data>
+  <data name="Simulation.Units" xml:space="preserve">
+    <value>Jednostki metryczne: Promień agenta ~{0} m · Prędkość ~1,4 m/s (5,0 km/h)</value>
+  </data>
+  <data name="Simulation.Unlimited" xml:space="preserve">
+    <value>Bez limitu</value>
+  </data>
+  <data name="Simulation.UnlimitedOption" xml:space="preserve">
+    <value>Bez limitu</value>
+  </data>
+  <data name="Simulation.WebGpuUnavailable" xml:space="preserve">
+    <value>WebGPU niedostępne w tej przeglądarce</value>
+  </data>
+  <data name="Simulation.ZoneRequired" xml:space="preserve">
+    <value>Przed uruchomieniem symulacji narysuj co najmniej jedną strefę ewakuacji.</value>
+  </data>
+  <data name="Statistics.AllCharts" xml:space="preserve">
+    <value>Wszystkie statystyki (siatka)</value>
+  </data>
+  <data name="Statistics.CohortDescription" xml:space="preserve">
+    <value>Czas ewakuacji według kohort po dziesięć procent populacji</value>
+  </data>
+  <data name="Statistics.CohortDuration" xml:space="preserve">
+    <value>Czas ewakuacji kohorty (min)</value>
+  </data>
+  <data name="Statistics.CohortTitle" xml:space="preserve">
+    <value>1. Czas ewakuacji według kohort (kolejne 10% populacji)</value>
+  </data>
+  <data name="Statistics.Cohorts" xml:space="preserve">
+    <value>Kohorty (10%)</value>
+  </data>
+  <data name="Statistics.CompletedCohorts" xml:space="preserve">
+    <value>Ukończone kohorty: {0}/10 ({1}%)</value>
+  </data>
+  <data name="Statistics.DensityAxis" xml:space="preserve">
+    <value>Gęstość [osoby/m²]</value>
+  </data>
+  <data name="Statistics.DensityBand" xml:space="preserve">
+    <value>Gęstość tłumu (μ ± σ)</value>
+  </data>
+  <data name="Statistics.DensityDescription" xml:space="preserve">
+    <value>Profil gęstości tłumu z odchyleniem standardowym</value>
+  </data>
+  <data name="Statistics.DensityLegend" xml:space="preserve">
+    <value>Pasmo: μ ± σ · Linia: μ(t) · Swobodny przepływ 0,5 osoby/m² · Kolejka 2,0 osoby/m² · Krytyczna 3,5 osoby/m²</value>
+  </data>
+  <data name="Statistics.DensitySummary" xml:space="preserve">
+    <value>ŚREDNIA / MAKSYMALNA GĘSTOŚĆ</value>
+  </data>
+  <data name="Statistics.DensityTitle" xml:space="preserve">
+    <value>3. Profil gęstości tłumu: μ(t) ± σ</value>
+  </data>
+  <data name="Statistics.DensityUnit" xml:space="preserve">
+    <value>osoby/m²</value>
+  </data>
+  <data name="Statistics.Evacuated" xml:space="preserve">
+    <value>EWAKUOWANI</value>
+  </data>
+  <data name="Statistics.EvacuatedLabel" xml:space="preserve">
+    <value>EWAKUOWANI:</value>
+  </data>
+  <data name="Statistics.Label" xml:space="preserve">
+    <value>Statystyki</value>
+  </data>
+  <data name="Statistics.MeanSpeed" xml:space="preserve">
+    <value>ŚREDNIA PRĘDKOŚĆ</value>
+  </data>
+  <data name="Statistics.MeanSpeedLabel" xml:space="preserve">
+    <value>ŚREDNIA PRĘDKOŚĆ:</value>
+  </data>
+  <data name="Statistics.OpenHint" xml:space="preserve">
+    <value>Otwórz wykresy i statystyki na żywo</value>
+  </data>
+  <data name="Statistics.PeakDensityLabel" xml:space="preserve">
+    <value>MAKSYMALNA GĘSTOŚĆ:</value>
+  </data>
+  <data name="Statistics.PopulationCohort" xml:space="preserve">
+    <value>Kohorta populacji</value>
+  </data>
+  <data name="Statistics.ResetPosition" xml:space="preserve">
+    <value>Przywróć pozycję okna</value>
+  </data>
+  <data name="Statistics.SimulationTime" xml:space="preserve">
+    <value>CZAS SYMULACJI</value>
+  </data>
+  <data name="Statistics.SpeedAxis" xml:space="preserve">
+    <value>Prędkość [m/s]</value>
+  </data>
+  <data name="Statistics.SpeedDescription" xml:space="preserve">
+    <value>Profil średniej prędkości agentów z odchyleniem standardowym</value>
+  </data>
+  <data name="Statistics.SpeedLegend" xml:space="preserve">
+    <value>Pasmo: μ ± σ · Linia: μ(t) · Swobodny przepływ &gt; 1,1 m/s · Zwężenie 0,6 m/s · Zator &lt; 0,2 m/s</value>
+  </data>
+  <data name="Statistics.SpeedProfile" xml:space="preserve">
+    <value>Profil prędkości</value>
+  </data>
+  <data name="Statistics.SpeedTitle" xml:space="preserve">
+    <value>2. Profil średniej prędkości agentów: μ(t) ± σ</value>
+  </data>
+  <data name="Statistics.TimeAxis" xml:space="preserve">
+    <value>Czas od alarmu [s]</value>
+  </data>
+  <data name="Statistics.TimeLabel" xml:space="preserve">
+    <value>CZAS:</value>
+  </data>
+  <data name="Statistics.Title" xml:space="preserve">
+    <value>Analizy i statystyki</value>
+  </data>
+</root>

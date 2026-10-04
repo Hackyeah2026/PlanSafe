@@ -3,7 +3,7 @@ using Microsoft.JSInterop;
 
 namespace PlanSafe.App.Components.Shared;
 
-public partial class ModalDialog : ComponentBase, IAsyncDisposable
+public partial class ModalDialog : IAsyncDisposable
 {
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Parameter] public bool IsOpen { get; set; }

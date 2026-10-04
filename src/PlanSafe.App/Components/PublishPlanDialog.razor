@@ -3,19 +3,19 @@
 
 <ModalDialog Width="500px" IsOpen="true" Class="publish-dialog" LabelledBy="publish-title">
     <div class="feature-dialog-header">
-        <h2 id="publish-title">Plan Ewakuacji Opublikowany</h2>
-        <button type="button" class="app-button app-icon-button" data-dialog-close aria-label="Zamknij" @onclick="OnClose"><UiIcon Kind="UiIconKind.Close" /></button>
+        <h2 id="publish-title">@L.Publish.Success</h2>
+        <button type="button" class="app-button app-icon-button" data-dialog-close aria-label="@L.Common.Close" @onclick="OnClose"><UiIcon Kind="UiIconKind.Close" /></button>
     </div>
     <div class="feature-dialog-body">
-        <p class="small ui-muted">Sesja: @Plan.SessionId</p>
-        <p>Zeskanuj kod QR lub przekaż link ewakuowanym obywatelom.</p>
+        <p class="small ui-muted">@(L.Scenario.Session(Plan.SessionId))</p>
+        <p>@L.Publish.ShareHint</p>
         <div class="publish-qr">@((MarkupString)WrapSvgResponsive(Plan.QrCodeSvg))</div>
-        <p class="small">SCHRONY: @ShelterCount · BLOKADY: @ObstacleCount · OBSZAR: @WorldWidth.ToString("F0")m</p>
-        <label for="citizen-url">Widok obywatela:</label>
+        <p class="small">@(L.Publish.Summary(ShelterCount, ObstacleCount, WorldWidth.ToString("F0")))</p>
+        <label for="citizen-url">@L.Publish.CitizenView</label>
         <input id="citizen-url" type="text" class="app-input w-100" readonly value="@Plan.EvacuateUrl" />
-        <a class="app-button" href="@Plan.EvacuateUrl" target="_blank" rel="noopener">Otwórz <UiIcon Kind="UiIconKind.ArrowRight" /></a>
+        <a class="app-button" href="@Plan.EvacuateUrl" target="_blank" rel="noopener">@L.Common.Open <UiIcon Kind="UiIconKind.ArrowRight" /></a>
     </div>
-    <div class="feature-dialog-footer"><AppButton OnClick="OnClose">Zamknij</AppButton></div>
+    <div class="feature-dialog-footer"><AppButton OnClick="OnClose">@L.Common.Close</AppButton></div>
 </ModalDialog>
 @code {
     [Parameter, EditorRequired] public PublishPlanResponse Plan { get; set; } = default!;

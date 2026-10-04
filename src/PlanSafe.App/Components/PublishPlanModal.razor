@@ -18,57 +18,57 @@
                         <span class="fs-4">&#x1F4F1;</span>
                         <div>
                             <h5 class="modal-title mb-0 fw-bold text-white">
-                                @(isFullscreenProjector ? "Centrum Dowodzenia • Mobilny Plan Ewakuacji" : "Publikacja Planu Ewakuacji")
+                                @(isFullscreenProjector ? L.Publish.ProjectorTitle : L.Publish.Title)
                             </h5>
                             @if (publishedPlan != null)
                             {
-                                <small class="text-success fw-semibold">&#x25CF; Aktywna sesja: <span class="font-monospace text-info">@publishedPlan.SessionId</span></small>
+                                <small class="text-success fw-semibold">@L.Evacuation.ActiveSession <span class="font-monospace text-info">@publishedPlan.SessionId</span></small>
                             }
                             else
                             {
-                                <small class="text-muted">Konfiguracja dystrybucji i kodów QR dla obywateli</small>
+                                <small class="text-muted">@L.Publish.SettingsDescription</small>
                             }
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         @if (publishedPlan != null)
                         {
-                            <button type="button" class="btn btn-sm @(isFullscreenProjector ? "btn-warning text-dark" : "btn-outline-info")" @onclick="ToggleProjectorMode" title="Przełącz tryb projektora / duży ekran">
-                                @(isFullscreenProjector ? "✕ Zamknij Projektor" : "⛶ Projektor")
+                            <button type="button" class="btn btn-sm @(isFullscreenProjector ? "btn-warning text-dark" : "btn-outline-info")" @onclick="ToggleProjectorMode" title="@L.Publish.ProjectorHint">
+                                @(isFullscreenProjector ? L.Publish.CloseProjector : L.Publish.Projector)
                             </button>
                         }
-                        <button type="button" class="btn-close btn-close-white" @onclick="HandleClose" aria-label="Zamknij"></button>
+                        <button type="button" class="btn-close btn-close-white" @onclick="HandleClose" aria-label="@L.Common.Close"></button>
                     </div>
                 </div>
 
                 <!-- Modal Body -->
                 <div class="modal-body px-4 py-3">
-                    @if (!string.IsNullOrEmpty(errorMessage))
+                    @if (errorMessage is not null)
                     {
-                        <div class="alert alert-danger py-2 px-3 small mb-3">@errorMessage</div>
+                        <div class="alert alert-danger py-2 px-3 small mb-3">@(errorMessage?.Invoke())</div>
                     }
 
                     @if (publishedPlan == null)
                     {
                         <!-- Scenario Review & Weight Settings -->
                         <div class="mb-3">
-                            <label class="form-label text-muted small fw-bold text-uppercase mb-2">Elementy aktywnego scenariusza:</label>
+                            <label class="form-label text-muted small fw-bold text-uppercase mb-2">@L.Scenario.Features</label>
                             <div class="row g-2 text-center">
                                 <div class="col-4">
                                     <div class="p-2 bg-black bg-opacity-40 rounded border border-secondary">
-                                        <div class="text-muted" style="font-size: 0.7rem;">PUNKTY ZBIÓRKI</div>
+                                        <div class="text-muted" style="font-size: 0.7rem;">@L.Publish.AssemblyPoints</div>
                                         <div class="fs-5 fw-bold text-success">@GetSafePointsCount()</div>
                                     </div>
                                 </div>
                                 <div class="col-4">
                                     <div class="p-2 bg-black bg-opacity-40 rounded border border-secondary">
-                                        <div class="text-muted" style="font-size: 0.7rem;">BLOKADY DRÓG</div>
+                                        <div class="text-muted" style="font-size: 0.7rem;">@L.Publish.Blockades</div>
                                         <div class="fs-5 fw-bold text-danger">@GetBlockadesCount()</div>
                                     </div>
                                 </div>
                                 <div class="col-4">
                                     <div class="p-2 bg-black bg-opacity-40 rounded border border-secondary">
-                                        <div class="text-muted" style="font-size: 0.7rem;">STREFY ALARMU</div>
+                                        <div class="text-muted" style="font-size: 0.7rem;">@L.Publish.Zones</div>
                                         <div class="fs-5 fw-bold text-warning">@GetEvacZonesCount()</div>
                                     </div>
                                 </div>
@@ -78,23 +78,22 @@
                         <!-- Balans Wag (Dystans vs Obłożenie) -->
                         <div class="mb-3 p-3 bg-black bg-opacity-30 rounded border border-secondary">
                             <div class="d-flex justify-content-between align-items-center mb-1 small">
-                                <span class="text-muted fw-bold">Kryterium przydziału schronu:</span>
+                                <span class="text-muted fw-bold">@L.Shelter.Criterion</span>
                                 <span>
-                                    <strong class="text-info">@((weightDistance * 100).ToString("F0"))% Dystans</strong>
+                                    <strong class="text-info">@(L.Shelter.DistancePercent((weightDistance * 100).ToString("F0")))</strong>
                                     <span class="text-muted"> / </span>
-                                    <strong class="text-warning">@((weightOccupancy * 100).ToString("F0"))% Obłożenie</strong>
+                                    <strong class="text-warning">@(L.Shelter.OccupancyPercent((weightOccupancy * 100).ToString("F0")))</strong>
                                 </span>
                             </div>
                             <input type="range" class="form-range" min="0" max="1" step="0.05" value="@weightDistance.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" @oninput="OnWeightInput" />
                             <div class="d-flex justify-content-between text-muted" style="font-size: 0.7rem;">
-                                <span>Najbliższy schron (100% dystans)</span>
-                                <span>Równomierne obciążenie (100% obłożenie)</span>
+                                <span>@L.Shelter.DistanceOnly</span>
+                                <span>@L.Shelter.OccupancyOnly</span>
                             </div>
                         </div>
 
                         <div class="text-muted small mb-3">
-                            Po opublikowaniu wygenerowany zostanie unikalny 8-znakowy identyfikator sesji oraz wektorowy kod QR. 
-                            Obywatele po zeskanowaniu kodu telefonem otrzymają optymalną trasę i schron w mobilnym asystencie bez konieczności instalowania aplikacji.
+                            @L.Publish.Description
                         </div>
 
                         <div class="d-grid">
@@ -102,11 +101,11 @@
                                 @if (isPublishing)
                                 {
                                     <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                                    <span>Publikowanie planu...</span>
+                                    <span>@L.Publish.PublishingPlan</span>
                                 }
                                 else
                                 {
-                                    <span>🚀 Opublikuj Plan i Wygeneruj Kod QR</span>
+                                    <span>@L.Publish.Submit</span>
                                 }
                             </button>
                         </div>
@@ -116,7 +115,7 @@
                         <!-- Published View / QR Distribution -->
                         <div class="@(isFullscreenProjector ? "d-flex flex-column align-items-center justify-content-center text-center py-4" : "text-center")">
                             <p class="text-muted small mb-2 @(isFullscreenProjector ? "fs-5 text-white" : "")">
-                                Zeskanuj poniższy kod QR smartfonem lub udostępnij link ewakuowanym obywatelom.
+                                @L.Publish.ShareInstructions
                             </p>
 
                             <!-- QR Code SVG Display -->
@@ -132,7 +131,7 @@
                             @if (isFullscreenProjector)
                             {
                                 <div class="display-6 fw-bold text-info mb-2 font-monospace">
-                                    KOD SESJI: @publishedPlan.SessionId
+                                    @(L.Publish.SessionCode(publishedPlan.SessionId))
                                 </div>
                                 <div class="fs-4 text-warning mb-4 font-monospace">
                                     @publishedPlan.EvacuateUrl
@@ -141,21 +140,21 @@
 
                             <!-- Link sharing -->
                             <div class="text-start mb-3 mx-auto" style="@(isFullscreenProjector ? "max-width: 600px;" : "width: 100%;")">
-                                <label class="form-label small text-muted mb-1">Adres asystenta ewakuacji:</label>
+                                <label class="form-label small text-muted mb-1">@L.Publish.Address</label>
                                 <div class="input-group">
                                     <input type="text" class="form-control bg-black text-info border-secondary font-monospace small" readonly value="@publishedPlan.EvacuateUrl" />
                                     <button type="button" class="btn btn-outline-light px-3" @onclick="CopyUrlToClipboard">
                                         @if (copied)
                                         {
-                                            <span>&#x2714; Skopiowano!</span>
+                                            <span>@L.Common.Copied</span>
                                         }
                                         else
                                         {
-                                            <span>Kopiuj</span>
+                                            <span>@L.Common.Copy</span>
                                         }
                                     </button>
                                     <a href="@publishedPlan.EvacuateUrl" target="_blank" class="btn btn-primary px-3 fw-bold d-inline-flex align-items-center gap-1">
-                                        <span>Otwórz</span>
+                                        <span>@L.Common.Open</span>
                                         <span>&rarr;</span>
                                     </a>
                                 </div>
@@ -169,14 +168,14 @@
                     @if (publishedPlan != null)
                     {
                         <button type="button" class="btn btn-outline-warning btn-sm" @onclick="ResetPublishedPlan">
-                            Nowy plan / Zmień parametry
+                            @L.Publish.ChangeSettings
                         </button>
                     }
                     else
                     {
                         <span></span>
                     }
-                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="HandleClose">Zamknij</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="HandleClose">@L.Common.Close</button>
                 </div>
             </div>
         </div>
@@ -194,16 +193,19 @@
     private bool isPublishing = false;
     private bool copied = false;
     private bool isFullscreenProjector = false;
-    private string? errorMessage;
+    private Func<string?>? errorMessage;
     private PublishPlanResponse? publishedPlan;
+
+    private bool wasOpen;
 
     protected override void OnParametersSet()
     {
-        if (ActiveSession?.SimulationConfig != null)
+        if (IsOpen && !wasOpen && ActiveSession?.SimulationConfig != null)
         {
             weightDistance = Math.Clamp(ActiveSession.SimulationConfig.WeightDistance, 0.0, 1.0);
             weightOccupancy = Math.Clamp(ActiveSession.SimulationConfig.WeightOccupancy, 0.0, 1.0);
         }
+        wasOpen = IsOpen;
     }
 
     private int GetSafePointsCount() => MapItems?.Count(i => i.Category == ZoneCategory.SafeLocation) ?? 0;
@@ -250,7 +252,7 @@
 
                             targets.Add(new EvacuationTarget(
                                 Id: circle.Id,
-                                Name: string.IsNullOrWhiteSpace(circle.Name) ? "Punkt Bezpieczny" : circle.Name,
+                                Name: string.IsNullOrWhiteSpace(circle.Name) ? L.Map.SafePoint : circle.Name,
                                 X: lng,
                                 Y: lat,
                                 Width: radius * 2,
@@ -283,7 +285,7 @@
 
                             targets.Add(new EvacuationTarget(
                                 Id: poly.Id,
-                                Name: string.IsNullOrWhiteSpace(poly.Name) ? "Schron Ewakuacyjny" : poly.Name,
+                                Name: string.IsNullOrWhiteSpace(poly.Name) ? L.Shelter.DefaultName : poly.Name,
                                 X: avgLng,
                                 Y: avgLat,
                                 Width: 30.0,
@@ -307,7 +309,7 @@
 
                             targets.Add(new EvacuationTarget(
                                 Id: point.Id,
-                                Name: string.IsNullOrWhiteSpace(point.Name) ? "Punkt Bezpieczny" : point.Name,
+                                Name: string.IsNullOrWhiteSpace(point.Name) ? L.Map.SafePoint : point.Name,
                                 X: lng,
                                 Y: lat,
                                 Width: 20.0,
@@ -359,7 +361,7 @@
             {
                 targets.Add(new EvacuationTarget(
                     Id: "shelter-krakow-park",
-                    Name: "Schron Główny (Park Krakowski)",
+                    Name: L.Demo.MainShelter,
                     X: 19.9266,
                     Y: 50.0684,
                     Width: 20.0,
@@ -372,7 +374,7 @@
                 ));
                 targets.Add(new EvacuationTarget(
                     Id: "shelter-krakow-planty",
-                    Name: "Schron Zapasowy (Planty)",
+                    Name: L.Demo.BackupShelter,
                     X: 19.9380,
                     Y: 50.0570,
                     Width: 20.0,
@@ -413,12 +415,12 @@
             }
             else
             {
-                errorMessage = $"Błąd publikowania planu: HTTP {response.StatusCode}";
+                errorMessage = () => L.Publish.HttpError(response.StatusCode);
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"Nie udało się połączyć z API: {ex.Message}";
+            errorMessage = () => L.Common.ApiError(ex.Message);
         }
         finally
         {

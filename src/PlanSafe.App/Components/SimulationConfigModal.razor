@@ -14,11 +14,11 @@
                         </svg>
                     </div>
                     <div>
-                        <h2 id="sim-config-title" class="sim-config-title">Konfiguracja Symulacji & Ewakuacji</h2>
-                        <div class="sim-config-subtitle">Dostosuj parametry fizyki tłumu, dystrybucji schronów i wyświetlania</div>
+                        <h2 id="sim-config-title" class="sim-config-title">@L.Simulation.SettingsTitle</h2>
+                        <div class="sim-config-subtitle">@L.Simulation.SettingsDescription</div>
                     </div>
                 </div>
-                <button type="button" class="app-button app-icon-button" data-dialog-close @onclick="Close" aria-label="Close">
+                <button type="button" class="app-button app-icon-button" data-dialog-close @onclick="Close" aria-label="@L.Common.Close">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
                         <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -34,17 +34,17 @@
                         <!-- Sekcja 1: Populacja & Agenci -->
                         <div class="config-section-card mb-3">
                             <h6 class="config-section-header">
-                                <span class="section-dot dot-cyan"></span> Populacja & Agenci
+                                <span class="section-dot dot-cyan"></span> @L.Simulation.PopulationSettings
                             </h6>
 
                             <div class="mb-3">
-                                <label class="form-label small text-muted d-block mb-1">Źródło populacji:</label>
+                                <label class="form-label small text-muted d-block mb-1">@L.Census.Source</label>
                                 <div class="btn-group w-100 btn-group-sm" role="group">
                                     <button type="button" class="btn @(_localConfig.UseGusCensus ? "btn-primary" : "btn-outline-secondary")" @onclick="() => SetCensusMode(true)">
-                                        GUS NSP 2021 (@CensusPopulation os.)
+                                        @(L.Census.SourcePopulation(CensusPopulation))
                                     </button>
                                     <button type="button" class="btn @(!_localConfig.UseGusCensus ? "btn-primary" : "btn-outline-secondary")" @onclick="() => SetCensusMode(false)">
-                                        Własna liczba
+                                        @L.Census.CustomCount
                                     </button>
                                 </div>
                             </div>
@@ -53,10 +53,10 @@
                             {
                                 <div class="mb-3">
                                     <div class="d-flex justify-content-between align-items-center mb-1 small">
-                                        <span class="text-muted">Liczba Agentów:</span>
+                                        <span class="text-muted">@L.Simulation.AgentCountLabel</span>
                                         <span class="config-value">@_localConfig.AgentCount</span>
                                     </div>
-                                    <input type="range" aria-label="Liczba agentów" class="form-range" min="50" max="50000" step="50" @bind="_localConfig.AgentCount" />
+                                    <input type="range" aria-label="@L.Simulation.AgentCount" class="form-range" min="50" max="50000" step="50" @bind="_localConfig.AgentCount" />
                                     <div class="d-flex justify-content-between text-muted" style="font-size: 0.65rem;">
                                         <span>50</span>
                                         <span>10 000</span>
@@ -69,57 +69,57 @@
                             <!-- Granulacja -->
                             <div class="mb-3">
                                 <div class="d-flex justify-content-between align-items-center mb-1 small">
-                                    <span class="text-muted">Granulacja:</span>
-                                    <span class="config-value">@_localConfig.Granulation @(_localConfig.Granulation == 1 ? "agent / kropkę" : "agentów / kropkę")</span>
+                                    <span class="text-muted">@L.Simulation.AgentsPerDotLabel</span>
+                                    <span class="config-value">@_localConfig.Granulation</span>
                                 </div>
-                                <input type="range" aria-label="Granulacja" class="form-range" min="1" max="25" step="1" @bind="_localConfig.Granulation" />
+                                <input type="range" aria-label="@L.Simulation.AgentsPerDot" class="form-range" min="1" max="25" step="1" @bind="_localConfig.Granulation" />
                                 <div class="d-flex justify-content-between text-muted" style="font-size: 0.65rem;">
-                                    <span>1:1 (Mikro)</span>
-                                    <span>10:1</span>
-                                    <span>25:1 (Maks. makro)</span>
+                                    <span>1</span>
+                                    <span>10</span>
+                                    <span>25</span>
                                 </div>
                             </div>
 
                             <!-- Siła Odpychania Tłumu -->
                             <div class="mb-2">
                                 <div class="d-flex justify-content-between align-items-center mb-1 small">
-                                    <span class="text-muted">Siła Odpychania Tłumu:</span>
-                                    <span class="config-value">@_localConfig.SocialRepulsionWeight.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)</span>
+                                    <span class="text-muted">@L.Simulation.RepulsionLabel</span>
+                                    <span class="config-value">@_localConfig.SocialRepulsionWeight.ToString("F1")</span>
                                 </div>
-                                <input type="range" aria-label="Siła odpychania tłumu" class="form-range" min="0" max="10" step="0.5" @bind="_localConfig.SocialRepulsionWeight" />
+                                <input type="range" aria-label="@L.Simulation.Repulsion" class="form-range" min="0" max="10" step="0.5" @bind="_localConfig.SocialRepulsionWeight" />
                             </div>
                         </div>
 
                         <!-- Sekcja 2: Tempo i Wydajność -->
                         <div class="config-section-card">
                             <h6 class="config-section-header">
-                                <span class="section-dot dot-yellow"></span> Tempo Symulacji & FPS
+                                <span class="section-dot dot-yellow"></span> @L.Simulation.SpeedSettings
                             </h6>
 
                             <div class="mb-3">
                                 <div class="d-flex justify-content-between align-items-center mb-1 small">
-                                    <span class="text-muted">Tempo symulacji:</span>
-                                    <span class="config-value">@(_localConfig.Unlimited ? "Bez limitu" : $"{_localConfig.TimeScale.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)}×")</span>
+                                    <span class="text-muted">@L.Simulation.SpeedLabel</span>
+                                    <span class="config-value">@(_localConfig.Unlimited ? L.Simulation.Unlimited : $"{_localConfig.TimeScale.ToString("F1")}×")</span>
                                 </div>
-                                <input type="range" aria-label="Tempo symulacji" class="form-range" min="1.0" max="50.0" step="1.0" disabled="@_localConfig.Unlimited" @bind="_localConfig.TimeScale" />
+                                <input type="range" aria-label="@L.Simulation.Speed" class="form-range" min="1.0" max="50.0" step="1.0" disabled="@_localConfig.Unlimited" @bind="_localConfig.TimeScale" />
                                 <div class="d-flex justify-content-between text-muted" style="font-size: 0.65rem;">
-                                    <span>1.0× (Czas rzecz.)</span>
+                                    <span>@L.Simulation.RealTime</span>
                                     <span>25.0×</span>
                                     <span>50.0×</span>
                                 </div>
                                 <div class="form-check form-switch mt-2">
                                     <input id="modal-unlimited" class="form-check-input" type="checkbox" @bind="_localConfig.Unlimited" />
-                                    <label class="form-check-label small" for="modal-unlimited">Bez limitu (maksymalna wydajność Wasm CPU)</label>
+                                    <label class="form-check-label small" for="modal-unlimited">@L.Simulation.UnlimitedOption</label>
                                 </div>
                             </div>
 
                             <div class="mb-2">
-                                <label class="form-label small text-muted mb-1" for="modal-fps">Limit FPS podglądu</label>
+                                <label class="form-label small text-muted mb-1" for="modal-fps">@L.Simulation.FpsLimit</label>
                                 <select id="modal-fps" class="form-select form-select-sm" @bind="_localConfig.RenderFps">
                                     <option value="15">15 FPS</option>
                                     <option value="30">30 FPS</option>
                                     <option value="60">60 FPS</option>
-                                    <option value="display">Częstotliwość ekranu (60+)</option>
+                                    <option value="display">@L.Simulation.DisplayRefreshOption</option>
                                 </select>
                             </div>
                         </div>
@@ -130,20 +130,20 @@
                         <!-- Sekcja 3: Moduł 2 Dystrybucja Schronów -->
                         <div class="config-section-card mb-3">
                             <h6 class="config-section-header">
-                                <span class="section-dot dot-green"></span> Dystrybucja Schronów (Moduł 2)
+                                <span class="section-dot dot-green"></span> @L.Shelter.AllocationTitle
                             </h6>
 
                             <div class="mb-2">
-                                <label class="form-label small text-muted mb-1 d-block">Szybki wybór scenariusza:</label>
+                                <label class="form-label small text-muted mb-1 d-block">@L.Shelter.Presets</label>
                                 <div class="btn-group w-100 btn-group-sm mb-2" role="group">
                                     <button type="button" class="btn @(Math.Abs(_localConfig.WeightDistance - 1.0) < 0.05 && Math.Abs(_localConfig.WeightOccupancy) < 0.05 ? "btn-primary" : "btn-outline-secondary")" @onclick="() => SetScenario(1.0, 0.0)">
-                                        Scenariusz A (1:0)
+                                        @L.Shelter.PresetA
                                     </button>
                                     <button type="button" class="btn @(Math.Abs(_localConfig.WeightDistance - 0.5) < 0.05 && Math.Abs(_localConfig.WeightOccupancy - 0.5) < 0.05 ? "btn-primary" : "btn-outline-secondary")" @onclick="() => SetScenario(0.5, 0.5)">
-                                        Scenariusz B (0.5:0.5)
+                                        @L.Shelter.PresetB
                                     </button>
                                     <button type="button" class="btn @(Math.Abs(_localConfig.WeightDistance - 0.2) < 0.05 && Math.Abs(_localConfig.WeightOccupancy - 0.8) < 0.05 ? "btn-primary" : "btn-outline-secondary")" @onclick="() => SetScenario(0.2, 0.8)">
-                                        Scenariusz C (0.2:0.8)
+                                        @L.Shelter.PresetC
                                     </button>
                                 </div>
                             </div>
@@ -151,7 +151,7 @@
                             <!-- Proporcja Wag -->
                             <div class="weight-summary mb-3">
                                 <div class="d-flex justify-content-between align-items-center mb-1 small">
-                                    <span class="text-muted">Balans wag (Suma = 1.00):</span>
+                                    <span class="text-muted">@L.Shelter.WeightsLabel</span>
                                     <span>
                                         <strong class="text-info">@((_localConfig.WeightDistance * 100).ToString("F0"))%</strong>
                                         <span class="text-muted"> / </span>
@@ -163,58 +163,58 @@
                                     <div class="progress-bar bg-warning" role="progressbar" style="width: @((_localConfig.WeightOccupancy * 100).ToString("F1", System.Globalization.CultureInfo.InvariantCulture))%;"></div>
                                 </div>
                                 <div class="d-flex justify-content-between text-muted mt-1" style="font-size: 0.65rem;">
-                                    <span class="text-info">&larr; Odległość (w_dist)</span>
-                                    <span class="text-warning">Obłożenie (w_occ) &rarr;</span>
+                                    <span class="text-info">@L.Shelter.DistanceArrow</span>
+                                    <span class="text-warning">@L.Shelter.OccupancyArrow</span>
                                 </div>
                             </div>
 
                             <!-- Suwak Wagi Odległości -->
                             <div class="mb-2">
                                 <div class="d-flex justify-content-between align-items-center mb-1 small">
-                                    <span class="text-info fw-semibold">Waga odległości (w_dist):</span>
-                                    <span class="config-value">@_localConfig.WeightDistance.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)</span>
+                                    <span class="text-info fw-semibold">@L.Shelter.DistanceLabel</span>
+                                    <span class="config-value">@_localConfig.WeightDistance.ToString("F2")</span>
                                 </div>
-                                <input type="range" aria-label="Waga odległości" class="form-range" min="0" max="1" step="0.01" value="@_localConfig.WeightDistance.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" @oninput="OnWeightDistInput" />
+                                <input type="range" aria-label="@L.Shelter.DistanceWeight" class="form-range" min="0" max="1" step="0.01" value="@_localConfig.WeightDistance.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" @oninput="OnWeightDistInput" />
                             </div>
 
                             <!-- Suwak Wagi Obłożenia -->
                             <div class="mb-2">
                                 <div class="d-flex justify-content-between align-items-center mb-1 small">
-                                    <span class="text-warning fw-semibold">Waga obłożenia (w_occ):</span>
-                                    <span class="config-value">@_localConfig.WeightOccupancy.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)</span>
+                                    <span class="text-warning fw-semibold">@L.Shelter.OccupancyLabel</span>
+                                    <span class="config-value">@_localConfig.WeightOccupancy.ToString("F2")</span>
                                 </div>
-                                <input type="range" aria-label="Waga obłożenia" class="form-range" min="0" max="1" step="0.01" value="@_localConfig.WeightOccupancy.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" @oninput="OnWeightOccInput" />
+                                <input type="range" aria-label="@L.Shelter.OccupancyWeight" class="form-range" min="0" max="1" step="0.01" value="@_localConfig.WeightOccupancy.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)" @oninput="OnWeightOccInput" />
                             </div>
                         </div>
 
                         <!-- Sekcja 4: Wizualizacja i Sensoryka -->
                         <div class="config-section-card">
                             <h6 class="config-section-header">
-                                <span class="section-dot dot-purple"></span> Tryb Wyświetlania & Sensoryka
+                                <span class="section-dot dot-purple"></span> @L.Simulation.DisplaySettings
                             </h6>
 
                             <div class="mb-3">
-                                <label class="form-label small text-muted mb-1" for="modal-render-mode">Tryb Wyświetlania na Mapie</label>
+                                <label class="form-label small text-muted mb-1" for="modal-render-mode">@L.Simulation.MapDisplay</label>
                                 <select id="modal-render-mode" class="form-select form-select-sm" @bind="_localConfig.RenderMode">
-                                    <option value="agents">Agenci (Pozycje jednostek na ulicach)</option>
-                                    <option value="heatmap">Mapa Ciepła (Prędkość przepływu)</option>
-                                    <option value="density">Mapa Ciepła (Gęstość tłumu)</option>
+                                    <option value="agents">@L.Simulation.StreetPositions</option>
+                                    <option value="heatmap">@L.Simulation.SpeedMap</option>
+                                    <option value="density">@L.Simulation.DensityMap</option>
                                 </select>
                             </div>
 
                             <div class="form-check form-switch mb-2">
                                 <input class="form-check-input" type="checkbox" id="modal-whiskers" @bind="_localConfig.ShowWhiskers" />
-                                <label class="form-check-label small" for="modal-whiskers">Pokaż wąsy sensoryczne (Whiskers)</label>
+                                <label class="form-check-label small" for="modal-whiskers">@L.Simulation.ShowSensors</label>
                             </div>
 
                             @if (_localConfig.ShowWhiskers)
                             {
                                 <div class="mb-2">
                                     <div class="d-flex justify-content-between align-items-center mb-1 small">
-                                        <span class="text-muted">Długość wąsów:</span>
-                                        <span class="config-value">@_localConfig.WhiskerLength.ToString("F1", System.Globalization.CultureInfo.InvariantCulture) m</span>
+                                        <span class="text-muted">@L.Simulation.RayLengthLabel</span>
+                                        <span class="config-value">@_localConfig.WhiskerLength.ToString("F1") m</span>
                                     </div>
-                                    <input type="range" aria-label="Długość wąsów" class="form-range" min="1.0" max="5.0" step="0.5" @bind="_localConfig.WhiskerLength" />
+                                    <input type="range" aria-label="@L.Simulation.RayLength" class="form-range" min="1.0" max="5.0" step="0.5" @bind="_localConfig.WhiskerLength" />
                                 </div>
                             }
                         </div>
@@ -225,20 +225,20 @@
             <!-- Modal Footer -->
             <div class="feature-dialog-footer sim-config-modal-footer">
                 <button type="button" class="app-button" @onclick="ResetToDefaults">
-                    Przywróć domyślne
+                    @L.Simulation.Defaults
                 </button>
                 <div class="d-flex gap-2">
                     <button type="button" class="app-button" @onclick="Close">
-                        Anuluj
+                        @L.Common.Cancel
                     </button>
                     <button type="button" class="app-button" @onclick="SaveAndClose">
-                        Zapisz
+                        @L.Common.Save
                     </button>
                     <button type="button" class="app-button app-button--primary" @onclick="SaveAndStart">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                             <polygon points="5 3 19 12 5 21 5 3"></polygon>
                         </svg>
-                        <span>Uruchom symulację</span>
+                        <span>@L.Simulation.StartAction</span>
                     </button>
                 </div>
             </div>

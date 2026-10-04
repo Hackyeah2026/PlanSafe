@@ -2,14 +2,14 @@
 @implements IAsyncDisposable
 
 <details class="global-menu ui-workspace" @ref="disclosure">
-    <summary class="surface-panel" aria-label="Navigation and appearance menu">
+    <summary class="surface-panel" aria-label="@L.Navigation.Menu">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" focusable="false"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
         <span>PlanSafe</span>
     </summary>
     <div class="global-menu-content surface-panel surface-panel--strong">
-        <nav aria-label="Application navigation">
-            <NavLink href="map" Match="NavLinkMatch.All">Map</NavLink>
-            <NavLink href="simulation-demo">Simulator</NavLink>
+        <nav aria-label="@L.Navigation.Label">
+            <NavLink href="map" Match="NavLinkMatch.All">@L.Navigation.Map</NavLink>
+            <NavLink href="simulation-demo">@L.Navigation.Simulator</NavLink>
         </nav>
         <AppearanceSettings />
     </div>

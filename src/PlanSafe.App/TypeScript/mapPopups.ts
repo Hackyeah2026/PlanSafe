@@ -1,3 +1,6 @@
+import { TextKeys, type TextKey } from "./textKeys.js";
+import { bindText, localizedSpan } from "./localizedText.js";
+
 /** Display fields from a map item; names and metrics are always rendered as text. */
 export interface MapPopupItem {
   readonly type: string;
@@ -28,26 +31,38 @@ export function createMapItemPopup(
 ): HTMLElement {
   const popup = element("div", "map-popup-card");
   const header = element("div", "map-popup-header");
-  let typeName = "Evacuation Zone";
+  let typeName: TextKey = TextKeys.Map.EvacuationZone;
   let typeClass = "badge-zone";
   if (item.type === "blockade") {
-    typeName = "Blockade";
+    typeName = TextKeys.Map.Blockade;
     typeClass = "badge-blockade";
   } else if (
     item.type === "safe_circle" ||
     item.type === "safe_polygon" ||
     item.type === "safe_point"
   ) {
-    typeName = "Safe Location";
+    typeName = TextKeys.Map.SafeLocation;
     typeClass = "badge-safe";
   }
   header.append(
-    element("span", `map-popup-badge ${typeClass}`, typeName),
+    bindText(element("span", `map-popup-badge ${typeClass}`), typeName),
     element("strong", "map-popup-title", item.name ?? ""),
   );
   popup.append(header);
-  if (item.metricInfo)
-    popup.append(element("div", "map-popup-meta", item.metricInfo));
+  if (item.metricInfo) {
+    const metric = element("div", "map-popup-meta");
+    const length = /^(Length|Radius): (.+) m$/.exec(item.metricInfo);
+    const vertices = /^(\d+) vertices$/.exec(item.metricInfo);
+    if (length)
+      bindText(
+        metric,
+        length[1] === "Length" ? TextKeys.Map.Length : TextKeys.Map.Radius,
+        length[2],
+      );
+    else if (vertices) bindText(metric, TextKeys.Map.Vertices, vertices[1]);
+    else metric.textContent = item.metricInfo;
+    popup.append(metric);
+  }
 
   const actions = element("div", "map-popup-actions");
   const remove = element("button", "btn-popup-delete");
@@ -56,7 +71,8 @@ export function createMapItemPopup(
   remove.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <polyline points="3 6 5 6 21 6"></polyline>
     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-  </svg> Remove`;
+  </svg>`;
+  remove.append(localizedSpan(TextKeys.Common.Remove));
   remove.addEventListener("click", onDelete);
   actions.append(remove);
   popup.append(actions);
@@ -78,13 +94,16 @@ export function createShelterPopup(
   occupancyPercent: number,
 ): HTMLElement {
   const popup = element("div", "");
-  const hint = element("small", "", "Kliknij, aby wybrać ten schron");
+  const hint = bindText(element("small", ""), TextKeys.Shelter.SelectHint);
   hint.style.color = "#0ea5e9";
   popup.append(
     element("strong", "", name),
     document.createElement("br"),
-    document.createTextNode(
-      `Obłożenie: ${occupancy} / ${capacity} (${occupancyPercent}%)`,
+    localizedSpan(
+      TextKeys.Shelter.OccupancySummary,
+      occupancy,
+      capacity,
+      occupancyPercent,
     ),
     document.createElement("br"),
     hint,

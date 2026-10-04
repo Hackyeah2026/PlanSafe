@@ -248,14 +248,14 @@ for (const mode of [
           document.querySelector(".sim-time-text")?.textContent ?? "0",
         ) > 0.2,
     );
-    await page.getByRole("button", { name: "Pauza", exact: true }).click();
+    await page.getByRole("button", { name: "Pause", exact: true }).click();
     await expect(
       page.getByRole("button", { name: "Start", exact: true }),
     ).toBeVisible();
     const time = await page.locator(".sim-time-text").textContent();
     await page.waitForTimeout(200);
     assert.equal(await page.locator(".sim-time-text").textContent(), time);
-    await page.getByRole("button", { name: "Krok", exact: true }).click();
+    await page.getByRole("button", { name: "Step", exact: true }).click();
     await page.getByRole("button", { name: "Reset", exact: true }).click();
     await page.waitForFunction(
       () => document.querySelector(".sim-time-text")?.textContent === "0.0s",
@@ -264,9 +264,9 @@ for (const mode of [
       (await page.locator(".sim-evac-counter").textContent()) ?? "",
       /\/ 37/,
     );
-    await page.getByRole("button", { name: "Gęstość", exact: true }).click();
-    await page.getByRole("button", { name: "Prędkość", exact: true }).click();
-    await page.getByRole("button", { name: "Agenci", exact: true }).click();
+    await page.getByRole("button", { name: "Density", exact: true }).click();
+    await page.getByRole("button", { name: "Speed", exact: true }).click();
+    await page.getByRole("button", { name: "Agents", exact: true }).click();
     await page.evaluate(() => {
       const map = window.PlanSafeMap!.getMap(
         document.querySelector(".map-viewport")!.id,
@@ -276,7 +276,7 @@ for (const mode of [
       map.panBy([50, 30], { animate: false });
     });
     await page
-      .getByRole("button", { name: "Zamknij symulację", exact: true })
+      .getByRole("button", { name: "Close simulation", exact: true })
       .click();
     await badge.waitFor({ state: "detached" });
     if (!(await start.isVisible()))
