@@ -568,10 +568,10 @@
     <value>Zoom out</value>
   </data>
   <data name="Navigation.Demo" xml:space="preserve">
-    <value>Simulation demo</value>
+    <value>Simulation Demo (debug)</value>
   </data>
   <data name="Navigation.DemoTitle" xml:space="preserve">
-    <value>Simulation demo - PlanSafe</value>
+    <value>Simulation Demo (debug) - PlanSafe</value>
   </data>
   <data name="Navigation.Label" xml:space="preserve">
     <value>Application navigation</value>
@@ -1535,5 +1535,11 @@
   </data>
   <data name="EvacuationUx.GpsError" xml:space="preserve">
     <value>Location could not be retrieved. Select it on the map or retry GPS.</value>
+  </data>
+  <data name="Shelter.PeopleCount" xml:space="preserve">
+    <value>{0} people</value>
+  </data>
+  <data name="Shelter.PeopleHere" xml:space="preserve">
+    <value>People currently here</value>
   </data>
 </root>

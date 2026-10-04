@@ -18,7 +18,7 @@
         </a>
         <details class="shelter-details">
             <summary>@L.EvacuationUx.ShelterDetails</summary>
-            <div class="occupancy-row"><span>@L.Shelter.Occupancy</span><span data-testid="target-occupancy">@L.EvacuationUi.Places(target.CurrentOccupancy, target.Capacity)</span></div>
+            <div class="occupancy-row"><span>@L.Shelter.Occupancy</span><span data-testid="target-occupancy">@(target.HasCapacityLimit ? L.EvacuationUi.Places(target.CurrentOccupancy, target.Capacity) : L.Shelter.PeopleCount(target.CurrentOccupancy))</span></div>
         </details>
     }
     else if (Loading)

@@ -400,6 +400,8 @@ export const TextKeys = {
     OccupancySummary: "Shelter.OccupancySummary",
     OccupancyValue: "Shelter.OccupancyValue",
     OccupancyWeight: "Shelter.OccupancyWeight",
+    PeopleCount: "Shelter.PeopleCount",
+    PeopleHere: "Shelter.PeopleHere",
     Places: "Shelter.Places",
     PresetA: "Shelter.PresetA",
     PresetB: "Shelter.PresetB",
@@ -753,8 +755,8 @@ export const englishText: Record<TextKey, string> = {
   "Map.ZoneInfo": "Zone information",
   "Map.ZoomIn": "Zoom in",
   "Map.ZoomOut": "Zoom out",
-  "Navigation.Demo": "Simulation demo",
-  "Navigation.DemoTitle": "Simulation demo - PlanSafe",
+  "Navigation.Demo": "Simulation Demo (debug)",
+  "Navigation.DemoTitle": "Simulation Demo (debug) - PlanSafe",
   "Navigation.Label": "Application navigation",
   "Navigation.Map": "Map",
   "Navigation.MapTitle": "Map - PlanSafe",
@@ -1120,4 +1122,6 @@ export const englishText: Record<TextKey, string> = {
     "GPS is not supported in this browser. Select your location on the map.",
   "EvacuationUx.GpsError":
     "Location could not be retrieved. Select it on the map or retry GPS.",
+  "Shelter.PeopleCount": "{0} people",
+  "Shelter.PeopleHere": "People currently here",
 };

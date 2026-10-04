@@ -367,7 +367,12 @@ export function updateCitizenMap(
               ? "#f59e0b"
               : "#10b981";
         const icon = L.divIcon({
-          html: createShelterIcon(sName, occPct, color, isSelected),
+          html: createShelterIcon(
+            sName,
+            sCap > 0 ? occPct : null,
+            color,
+            isSelected,
+          ),
           className: "custom-shelter-marker",
           iconSize: [34, 34],
           iconAnchor: [17, 17],

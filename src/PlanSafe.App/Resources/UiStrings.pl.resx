@@ -568,10 +568,10 @@
     <value>Oddal</value>
   </data>
   <data name="Navigation.Demo" xml:space="preserve">
-    <value>Demonstracja symulacji</value>
+    <value>Demonstracja symulacji (debug)</value>
   </data>
   <data name="Navigation.DemoTitle" xml:space="preserve">
-    <value>Demonstracja symulacji - PlanSafe</value>
+    <value>Demonstracja symulacji (debug) - PlanSafe</value>
   </data>
   <data name="Navigation.Label" xml:space="preserve">
     <value>Nawigacja aplikacji</value>
@@ -1535,5 +1535,11 @@
   </data>
   <data name="EvacuationUx.GpsError" xml:space="preserve">
     <value>Nie udało się ustalić lokalizacji. Wybierz ją na mapie lub ponów GPS.</value>
+  </data>
+  <data name="Shelter.PeopleCount" xml:space="preserve">
+    <value>Liczba osób: {0}</value>
+  </data>
+  <data name="Shelter.PeopleHere" xml:space="preserve">
+    <value>Osoby obecnie w strefie</value>
   </data>
 </root>

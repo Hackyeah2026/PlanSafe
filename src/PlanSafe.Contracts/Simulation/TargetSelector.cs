@@ -105,7 +105,8 @@ public static class TargetSelector
         }
 
         // Determine if at least one target has available capacity
-        bool hasAnyTargetWithCapacity = activeTargets.Any(t => t.CurrentOccupancy < t.Capacity);
+        double openZoneScale = OccupancyRouting.OpenZoneScale(activeTargets);
+        bool hasAnyTargetWithCapacity = activeTargets.Any(t => !t.IsFull);
 
         var evaluations = new List<TargetEvaluationDto>();
         var candidateCosts = new Dictionary<string, (EvacuationTarget Target, double Cost, double Dist, double OccRatio, bool IsFull)>(StringComparer.OrdinalIgnoreCase);
@@ -124,16 +125,14 @@ public static class TargetSelector
             int evaluatedOccupancy = isCurrentTarget
                 ? Math.Max(0, target.CurrentOccupancy - 1)
                 : target.CurrentOccupancy;
-
-            int capacity = Math.Max(1, target.Capacity);
-            double occRatio = (double)evaluatedOccupancy / capacity;
+            double occRatio = target.HasCapacityLimit ? (double)evaluatedOccupancy / target.Capacity : 0.0;
 
             double distCost = wDist * normalizedDist;
-            double occCost = wOcc * occRatio;
-            double tieBreaker = 0.0001 * normalizedDist;
+            double occCost = wOcc * OccupancyRouting.Cost(target, openZoneScale, evaluatedOccupancy);
+            double tieBreaker = 0.0001 * normalizedDist / openZoneScale;
             double cost = distCost + occCost + tieBreaker;
 
-            bool isFull = evaluatedOccupancy >= capacity;
+            bool isFull = target.HasCapacityLimit && evaluatedOccupancy >= target.Capacity;
             if (isFull && hasAnyTargetWithCapacity)
             {
                 cost += CapacityOverflowPenalty;
@@ -323,7 +322,8 @@ public static class TargetSelector
             dMax = Math.Max(1.0, calculatedMaxDist > 0.0 ? calculatedMaxDist : DefaultMaxDistance);
         }
 
-        bool hasAnyTargetWithCapacity = activeTargets.Any(t => t.CurrentOccupancy < t.Capacity);
+        double openZoneScale = OccupancyRouting.OpenZoneScale(activeTargets);
+        bool hasAnyTargetWithCapacity = activeTargets.Any(t => !t.IsFull);
         var evaluations = new List<TargetEvaluationDto>();
         var candidateCosts = new Dictionary<string, (EvacuationTarget Target, double Cost, double Dist, double OccRatio, bool IsFull)>(StringComparer.OrdinalIgnoreCase);
 
@@ -337,16 +337,14 @@ public static class TargetSelector
             int evaluatedOccupancy = isCurrentTarget
                 ? Math.Max(0, target.CurrentOccupancy - 1)
                 : target.CurrentOccupancy;
-
-            int capacity = Math.Max(1, target.Capacity);
-            double occRatio = (double)evaluatedOccupancy / capacity;
+            double occRatio = target.HasCapacityLimit ? (double)evaluatedOccupancy / target.Capacity : 0.0;
 
             double distCost = wDist * normalizedDist;
-            double occCost = wOcc * occRatio;
-            double tieBreaker = 0.0001 * normalizedDist;
+            double occCost = wOcc * OccupancyRouting.Cost(target, openZoneScale, evaluatedOccupancy);
+            double tieBreaker = 0.0001 * normalizedDist / openZoneScale;
             double cost = distCost + occCost + tieBreaker;
 
-            bool isFull = evaluatedOccupancy >= capacity;
+            bool isFull = target.HasCapacityLimit && evaluatedOccupancy >= target.Capacity;
             if (isFull && hasAnyTargetWithCapacity)
             {
                 cost += CapacityOverflowPenalty;
@@ -446,7 +444,9 @@ public static class TargetSelector
             : $"~{(distance / 1000.0):F1} km";
 
         string safetyStatus;
-        if (occupancyRatio < 0.50)
+        if (!target.HasCapacityLimit)
+            safetyStatus = $"People here: {target.CurrentOccupancy}";
+        else if (occupancyRatio < 0.50)
             safetyStatus = $"Safe (occupancy {(occupancyRatio * 100):F0}%)";
         else if (occupancyRatio < 0.80)
             safetyStatus = $"Moderate occupancy ({(occupancyRatio * 100):F0}%)";

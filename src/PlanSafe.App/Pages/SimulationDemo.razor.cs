@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using System.Diagnostics;
 using PlanSafe.App.Simulation;
+using PlanSafe.Contracts.Models.Map;
 using PlanSafe.Contracts.Models.Simulation;
 using PlanSafe.App.Components;
 using PlanSafe.Contracts.Models.Stats;
@@ -90,14 +91,14 @@ public partial class SimulationDemo : IAsyncDisposable
         {
             obstacles.Add(new ObstacleDto(20.0, 0.0, 8.0, 14.0, "obs_north"));
             obstacles.Add(new ObstacleDto(20.0, 26.0, 8.0, 14.0, "obs_south"));
-            targets.Add(new EvacuationTarget("shelter-main", "Main exit (East)", 56.0, 15.0, 4.0, 10.0, 1000, 0, true));
+            targets.Add(new EvacuationTarget("shelter-main", "Main exit (East)", 56.0, 15.0, 4.0, 10.0, 0, 0, true));
         }
         else
         {
             obstacles.Add(new ObstacleDto(worldWidth * 0.35, worldHeight * 0.18, worldWidth * 0.12, worldHeight * 0.28, "obs_north"));
             obstacles.Add(new ObstacleDto(worldWidth * 0.35, worldHeight * 0.54, worldWidth * 0.12, worldHeight * 0.28, "obs_south"));
-            targets.Add(new EvacuationTarget("shelter-north", "North shelter (Gate A)", worldWidth * 0.90, worldHeight * 0.12, worldWidth * 0.08, worldHeight * 0.20, 300, 35, true));
-            targets.Add(new EvacuationTarget("shelter-south", "South shelter (Gate B)", worldWidth * 0.90, worldHeight * 0.68, worldWidth * 0.08, worldHeight * 0.20, 300, 15, true));
+            targets.Add(new EvacuationTarget("shelter-north", "North shelter (Gate A)", worldWidth * 0.90, worldHeight * 0.12, worldWidth * 0.08, worldHeight * 0.20, 0, 0, true));
+            targets.Add(new EvacuationTarget("shelter-south", "South shelter (Gate B)", worldWidth * 0.90, worldHeight * 0.68, worldWidth * 0.08, worldHeight * 0.20, 0, 0, true));
         }
     }
 
@@ -470,16 +471,22 @@ public partial class SimulationDemo : IAsyncDisposable
     {
         bool resume = isRunning;
         await StopSimulationLoopAsync();
+        int capacity = 0;
+        for (int i = 0; i < targets.Count; i++)
+            targets[i] = targets[i] with { Capacity = capacity, CurrentOccupancy = 0 };
         if (_engine != null)
         {
             _engine.AgentCount = agentCount;
+            _engine.SetEnvironment(obstacles, targets, weightDistance, weightOccupancy);
             _engine.InitializeAgents();
             _statsCollector.Reset(_engine.AgentCount);
         }
         if (activeEngine == "webgpu" && simulator != null)
         {
+            await simulator.InvokeVoidAsync("setGpuEnvironment", GetWorldConfigDto());
             await simulator.InvokeVoidAsync("resetGpu", agentCount, granulation, socialRepulsionWeight);
         }
+        await SyncWorldConfigAsync();
         _gpuActiveDots = SimulatedAgentCount;
         await RequestRender();
         if (resume) await ToggleSimulation();

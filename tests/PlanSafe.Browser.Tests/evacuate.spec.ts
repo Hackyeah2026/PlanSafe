@@ -36,11 +36,13 @@ async function prepare(
     nullConfig?: boolean;
     longName?: boolean;
     noZones?: boolean;
+    capacity?: number;
   } = {},
 ) {
   const requests: { path: string; body: Record<string, unknown> | null }[] = [];
   const target = {
     ...shelter,
+    capacity: options.capacity ?? shelter.capacity,
     name: options.longName
       ? "Punkt zbiórki przy Szkole Podstawowej imienia Marii Skłodowskiej-Curie - wejście od ulicy Długiej"
       : shelter.name,
@@ -492,4 +494,17 @@ test("cancelled GPS correction cannot replace the confirmed location later", asy
     "href",
     route!,
   );
+});
+
+test("unlimited safe zones show people without a capacity limit", async ({
+  page,
+}) => {
+  await prepare(page, { capacity: 0 });
+  await page.goto("/evacuate");
+  await expect(page.getByTestId("target-name")).toHaveText(shelter.name);
+  await page.locator(".shelter-details summary").click();
+  await expect(page.getByTestId("target-occupancy")).toHaveText("35 people");
+  await expect(
+    page.locator(".custom-shelter-marker").first(),
+  ).not.toContainText("%");
 });

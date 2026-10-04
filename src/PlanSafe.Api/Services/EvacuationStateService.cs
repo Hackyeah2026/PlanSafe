@@ -325,7 +325,9 @@ public sealed class EvacuationStateService : IEvacuationStateService
 
             return new CheckInResponse(
                 Success: true,
-                Message: $"Occupancy updated: {updated.CurrentOccupancy}/{updated.Capacity}",
+                Message: updated.HasCapacityLimit
+                    ? $"Occupancy updated: {updated.CurrentOccupancy}/{updated.Capacity}"
+                    : $"Occupancy updated: {updated.CurrentOccupancy}",
                 Target: updated
             );
         }

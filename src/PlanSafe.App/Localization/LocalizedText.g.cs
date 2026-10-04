@@ -452,6 +452,8 @@ public sealed class LocalizedText(IStringLocalizer<UiStrings> strings)
         public string OccupancySummary(object arg0, object arg1, object arg2) => strings["Shelter.OccupancySummary", arg0, arg1, arg2].Value;
         public string OccupancyValue(object arg0) => strings["Shelter.OccupancyValue", arg0].Value;
         public string OccupancyWeight => strings["Shelter.OccupancyWeight"].Value;
+        public string PeopleCount(object arg0) => strings["Shelter.PeopleCount", arg0].Value;
+        public string PeopleHere => strings["Shelter.PeopleHere"].Value;
         public string Places(object arg0, object arg1) => strings["Shelter.Places", arg0, arg1].Value;
         public string PresetA => strings["Shelter.PresetA"].Value;
         public string PresetB => strings["Shelter.PresetB"].Value;

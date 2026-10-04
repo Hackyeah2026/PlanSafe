@@ -91,7 +91,7 @@ export function createShelterPopup(
   name: string,
   occupancy: number,
   capacity: number,
-  occupancyPercent: number,
+  occupancyPercent: number | null,
 ): HTMLElement {
   const popup = element("div", "");
   const hint = bindText(element("small", ""), TextKeys.Shelter.SelectHint);
@@ -99,12 +99,14 @@ export function createShelterPopup(
   popup.append(
     element("strong", "", name),
     document.createElement("br"),
-    localizedSpan(
-      TextKeys.Shelter.OccupancySummary,
-      occupancy,
-      capacity,
-      occupancyPercent,
-    ),
+    capacity > 0
+      ? localizedSpan(
+          TextKeys.Shelter.OccupancySummary,
+          occupancy,
+          capacity,
+          occupancyPercent,
+        )
+      : localizedSpan(TextKeys.Shelter.PeopleCount, occupancy),
     document.createElement("br"),
     hint,
   );
@@ -121,7 +123,7 @@ export function createShelterPopup(
  */
 export function createShelterIcon(
   name: string,
-  occupancyPercent: number,
+  occupancyPercent: number | null,
   color: string,
   isSelected: boolean,
 ): HTMLElement {
@@ -135,7 +137,11 @@ export function createShelterIcon(
       ? "box-shadow: 0 0 0 6px rgba(14, 165, 233, 0.45), 0 0 20px rgba(14, 165, 233, 0.8); border: 2.5px solid #ffffff;"
       : "box-shadow: 0 2px 8px rgba(0,0,0,0.5); border: 1.5px solid rgba(255,255,255,0.85);");
   badge.style.backgroundColor = color;
-  const label = element("div", "", `${name} (${occupancyPercent}%)`);
+  const label = element(
+    "div",
+    "",
+    occupancyPercent === null ? name : `${name} (${occupancyPercent}%)`,
+  );
   label.title = name;
   label.style.cssText =
     "background: var(--ui-strong); color: var(--ui-text); padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-top: 3px; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; border: 1px solid var(--ui-border); box-shadow: var(--ui-shadow);";
