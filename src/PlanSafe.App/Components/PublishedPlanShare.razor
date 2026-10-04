@@ -1,0 +1,55 @@
+@using PlanSafe.Contracts.Models.Simulation
+@inject IJSRuntime JS
+
+<div class="plan-share @(Projector ? "plan-share--projector" : "")">
+    <div class="share-heading">
+        <span class="share-status"><UiIcon Kind="UiIconKind.Shield" /> Plan ready to share</span>
+        <h3>Scan the code. Open the plan.</h3>
+    </div>
+    <div class="share-qr" role="img" aria-label="Evacuation plan QR code">@((MarkupString)WrapSvgResponsive(Plan.QrCodeSvg))</div>
+    <p class="share-session ui-muted">Session code <strong>@Plan.SessionId</strong></p>
+    <div class="share-link">
+        <label for="@linkId">Evacuation plan link</label>
+        <input id="@linkId" type="text" class="app-input" readonly value="@Plan.EvacuateUrl" />
+        @if (Projector)
+        {
+            <p class="share-projector-url">@Plan.EvacuateUrl</p>
+        }
+        <div class="share-actions">
+            <AppButton OnClick="CopyUrlAsync">@(copied ? "Link copied" : "Copy link")</AppButton>
+            <a class="app-button app-button--primary" href="@Plan.EvacuateUrl" target="_blank" rel="noopener">Evacuate next person <UiIcon Kind="UiIconKind.ArrowRight" /></a>
+        </div>
+        <span class="share-feedback ui-muted" role="status">@feedback</span>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public PublishPlanResponse Plan { get; set; } = default!;
+    [Parameter] public bool Projector { get; set; }
+    private readonly string linkId = $"plan-link-{Guid.NewGuid():N}";
+    private bool copied;
+    private string? feedback;
+
+    private async Task CopyUrlAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", Plan.EvacuateUrl);
+            copied = true;
+            feedback = "Link copied. You can now share it.";
+        }
+        catch (JSException)
+        {
+            copied = false;
+            feedback = "Could not copy the link. Select the address above and copy it manually.";
+        }
+    }
+
+    private static string WrapSvgResponsive(string? svg)
+    {
+        if (string.IsNullOrWhiteSpace(svg)) return string.Empty;
+        return svg.StartsWith("<svg", StringComparison.OrdinalIgnoreCase)
+            ? "<svg style=\"width:100%;height:100%;display:block\" " + svg[4..]
+            : svg;
+    }
+}

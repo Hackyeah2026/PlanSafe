@@ -314,7 +314,7 @@ public sealed class EvacuationStateService : IEvacuationStateService
         Touch();
         if (string.IsNullOrWhiteSpace(request.TargetId))
         {
-            return new CheckInResponse(false, "Identyfikator schronu jest wymagany.");
+            return new CheckInResponse(false, "Shelter ID is required.");
         }
 
         if (_targets.TryGetValue(request.TargetId, out var existing))
@@ -325,12 +325,12 @@ public sealed class EvacuationStateService : IEvacuationStateService
 
             return new CheckInResponse(
                 Success: true,
-                Message: $"Zaktualizowano obłożenie: {updated.CurrentOccupancy}/{updated.Capacity}",
+                Message: $"Occupancy updated: {updated.CurrentOccupancy}/{updated.Capacity}",
                 Target: updated
             );
         }
 
-        return new CheckInResponse(false, $"Punkt ewakuacji '{request.TargetId}' nie został odnaleziony.");
+        return new CheckInResponse(false, $"Evacuation point '{request.TargetId}' was not found.");
     }
 
     public IReadOnlyList<EvacuationTarget> GetTargets()
@@ -419,7 +419,7 @@ public sealed class EvacuationStateService : IEvacuationStateService
         // Baseline Kraków gathering points
         var shelter1 = new EvacuationTarget(
             Id: "shelter-krakow-1",
-            Name: "Punkt Zbiórki Północ (Park Krakowski)",
+            Name: "North Assembly Point (Krakowski Park)",
             X: 19.9266,
             Y: 50.0684,
             Width: 20.0,
@@ -433,7 +433,7 @@ public sealed class EvacuationStateService : IEvacuationStateService
 
         var shelter2 = new EvacuationTarget(
             Id: "shelter-krakow-2",
-            Name: "Punkt Zbiórki Południe (Planty)",
+            Name: "South Assembly Point (Planty Park)",
             X: 19.9380,
             Y: 50.0570,
             Width: 20.0,

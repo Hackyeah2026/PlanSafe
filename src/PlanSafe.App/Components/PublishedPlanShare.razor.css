@@ -1,0 +1,90 @@
+.plan-share {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}
+.share-heading h3 {
+  margin: 12px 0 8px;
+  font-size: 1.4rem;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+.share-heading p {
+  max-width: 42ch;
+  margin: 0 auto;
+  font-size: 0.875rem;
+}
+.share-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ui-success);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.share-qr {
+  width: min(220px, 100%);
+  aspect-ratio: 1;
+  padding: 18px;
+  /* Keep the QR quiet zone white in both themes for reliable scanning. */
+  background: #fff;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-panel-radius);
+}
+.share-session {
+  margin: 0;
+  font-size: 0.8rem;
+}
+.share-session strong {
+  margin-left: 8px;
+  font-family: monospace;
+  color: var(--ui-text);
+  overflow-wrap: anywhere;
+}
+.share-link {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  max-width: 600px;
+  min-width: 0;
+  text-align: left;
+}
+.share-link label {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.share-link input {
+  width: 100%;
+  min-width: 0;
+  font-size: 0.85rem;
+}
+.share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.share-actions ::deep .app-button {
+  flex: 1;
+  min-height: 44px;
+  text-decoration: none;
+}
+.share-feedback {
+  font-size: 0.8rem;
+}
+.plan-share--projector .share-qr {
+  /* Reserve room for the dialog header, sharing controls, footer, and outer margins. */
+  width: min(440px, max(120px, calc(100dvh - 560px)), 100%);
+}
+.plan-share--projector h3 {
+  font-size: clamp(1.4rem, 3vw, 2.3rem);
+}
+.plan-share--projector .share-session {
+  font-size: 1.2rem;
+}
+.share-projector-url {
+  margin: 0;
+  overflow-wrap: anywhere;
+  text-align: center;
+  color: var(--ui-info);
+}

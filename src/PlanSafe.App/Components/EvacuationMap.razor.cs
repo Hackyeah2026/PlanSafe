@@ -188,6 +188,13 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
         await HandleCheckoutSession(newBranch);
     }
 
+    private async Task HandleStartEvacuation()
+    {
+        if (_isStarting || _isPublishPlanOpen) return;
+        await StopSimulation();
+        _isPublishPlanOpen = true;
+    }
+
     private async Task HandleStartSimulation()
     {
         if (_isStarting) return;
@@ -211,7 +218,7 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
 
         if (evacZones.Count == 0)
         {
-            _simWarningMessage = "Narysuj przynajmniej jedną Strefę Ewakuacji (Evac Zone) przed startem symulacji.";
+            _simWarningMessage = "Draw at least one evacuation zone before starting the simulation.";
             StateHasChanged();
             return;
         }
@@ -254,7 +261,7 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
                     case SafeCircleZoneItem circle when circle.Center is { Length: >= 2 }:
                         var (cx, cy) = ToWorld(circle.Center[0], circle.Center[1]);
                         double r = circle.Radius ?? 30.0;
-                        targets.Add(new EvacuationTarget(item.Id, string.IsNullOrWhiteSpace(item.Name) ? "Schron" : item.Name, cx - r, cy - r, r * 2, r * 2, 1000, 0, true));
+                        targets.Add(new EvacuationTarget(item.Id, string.IsNullOrWhiteSpace(item.Name) ? "Shelter" : item.Name, cx - r, cy - r, r * 2, r * 2, 1000, 0, true));
                         var circXs = new double[32];
                         var circYs = new double[32];
                         for (int k = 0; k < 32; k++)
@@ -271,18 +278,18 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
                         double pMaxX = coords.Max(c => ToWorld(c[0], c[1]).X);
                         double pMinY = coords.Min(c => ToWorld(c[0], c[1]).Y);
                         double pMaxY = coords.Max(c => ToWorld(c[0], c[1]).Y);
-                        targets.Add(new EvacuationTarget(item.Id, string.IsNullOrWhiteSpace(item.Name) ? "Schron" : item.Name, pMinX, pMinY, Math.Max(10.0, pMaxX - pMinX), Math.Max(10.0, pMaxY - pMinY), 1000, 0, true));
+                        targets.Add(new EvacuationTarget(item.Id, string.IsNullOrWhiteSpace(item.Name) ? "Shelter" : item.Name, pMinX, pMinY, Math.Max(10.0, pMaxX - pMinX), Math.Max(10.0, pMaxY - pMinY), 1000, 0, true));
                         targetShapes[item.Id] = (coords.Select(c => ToWorld(c[0], c[1]).X).ToArray(), coords.Select(c => ToWorld(c[0], c[1]).Y).ToArray());
                         break;
                     case SafePointZoneItem pt when pt.Position is { Length: >= 2 }:
                         var (px, py) = ToWorld(pt.Position[0], pt.Position[1]);
-                        targets.Add(new EvacuationTarget(item.Id, string.IsNullOrWhiteSpace(item.Name) ? "Wyjście" : item.Name, px - 4.0, py - 4.0, 8.0, 8.0, 1000, 0, true));
+                        targets.Add(new EvacuationTarget(item.Id, string.IsNullOrWhiteSpace(item.Name) ? "Exit" : item.Name, px - 4.0, py - 4.0, 8.0, 8.0, 1000, 0, true));
                         break;
                 }
             }
             if (targets.Count == 0)
             {
-                targets.Add(new EvacuationTarget("shelter-east", "Wyjście Główne", worldWidth * 0.90, worldHeight * 0.45, worldWidth * 0.08, worldHeight * 0.10, 1000, 0, true));
+                targets.Add(new EvacuationTarget("shelter-east", "Main Exit", worldWidth * 0.90, worldHeight * 0.45, worldWidth * 0.08, worldHeight * 0.10, 1000, 0, true));
             }
 
             // 3. Prepare MapScenario raster and obstacles using full OSM terrain from krakow_osm.bin
@@ -477,7 +484,7 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
         catch (OperationCanceledException) when (_disposed) { }
         catch (Exception ex)
         {
-            _simWarningMessage = $"Błąd uruchomienia symulacji: {ex.Message}";
+            _simWarningMessage = $"Failed to start simulation: {ex.Message}";
             StateHasChanged();
         }
         finally

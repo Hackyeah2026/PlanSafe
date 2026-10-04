@@ -40,9 +40,9 @@
               isSecureContext: false,
               code: "INSECURE_CONTEXT",
               message:
-                "Lokalizacja zablokowana: połączenie z " +
+                "Location blocked: the connection to " +
                 window.location.origin +
-                " jest nieszyfrowane (HTTP). Standard W3C wymaga HTTPS lub localhost.",
+                " is unencrypted (HTTP). The W3C standard requires HTTPS or localhost.",
             });
             return;
           }
@@ -52,7 +52,7 @@
               success: false,
               isSecureContext: isSecure,
               code: "NOT_SUPPORTED",
-              message: "Przeglądarka nie obsługuje geolokalizacji GPS.",
+              message: "The browser does not support GPS geolocation.",
             });
             return;
           }
@@ -66,7 +66,7 @@
                 longitude: pos.coords.longitude,
                 accuracy: pos.coords.accuracy,
                 code: "OK",
-                message: "Pobrano pozycję GPS.",
+                message: "GPS location retrieved.",
               });
             },
             function (err) {
@@ -75,8 +75,7 @@
                   success: false,
                   isSecureContext: isSecure,
                   code: "PERMISSION_DENIED",
-                  message:
-                    "Odmowa dostępu do lokalizacji w uprawnieniach przeglądarki.",
+                  message: "Location access denied in browser permissions.",
                 });
                 return;
               }
@@ -90,18 +89,18 @@
                     longitude: pos2.coords.longitude,
                     accuracy: pos2.coords.accuracy,
                     code: "OK",
-                    message: "Pobrano pozycję przez sieć/Wi-Fi.",
+                    message: "Location retrieved via network/Wi-Fi.",
                   });
                 },
                 function (err2) {
                   var reason =
                     err2.code === 1
-                      ? "Odmowa dostępu do lokalizacji."
+                      ? "Location access denied."
                       : err2.code === 2
-                        ? "Pozycja niedostępna (brak sygnału GPS/sieci)."
+                        ? "Location unavailable (no GPS/network signal)."
                         : err2.code === 3
-                          ? "Przekroczono limit czasu oczekiwania na GPS."
-                          : err2.message || "Błąd GPS.";
+                          ? "GPS request timed out."
+                          : "GPS error.";
                   resolve({
                     success: false,
                     isSecureContext: isSecure,

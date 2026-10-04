@@ -1,0 +1,5 @@
+.evac-standalone-container {
+  min-height: 100dvh;
+  background: var(--ui-base);
+  color: var(--ui-text);
+}

@@ -1,8 +1,5 @@
-.publish-qr {
-  background: white;
-  padding: 16px;
-  width: 220px;
-  height: 220px;
-  margin: 16px auto;
-  border-radius: var(--ui-control-radius);
+.publish-summary {
+  margin: 16px 0 0;
+  text-align: center;
+  font-size: 0.8rem;
 }

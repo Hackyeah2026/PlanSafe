@@ -1,0 +1,236 @@
+.evac-page {
+  max-width: 1800px;
+  margin: 0 auto;
+  padding: 24px;
+}
+.evac-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 20px 24px;
+}
+.evac-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.evac-header-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: var(--ui-panel-radius);
+  background: var(--ui-fill);
+  color: var(--ui-info);
+  font-size: 1.65rem;
+}
+.evac-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.evac-header h1 {
+  margin: 4px 0 6px;
+  font-size: clamp(1.3rem, 2.4vw, 1.85rem);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+.evac-header p {
+  margin: 0;
+  font-size: 0.875rem;
+}
+.evac-session {
+  padding: 8px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-control-radius);
+  font-size: 0.75rem;
+  color: var(--ui-muted);
+  overflow-wrap: anywhere;
+}
+.evac-session strong {
+  margin-left: 8px;
+  font-family: monospace;
+  color: var(--ui-text);
+}
+.evac-card {
+  padding: 0;
+  overflow: hidden;
+}
+.evac-card-header {
+  padding: 14px 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--ui-border);
+  font-size: 0.875rem;
+}
+.evac-card-body {
+  padding: 20px;
+}
+.evac-text {
+  color: var(--ui-text);
+}
+.evac-page .app-button {
+  min-height: 44px;
+  text-decoration: none;
+}
+.evac-map-container {
+  height: clamp(480px, calc(100dvh - 190px), 900px);
+  width: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-panel-radius);
+  box-shadow: var(--ui-shadow);
+  background: var(--ui-base);
+}
+.floating-evac-tools {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1000;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+}
+.floating-map-calc-badge {
+  position: absolute;
+  top: 82px;
+  left: 12px;
+  right: 12px;
+  z-index: 1000;
+  width: fit-content;
+  max-width: calc(100% - 24px);
+  padding: 10px 14px;
+  font-size: 0.8rem;
+  pointer-events: none;
+}
+.floating-evac-legend {
+  position: absolute;
+  bottom: 28px;
+  left: 12px;
+  right: 12px;
+  z-index: 1000;
+  width: fit-content;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  pointer-events: none;
+}
+.stat-tile,
+.evac-direction {
+  padding: 14px;
+  background: var(--ui-fill);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-control-radius);
+}
+.evac-neutral-badge {
+  color: var(--ui-muted);
+  background: var(--ui-fill);
+}
+.compass-dial {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--ui-solid);
+  border: 1px solid var(--ui-border);
+}
+.compass-arrow {
+  display: inline-flex;
+  transition: transform 0.4s ease;
+}
+.evac-page ::deep .leaflet-popup-content-wrapper,
+.evac-page ::deep .leaflet-popup-tip {
+  color: var(--ui-text);
+  background: var(--ui-solid);
+}
+.evac-page ::deep .leaflet-popup-content-wrapper {
+  border-radius: var(--ui-panel-radius);
+  box-shadow: var(--ui-shadow);
+}
+.evac-page ::deep .leaflet-popup-close-button {
+  color: var(--ui-muted);
+}
+.evac-page ::deep .leaflet-bar {
+  overflow: hidden;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-control-radius);
+  box-shadow: var(--ui-shadow);
+}
+.evac-page ::deep .leaflet-bar a {
+  background: var(--ui-strong);
+  color: var(--ui-text);
+  border-color: var(--ui-border);
+  width: 44px;
+  height: 44px;
+  line-height: 44px;
+}
+.evac-page ::deep .leaflet-bar a:hover {
+  background: var(--ui-solid);
+}
+@media (min-width: 992px) {
+  .evac-page {
+    height: 100dvh;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+  }
+  .evac-page > * {
+    flex-shrink: 0;
+  }
+  .evac-content {
+    --bs-gutter-y: 0;
+    flex: 1 1 0;
+    min-height: 0;
+  }
+  .evac-map-column {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+  .evac-map-container {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 0;
+  }
+  .evac-details-column {
+    height: 100%;
+    overflow-y: auto;
+  }
+  .evac-details-column > .evac-card {
+    flex-shrink: 0;
+  }
+}
+@media (max-width: 991.98px) {
+  .evac-page {
+    padding: 12px;
+  }
+  .evac-header {
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .evac-map-container {
+    height: clamp(340px, 52dvh, 520px);
+  }
+}
+@media (max-width: 480px) {
+  .evac-brand {
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .evac-header-icon {
+    width: 36px;
+    height: 36px;
+    font-size: 1.25rem;
+  }
+  .evac-card-body {
+    padding: 16px;
+  }
+  .evac-page .display-6 {
+    font-size: 1.6rem;
+  }
+}

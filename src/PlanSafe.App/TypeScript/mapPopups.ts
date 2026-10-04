@@ -78,13 +78,13 @@ export function createShelterPopup(
   occupancyPercent: number,
 ): HTMLElement {
   const popup = element("div", "");
-  const hint = element("small", "", "Kliknij, aby wybrać ten schron");
+  const hint = element("small", "", "Click to select this shelter");
   hint.style.color = "#0ea5e9";
   popup.append(
     element("strong", "", name),
     document.createElement("br"),
     document.createTextNode(
-      `Obłożenie: ${occupancy} / ${capacity} (${occupancyPercent}%)`,
+      `Occupancy: ${occupancy} / ${capacity} (${occupancyPercent}%)`,
     ),
     document.createElement("br"),
     hint,
