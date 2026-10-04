@@ -82,38 +82,78 @@ a,
   content: var(--plansafe-error-text);
 }
 
+.boot-screen {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: var(--ui-space-6);
+  background:
+    radial-gradient(
+      ellipse at 50% 40%,
+      color-mix(in srgb, var(--ui-accent) 10%, transparent),
+      transparent 65%
+    ),
+    var(--ui-base);
+}
+
+.boot-card {
+  width: 100%;
+  max-width: 20rem;
+  padding: 32px;
+  text-align: center;
+}
+
+.boot-mark {
+  color: var(--ui-accent);
+  margin-bottom: var(--ui-space-4);
+}
+
+.boot-card h1 {
+  margin: 0 0 var(--ui-space-6);
+  font-size: 1.5rem;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+
+.boot-status {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ui-space-3);
+  margin-bottom: var(--ui-space-3);
+  color: var(--ui-muted);
+  font-size: 0.875rem;
+}
+
 .loading-progress {
-  position: absolute;
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--ui-control-radius);
+  background: var(--ui-fill);
+}
+
+.loading-progress::after {
+  content: "";
   display: block;
-  width: 8rem;
-  height: 8rem;
-  inset: 20vh 0 auto 0;
-  margin: 0 auto 0 auto;
-}
-
-.loading-progress circle {
-  fill: none;
-  stroke: #e0e0e0;
-  stroke-width: 0.6rem;
-  transform-origin: 50% 50%;
-  transform: rotate(-90deg);
-}
-
-.loading-progress circle:last-child {
-  stroke: var(--ui-accent);
-  stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%;
-  transition: stroke-dasharray 0.05s ease-in-out;
+  width: var(--blazor-load-percentage, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ui-accent);
+  transition: width 0.15s ease-out;
 }
 
 .loading-progress-text {
-  position: absolute;
-  text-align: center;
-  font-weight: bold;
-  inset: calc(20vh + 3.25rem) 0 auto 0.2rem;
+  font-variant-numeric: tabular-nums;
 }
 
-.loading-progress-text:after {
-  content: var(--blazor-load-percentage-text, var(--plansafe-loading-text));
+.loading-progress-text::after {
+  content: var(--blazor-load-percentage-text, "");
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-progress::after {
+    transition: none;
+  }
 }
 
 code {
