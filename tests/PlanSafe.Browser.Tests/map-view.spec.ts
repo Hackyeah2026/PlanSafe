@@ -1,6 +1,12 @@
 import { expect, test } from "@playwright/test";
 import assert from "node:assert/strict";
 
+test.beforeEach(async ({ context }) => {
+  await context.addInitScript(() =>
+    localStorage.setItem("plansafe.map-tour.v1", "seen"),
+  );
+});
+
 declare global {
   interface Window {
     mapPerformance: { maxHeartbeatMs: number; draws: number };
@@ -322,7 +328,7 @@ for (const mode of [
     await page.getByRole("button", { name: "Pause", exact: true }).click();
     await expect(
       page.getByRole("button", { name: "Start", exact: true }),
-    ).toBeVisible();
+    ).toBeEnabled();
     const time = await page.locator(".sim-time-text").textContent();
     await page.waitForTimeout(200);
     assert.equal(await page.locator(".sim-time-text").textContent(), time);
@@ -335,6 +341,25 @@ for (const mode of [
       (await page.locator(".sim-evac-counter").textContent()) ?? "",
       /\/ 37/,
     );
+    if (mode === "default" || mode === "wasm" || mode === "mobile") {
+      const speed = page.getByTestId("map-time-scale");
+      await speed.selectOption("max");
+      await expect(speed).toHaveValue("max");
+      await speed.selectOption("0.25");
+      await expect(speed).toHaveValue("0.25");
+      await page.getByRole("button", { name: "Start", exact: true }).click();
+      await page.waitForTimeout(1600);
+      await page.getByRole("button", { name: "Pause", exact: true }).click();
+      const slowedTime = parseFloat(
+        (await page.locator(".sim-time-text").textContent())!,
+      );
+      assert.ok(
+        slowedTime >= 0.2 && slowedTime < 1,
+        `Quarter-speed playback advanced ${slowedTime} simulated seconds`,
+      );
+      await speed.selectOption("1");
+      await expect(speed).toHaveValue("1");
+    }
     await page.getByRole("button", { name: "Density", exact: true }).click();
     await page.getByRole("button", { name: "Speed", exact: true }).click();
     await page.getByRole("button", { name: "Agents", exact: true }).click();

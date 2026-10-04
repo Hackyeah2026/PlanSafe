@@ -5,7 +5,17 @@
     <Icon><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10" /><path d="M12 11v6M12 7h.01" /></svg></Icon>
     <ChildContent>
         <section class="command-overview" aria-label="@L.Census.Population">
-            @if (!HasEvacuationZone)
+            @if (ManualAgentCount is int agentCount)
+            {
+                <p class="command-label"><UiIcon Kind="UiIconKind.People" /> @L.Simulation.AgentCountLabel</p>
+                <p class="command-population">@agentCount.ToString("N0")</p>
+                <p class="command-caption">@L.Census.CustomCount</p>
+                @if (!HasEvacuationZone)
+                {
+                    <p class="command-hint">@L.Drawing.StartHint</p>
+                }
+            }
+            else if (!HasEvacuationZone)
             {
                 <div class="command-empty">
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.4"><path d="m12 2 10 8-4 12H6L2 10z" /></svg>
@@ -45,13 +55,13 @@
         </div>
 
         <footer class="command-actions" aria-label="@L.Simulation.Controls">
-            <AppButton OnClick="OnConfigureSimulation" title="@L.Simulation.OpenSettings">
+            <AppButton data-map-tour="settings" OnClick="OnConfigureSimulation" title="@L.Simulation.OpenSettings">
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5h5m4 0h9M3 12h11m4 0h3M3 19h3m4 0h11" /><circle cx="10" cy="5" r="2" /><circle cx="16" cy="12" r="2" /><circle cx="8" cy="19" r="2" /></svg> @L.Simulation.Settings
             </AppButton>
-            <AppButton Tone="ButtonTone.Primary" OnClick="OnStartSimulation" Disabled="@CensusLoading">
+            <AppButton data-map-tour="simulation" Tone="ButtonTone.Primary" OnClick="OnStartSimulation" Disabled="@CensusLoading">
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM10 7l7 5-7 5Z" /></svg> @(IsSimulating ? L.Simulation.StopAction : L.Simulation.StartAction)
             </AppButton>
-            <AppButton OnClick="OnStartEvacuation"><UiIcon Kind="UiIconKind.Warning" /> @L.Evacuation.Start</AppButton>
+            <AppButton data-map-tour="evacuation" OnClick="OnStartEvacuation"><UiIcon Kind="UiIconKind.Warning" /> @L.Evacuation.Start</AppButton>
         </footer>
     </ChildContent>
 </CollapsibleMapPanel>
@@ -61,6 +71,7 @@
     [Parameter] public bool CensusLoaded { get; set; }
     [Parameter] public bool CensusLoading { get; set; }
     [Parameter] public int CensusPopulation { get; set; }
+    [Parameter] public int? ManualAgentCount { get; set; }
     [Parameter] public string BranchName { get; set; } = "main";
     [Parameter] public bool Expanded { get; set; }
     [Parameter] public bool IsSimulating { get; set; }

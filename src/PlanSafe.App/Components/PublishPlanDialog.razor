@@ -1,16 +1,30 @@
 @namespace PlanSafe.App.Components
 @using PlanSafe.Contracts.Models.Simulation
 
-<ModalDialog Width="500px" IsOpen="true" Class="publish-dialog" LabelledBy="publish-title">
-    <div class="feature-dialog-header">
-        <h2 id="publish-title">@L.Publish.ShareTitle</h2>
-        <button type="button" class="app-button app-icon-button" data-dialog-close aria-label="@L.Common.Close" @onclick="OnClose"><UiIcon Kind="UiIconKind.Close" /></button>
-    </div>
-    <div class="feature-dialog-body">
-        <PublishedPlanShare Plan="Plan" />
-        <p class="publish-summary ui-muted">@L.Publish.Summary(ShelterCount, ObstacleCount, WorldWidth.ToString("F0"))</p>
-    </div>
-    <div class="feature-dialog-footer"><AppButton OnClick="OnClose">@L.Common.Close</AppButton></div>
+<ModalDialog Width="@(isFullscreenProjector ? "100vw" : "500px")" 
+             IsOpen="true" 
+             Class="@($"publish-dialog {(isFullscreenProjector ? "fullscreen-qr-dialog" : "")}")" 
+             LabelledBy="@(isFullscreenProjector ? "fullscreen-qr-label" : "publish-title")">
+    @if (isFullscreenProjector)
+    {
+        <div id="fullscreen-qr-label" class="visually-hidden">@L.Publish.QrLabel</div>
+        <PublishedPlanShare Plan="Plan" Projector="true" OnCloseProjector="() => isFullscreenProjector = false" />
+    }
+    else
+    {
+        <div class="feature-dialog-header">
+            <h2 id="publish-title">@L.Publish.ShareTitle</h2>
+            <button type="button" class="app-button app-icon-button" data-dialog-close aria-label="@L.Common.Close" @onclick="OnClose"><UiIcon Kind="UiIconKind.Close" /></button>
+        </div>
+        <div class="feature-dialog-body">
+            <PublishedPlanShare Plan="Plan" />
+            <p class="publish-summary ui-muted">@L.Publish.Summary(ShelterCount, ObstacleCount, WorldWidth.ToString("F0"))</p>
+        </div>
+        <div class="feature-dialog-footer">
+            <AppButton OnClick="() => isFullscreenProjector = true">@L.Publish.Projector</AppButton>
+            <AppButton OnClick="OnClose">@L.Common.Close</AppButton>
+        </div>
+    }
 </ModalDialog>
 @code {
     [Parameter, EditorRequired] public PublishPlanResponse Plan { get; set; } = default!;
@@ -18,4 +32,6 @@
     [Parameter] public int ObstacleCount { get; set; }
     [Parameter] public double WorldWidth { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
+
+    private bool isFullscreenProjector;
 }

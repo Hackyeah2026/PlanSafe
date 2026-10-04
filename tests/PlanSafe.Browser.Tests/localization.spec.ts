@@ -1,5 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 
+test.beforeEach(async ({ context }) => {
+  await context.addInitScript(() =>
+    localStorage.setItem("plansafe.map-tour.v1", "seen"),
+  );
+});
+
 async function openMenu(page: Page) {
   const menu = page.locator(".global-menu");
   if (!(await menu.evaluate((element) => element.hasAttribute("open")))) {
@@ -15,6 +21,9 @@ for (const [locale, language, caption] of [
 ]) {
   test(`browser locale ${locale} selects ${language}`, async ({ browser }) => {
     const context = await browser.newContext({ locale });
+    await context.addInitScript(() =>
+      localStorage.setItem("plansafe.map-tour.v1", "seen"),
+    );
     const page = await context.newPage();
     await page.route("https://tile.openstreetmap.org/**", (route) =>
       route.fulfill({ status: 204 }),
@@ -155,9 +164,32 @@ test("switching a running simulation preserves its state", async ({ page }) => {
 });
 
 test("publishing and sharing work in Polish and English", async ({ page }) => {
-  await page.addInitScript(() =>
-    localStorage.setItem("plansafe.language.v1", "pl"),
-  );
+  await page.addInitScript(() => {
+    localStorage.setItem("plansafe.language.v1", "pl");
+    localStorage.setItem(
+      "plansafe_sessions_v1",
+      JSON.stringify([
+        {
+          id: "localized-publishing",
+          branchName: "Localized publishing",
+          mapCenter: [50.07, 19.9],
+          zoomLevel: 16,
+          items: [
+            {
+              id: "evacuation",
+              type: "circle_zone",
+              center: [50.07, 19.899],
+              radius: 20,
+            },
+            { id: "safe", type: "safe_point", position: [50.07, 19.901] },
+          ],
+          simulationConfig: { agentCount: 100, useGusCensus: false },
+          tags: {},
+        },
+      ]),
+    );
+    localStorage.setItem("plansafe_active_session_id", "localized-publishing");
+  });
   await page.route("**/api/evacuate/publish-plan", (route) =>
     route.fulfill({
       json: {
@@ -201,4 +233,19 @@ test("publishing and sharing work in Polish and English", async ({ page }) => {
     dialog.getByRole("link", { name: "Evacuate next person" }),
   ).toHaveAttribute("href", /session=LANGTEST$/);
   await expect(dialog).toContainText("LANGTEST");
+
+  await dialog.getByRole("button", { name: "Projector", exact: true }).click();
+  await expect(dialog.getByRole("heading")).not.toBeVisible();
+  await expect(dialog.getByRole("link")).not.toBeVisible();
+  await expect(dialog).not.toContainText("LANGTEST");
+
+  const closeProjectorBtn = dialog.getByRole("button", {
+    name: "Close projector",
+  });
+  await expect(closeProjectorBtn).toBeVisible();
+  await closeProjectorBtn.click();
+
+  await expect(
+    dialog.getByRole("heading", { name: "Share evacuation plan" }),
+  ).toBeVisible();
 });

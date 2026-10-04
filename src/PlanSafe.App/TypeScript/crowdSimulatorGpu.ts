@@ -969,6 +969,12 @@ export class GpuSimulationEngine implements ISimulationEngine {
 
     this.recreateSpatialBindGroups();
 
+    this.recreateAgentDensityBindGroup();
+    this.recreateKdeDepositBindGroup();
+  }
+
+  private recreateAgentDensityBindGroup(): void {
+    if (!this.device || !this.agentsBuffer) return;
     this.accumulateDensityBindGroup = this.device.createBindGroup({
       layout: this.accumulateDensityPipeline!.getBindGroupLayout(0),
       entries: [
@@ -977,7 +983,6 @@ export class GpuSimulationEngine implements ISimulationEngine {
         { binding: 2, resource: { buffer: this.paramsBuffer! } },
       ],
     });
-    this.recreateKdeDepositBindGroup();
   }
 
   private recreateSpatialBindGroups(): void {
@@ -1333,7 +1338,10 @@ export class GpuSimulationEngine implements ISimulationEngine {
     return work;
   }
 
-  private async advanceGpuTicks(ticks: number): Promise<number> {
+  private async advanceGpuTicks(
+    ticks: number,
+    fieldsOnly = false,
+  ): Promise<number> {
     if (
       !this.device ||
       !this.clearPipeline ||
@@ -1354,15 +1362,18 @@ export class GpuSimulationEngine implements ISimulationEngine {
     const pot2D_X = Math.ceil(this.potCols / 16);
     const pot2D_Y = Math.ceil(this.potRows / 16);
 
-    for (let step = 0; step < ticks; step++) {
-      this.simulationTime += 0.016;
-      this.dynamicFieldTimer += 0.016;
+    for (let step = 0; step < (fieldsOnly ? 1 : ticks); step++) {
+      if (!fieldsOnly) {
+        this.simulationTime += 0.016;
+        this.dynamicFieldTimer += 0.016;
+      }
 
       const refine =
-        !this.isMapScenario &&
-        (this.initialDensityPending ||
-          this.dynamicFieldTimer >= 0.2 ||
-          this.activeTick + step === 0);
+        fieldsOnly ||
+        (!this.isMapScenario &&
+          (this.initialDensityPending ||
+            this.dynamicFieldTimer >= 0.2 ||
+            this.activeTick + step === 0));
       if (refine || this.granulation > 1) {
         const run = (
           pipeline: GPUComputePipeline,
@@ -1477,6 +1488,8 @@ export class GpuSimulationEngine implements ISimulationEngine {
           }
         }
       }
+
+      if (fieldsOnly) continue;
 
       // Pass 1: Clear spatial hash grid
       const pass1 = commandEncoder.beginComputePass();
@@ -1749,7 +1762,77 @@ export class GpuSimulationEngine implements ISimulationEngine {
     this.updateSimParams();
   }
 
-  loadMapScenario(data: Uint8Array, snapshot?: MapGpuSnapshot): void {
+  /** Updates terrain and routes while keeping GPU agents, recovery state and progress. */
+  async updateMap(
+    snapshot: MapGpuSnapshot,
+    offsetX = 0,
+    offsetY = 0,
+  ): Promise<void> {
+    if (!this.device || !this.mapScenario)
+      throw new Error("A GPU map simulation is required.");
+    await this.tickWork;
+    await this.syncInFlight(0);
+    const previousExits = this.mapScenario.exits;
+    const previousCounts = this.evacuatedPerExit;
+    if (offsetX !== 0 || offsetY !== 0) {
+      await this.translateMapBuffer(this.agentsBuffer!, 8, offsetX, offsetY);
+      await this.translateMapBuffer(this.recoveryBuffer!, 4, offsetX, offsetY);
+    }
+    this.loadMapScenario(snapshot.scenario, snapshot, false);
+    this.totalPeople = snapshot.count;
+    this.evacuatedPerExit = new Array(this.numExits).fill(0);
+    for (let index = 0; index < previousExits.length; index++) {
+      const exit = previousExits[index];
+      const newIndex = this.mapScenario.exits.findIndex(
+        (candidate) =>
+          Math.abs(candidate.x - exit.x - offsetX) < 0.01 &&
+          Math.abs(candidate.y - exit.y - offsetY) < 0.01 &&
+          candidate.radius === exit.radius,
+      );
+      if (newIndex >= 0)
+        this.evacuatedPerExit[newIndex] += previousCounts[index];
+    }
+    this.ensureSpatialGrid();
+    this.ensureKdeGrid();
+    this.recreateSpatialBindGroups();
+    this.recreateAgentDensityBindGroup();
+    this.updateSimParams();
+    await this.advanceGpuTicks(0, true);
+    await this.syncInFlight(0);
+  }
+
+  private async translateMapBuffer(
+    buffer: GPUBuffer,
+    stride: number,
+    offsetX: number,
+    offsetY: number,
+  ): Promise<void> {
+    const staging = this.device!.createBuffer({
+      size: buffer.size,
+      usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+    });
+    try {
+      const encoder = this.device!.createCommandEncoder();
+      encoder.copyBufferToBuffer(buffer, 0, staging, 0, buffer.size);
+      this.device!.queue.submit([encoder.finish()]);
+      await staging.mapAsync(GPUMapMode.READ);
+      const values = new Float32Array(staging.getMappedRange().slice(0));
+      staging.unmap();
+      for (let index = 0; index < this.activeCount; index++) {
+        values[index * stride] += offsetX;
+        values[index * stride + 1] += offsetY;
+      }
+      this.device!.queue.writeBuffer(buffer, 0, values);
+    } finally {
+      staging.destroy();
+    }
+  }
+
+  loadMapScenario(
+    data: Uint8Array,
+    snapshot?: MapGpuSnapshot,
+    resetProgress = true,
+  ): void {
     const scenario = parseMapScenario(data);
     this.mapScenario = scenario;
     this.isMapScenario = true;
@@ -1764,11 +1847,13 @@ export class GpuSimulationEngine implements ISimulationEngine {
     this.numExits = scenario.exits.length;
     this.totalPeople = scenario.totalPeople;
 
-    this.evacuatedCount = 0;
-    this.evacuatedPerExit = new Array(this.numExits).fill(0);
-    this.evacuationTimes = [];
-    this.lastEvacuationTime = 0;
-    this.simulationTime = 0;
+    if (resetProgress) {
+      this.evacuatedCount = 0;
+      this.evacuatedPerExit = new Array(this.numExits).fill(0);
+      this.evacuationTimes = [];
+      this.lastEvacuationTime = 0;
+      this.simulationTime = 0;
+    }
 
     if (this.device) {
       // 1. Exits buffer: vec4<f32>(x, y, radius, 0.0) per exit
@@ -1844,6 +1929,52 @@ export class GpuSimulationEngine implements ISimulationEngine {
           continue;
         blockedU32[i] |= 2;
         this.mapRecoveryAvailable = true;
+      }
+      // Bit 4 is a conservative exit proximity mask. Most agents are far from
+      // every exit tile, so they can skip the per-exit arrival checks entirely.
+      // Keep a cell of padding for GPU float rounding at rectangle boundaries.
+      const rasterCellSize = Math.fround(scenario.cellSize);
+      const rasterIndex = (
+        coordinate: number,
+        cells: number,
+        padding: number,
+      ) =>
+        Math.max(
+          0,
+          Math.min(
+            cells - 1,
+            Math.floor(coordinate / rasterCellSize) + padding,
+          ),
+        );
+      for (const exit of scenario.exits) {
+        const reach = Math.fround(
+          Math.fround(exit.radius) + Math.fround(this.potCellSize),
+        );
+        const firstColumn = rasterIndex(
+          Math.fround(exit.x) - reach,
+          scenario.columns,
+          -1,
+        );
+        const lastColumn = rasterIndex(
+          Math.fround(exit.x) + reach,
+          scenario.columns,
+          1,
+        );
+        const firstRow = rasterIndex(
+          Math.fround(exit.y) - reach,
+          scenario.rows,
+          -1,
+        );
+        const lastRow = rasterIndex(
+          Math.fround(exit.y) + reach,
+          scenario.rows,
+          1,
+        );
+        for (let row = firstRow; row <= lastRow; row++) {
+          for (let column = firstColumn; column <= lastColumn; column++) {
+            blockedU32[row * scenario.columns + column] |= 4;
+          }
+        }
       }
       this.device.queue.writeBuffer(this.mapBlockedBuffer, 0, blockedU32);
       const mask = Uint32Array.from(snapshot?.blocked ?? scenario.blocked);

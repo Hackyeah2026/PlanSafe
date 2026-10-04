@@ -8,7 +8,7 @@
         <AppButton Class="drawing-tool drawing-tool--zone" aria-label="@L.Drawing.EvacuationZone" title="@L.Map.EvacuationZone" Pressed='@(Category == "evac")' OnClick='() => OnCategory.InvokeAsync("evac")'>
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 2 10 8-4 12H6L2 10z" /></svg><span>@L.Drawing.EvacuationZone</span>
         </AppButton>
-        @if (Category == "evac")
+        @if (Category == "evac" || (TourPreview && Category == "navigate"))
         {
             @ShapeChoices
         }
@@ -57,13 +57,14 @@
     };
 
     private RenderFragment ShapeChoices => @<div role="group" aria-label="@L.Drawing.Shape" class="drawing-shapes">
-        <AppButton aria-label="@L.Drawing.Polygon" title="@L.Drawing.Polygon" Pressed='@(Shape == "polygon")' OnClick='() => OnShape.InvokeAsync("polygon")'>
+        <AppButton data-map-tour="polygon" aria-label="@L.Drawing.Polygon" title="@L.Drawing.Polygon" Pressed='@(Shape == "polygon")' OnClick='() => OnShape.InvokeAsync("polygon")'>
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 2 10 8-4 12H6L2 10z" /></svg><span>@L.Drawing.Polygon</span>
         </AppButton>
-        <AppButton aria-label="@L.Drawing.Circle" title="@L.Drawing.Circle" Pressed='@(Shape == "circle")' OnClick='() => OnShape.InvokeAsync("circle")'>
+        <AppButton data-map-tour="circle" aria-label="@L.Drawing.Circle" title="@L.Drawing.Circle" Pressed='@(Shape == "circle")' OnClick='() => OnShape.InvokeAsync("circle")'>
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9" /></svg><span>@L.Drawing.Circle</span>
         </AppButton>
     </div>;
+    [Parameter] public bool TourPreview { get; set; }
     [Parameter] public string Category { get; set; } = "navigate";
     [Parameter] public string Shape { get; set; } = "polygon";
     [Parameter] public string DrawMode { get; set; } = "none";

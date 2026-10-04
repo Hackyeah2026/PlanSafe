@@ -27,6 +27,7 @@ public partial class EvacuationMap : IAsyncDisposable
     private DotNetObjectReference<EvacuationMap>? _dotNetRef;
 
     private List<MapZoneItem> _mapItems = new();
+    private bool HasEvacuationZone => _mapItems.Any(item => item.Category == ZoneCategory.EvacuationZone);
     private MapSession? _activeSession;
     private MapSession? _branchParentSession;
     private bool _isCreateBranchOpen = false;
@@ -43,6 +44,8 @@ public partial class EvacuationMap : IAsyncDisposable
     private CancellationTokenSource? _preparationCancellation;
     private string _activeEngine = "wasm";
     private Task? _simulationLoopTask;
+    private readonly SemaphoreSlim _simulationStopLock = new(1, 1);
+    private int _simulationStopsPending;
     private int _totalSimulationAgents = 0;
     private SimulationConfig _simulationConfig = new();
     private CrowdSimulationEngine? _simulationEngine;
@@ -64,6 +67,20 @@ public partial class EvacuationMap : IAsyncDisposable
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (_tourPending && !_disposed)
+        {
+            _tourPending = false;
+            try
+            {
+                await _tourModule!.InvokeVoidAsync("start", MapContainerId, _dotNetRef);
+            }
+            catch (JSException ex)
+            {
+                OnMapTourClosed();
+                Console.WriteLine($"[PlanSafe] Map tour unavailable: {ex.Message}");
+            }
+        }
+
         if (firstRender && !_isMapInitialized && !_disposed)
         {
             _isMapInitialized = true;
@@ -108,6 +125,9 @@ public partial class EvacuationMap : IAsyncDisposable
             if (_disposed) return;
 
             _mapItems = _activeSession.Items;
+            await InitializeMapTour();
+            if (_disposed) return;
+            _tourReady = true;
             StateHasChanged();
 
             // Create the map before loading population data. Terrain loads when simulation starts.
@@ -140,6 +160,8 @@ public partial class EvacuationMap : IAsyncDisposable
                 _mapItems.Clear();
             }
 
+            _mapItemsRevision++;
+            var mapUpdate = _isSimulating ? RefreshSimulationMapAsync() : Task.CompletedTask;
             if (_activeSession != null)
             {
                 _activeSession.Items = _mapItems;
@@ -149,6 +171,7 @@ public partial class EvacuationMap : IAsyncDisposable
 
             if (_disposed) return;
             RecalculateCensusData();
+            await mapUpdate;
             StateHasChanged();
         }
         catch (Exception ex)
@@ -189,14 +212,22 @@ public partial class EvacuationMap : IAsyncDisposable
 
     private async Task HandleStartEvacuation()
     {
-        if (_isStarting || _isPublishPlanOpen) return;
+        if (IsSimulationBusy || _isPublishPlanOpen) return;
+        if (!HasEvacuationZone)
+        {
+            _simulationWarningMessage = () => L.Evacuation.ZoneRequired;
+            StateHasChanged();
+            return;
+        }
+
+        _simulationWarningMessage = null;
         await StopSimulation();
         _isPublishPlanOpen = true;
     }
 
     private async Task HandleStartSimulation()
     {
-        if (_isStarting) return;
+        if (IsSimulationBusy) return;
         if (_isSimulating)
         {
             await StopSimulation();
@@ -238,9 +269,13 @@ public partial class EvacuationMap : IAsyncDisposable
             await Task.Delay(1, preparationToken);
             await StopSimulationLoopAsync();
 
-            var mapBounds = new MapSimulationBounds(_mapItems, _activeSession);
+            _preparedMapRevision = _mapItemsRevision;
+            var simulationItems = _mapItems.ToList();
+            evacuationZones = simulationItems.Where(item => item.Category == ZoneCategory.EvacuationZone).ToList();
+            safeLocations = simulationItems.Where(item => item.Category == ZoneCategory.SafeLocation).ToList();
+            var mapBounds = new MapSimulationBounds(simulationItems, _activeSession);
             var preparedMap = await MapSimulationScenarioPreparer.PrepareAsync(
-                mapBounds, _mapItems, evacuationZones, safeLocations, OsmService, preparationToken,
+                mapBounds, simulationItems, evacuationZones, safeLocations, OsmService, preparationToken,
                 L.Shelter.Label, L.Demo.Exit, L.Demo.MainExit);
             var mapScenario = preparedMap.Scenario;
             var targets = preparedMap.Targets;
@@ -283,21 +318,8 @@ public partial class EvacuationMap : IAsyncDisposable
             _simulationModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/crowdSimulatorInterop.js");
             _simulationRenderer ??= await _simulationModule.InvokeAsync<IJSObjectReference>("initMapSimulator", _simulationCanvas, MapContainerId);
 
-            await _simulationRenderer.InvokeVoidAsync("setWorldConfig", new
-            {
-                worldWidth = mapBounds.WorldWidth,
-                worldHeight = mapBounds.WorldHeight,
-                originLat = mapBounds.MaximumLatitude,
-                originLng = mapBounds.MinimumLongitude,
-                minLat = mapBounds.MinimumLatitude,
-                maxLng = mapBounds.MaximumLongitude,
-                obstacles = Array.Empty<object>(),
-                targets = targets.Select(t => new { x = t.X, y = t.Y, width = t.Width, height = t.Height, name = t.Name, id = t.Id, capacity = t.Capacity })
-            });
-
-            await _simulationRenderer.InvokeVoidAsync("setMapTerrain",
-                Array.ConvertAll(mapScenario.Blocked, blocked => blocked ? (byte)1 : (byte)0),
-                mapScenario.Columns, mapScenario.Rows, mapScenario.CellSize);
+            await ConfigureSimulationRendererAsync(preparedMap);
+            _simulationBounds = mapBounds;
 
             _activeEngine = "wasm";
             try
@@ -322,7 +344,14 @@ public partial class EvacuationMap : IAsyncDisposable
             _isSimulating = true;
 
             // 8. Start simulation loop
-            StartSimulationLoop();
+            if (_preparedMapRevision != _mapItemsRevision)
+            {
+                _isStarting = false;
+                _preparationCancellation.Dispose();
+                _preparationCancellation = null;
+                await RefreshSimulationMapAsync();
+            }
+            if (_preparedMapRevision == _mapItemsRevision) StartSimulationLoop();
             StateHasChanged();
         }
         catch (OperationCanceledException) when (_disposed) { }
@@ -450,15 +479,23 @@ public partial class EvacuationMap : IAsyncDisposable
 
     private async Task StopSimulationLoopAsync()
     {
+        bool wasRunning = _isRunning;
+        var loopTask = _simulationLoopTask;
+        _isRunning = false;
+        _simulationStopsPending++;
+        if (!_disposed) StateHasChanged();
         _simulationCancellation?.Cancel();
+        await _simulationStopLock.WaitAsync();
         try
         {
-            if (_simulationLoopTask != null) await _simulationLoopTask;
-            if (_isRunning && _activeEngine == "webgpu") await SampleGpuTelemetry();
+            if (loopTask != null) await loopTask;
+            if (wasRunning && _activeEngine == "webgpu") await SampleGpuTelemetry();
         }
         finally
         {
-            _isRunning = false;
+            _simulationStopLock.Release();
+            _simulationStopsPending--;
+            if (!_disposed) StateHasChanged();
         }
     }
 
@@ -471,9 +508,11 @@ public partial class EvacuationMap : IAsyncDisposable
 
     private async Task ToggleSimulation()
     {
-        if (_isStarting) return;
+        if (IsSimulationBusy) return;
         if (!_isRunning)
         {
+            await RefreshSimulationMapAsync();
+            if (_preparedMapRevision != _mapItemsRevision) return;
             if (_statsCollector.Stats.IsComplete) await ResetSimulation();
             StartSimulationLoop();
         }
@@ -486,7 +525,7 @@ public partial class EvacuationMap : IAsyncDisposable
 
     private async Task StepSimulation()
     {
-        if (_isStarting || _isRunning || _simulationEngine == null) return;
+        if (IsSimulationBusy || _isRunning || _simulationEngine == null) return;
         if (_activeEngine == "webgpu" && _simulationRenderer != null)
         {
             await _simulationRenderer.InvokeVoidAsync("stepGpu", 1);
@@ -503,7 +542,7 @@ public partial class EvacuationMap : IAsyncDisposable
 
     private async Task ResetSimulation()
     {
-        if (_isStarting) return;
+        if (IsSimulationBusy) return;
         await StopSimulationLoopAsync();
         if (_simulationEngine != null)
         {
@@ -518,7 +557,7 @@ public partial class EvacuationMap : IAsyncDisposable
 
     private async Task StopSimulation()
     {
-        if (_isStarting) return;
+        if (IsSimulationBusy) return;
         await StopSimulationLoopAsync();
         _isSimulating = false;
         if (_simulationRenderer != null)
@@ -542,35 +581,18 @@ public partial class EvacuationMap : IAsyncDisposable
         await InvokeAsync(StateHasChanged);
     }
 
-    private Task HandleCycleSpeed()
+    private Task HandleSpeedChanged(double speed)
     {
-        if (_simulationConfig.Unlimited)
-        {
-            _simulationConfig.Unlimited = false;
-            _simulationConfig.TimeScale = 1.0f;
-        }
-        else if (_simulationConfig.TimeScale < 2.0f)
-        {
-            _simulationConfig.TimeScale = 2.5f;
-        }
-        else if (_simulationConfig.TimeScale < 5.0f)
-        {
-            _simulationConfig.TimeScale = 5.0f;
-        }
-        else if (_simulationConfig.TimeScale < 10.0f)
-        {
-            _simulationConfig.TimeScale = 15.0f;
-        }
-        else
-        {
-            _simulationConfig.Unlimited = true;
-        }
+        _simulationConfig.Unlimited = speed == 0;
+        if (!_simulationConfig.Unlimited)
+            _simulationConfig.TimeScale = (float)speed;
         StateHasChanged();
         return Task.CompletedTask;
     }
 
     private async Task HandleSaveConfig(SimulationConfig config)
     {
+        if (IsSimulationBusy) return;
         bool resume = _isRunning;
         await StopSimulationLoopAsync();
         bool granulationChanged = _simulationConfig.Granulation != config.Granulation;
@@ -705,8 +727,10 @@ public partial class EvacuationMap : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         _disposed = true;
+        await DisposeMapTour();
         _preparationCancellation?.Cancel();
         await StopSimulationLoopAsync();
+        if (_mapUpdateTask is not null) await _mapUpdateTask;
         _simulationCancellation?.Dispose();
 
         if (_simulationRenderer != null)

@@ -7,7 +7,8 @@
     "noEmitOnError": true,
     "skipLibCheck": true,
     "rootDir": "src/PlanSafe.App/TypeScript",
-    "outDir": "src/PlanSafe.App/wwwroot/js"
+    "outDir": "src/PlanSafe.App/wwwroot/js",
+    "moduleResolution": "bundler"
   },
   "include": ["src/PlanSafe.App/TypeScript/**/*.ts"]
 }

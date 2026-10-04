@@ -1,8 +1,8 @@
 @namespace PlanSafe.App.Components
 @using PlanSafe.Contracts.Models.Map
 
-<div class="map-module-layout ui-workspace @(_isSimulating ? "simulating" : "") @(_isStarting ? "simulation-preparing" : "") @(_isMobilePanelOpen ? "panel-open" : "")"
-     aria-busy="@_isStarting.ToString().ToLowerInvariant()">
+<div class="map-module-layout ui-workspace @(_isSimulating ? "simulating" : "") @(IsSimulationBusy ? "simulation-preparing" : "") @(_isMobilePanelOpen ? "panel-open" : "")"
+     aria-busy="@IsSimulationBusy.ToString().ToLowerInvariant()">
     <span class="simulation-preparation-cursor" aria-hidden="true"></span>
     <!-- Map Canvas Area -->
     <div class="map-area">
@@ -28,7 +28,7 @@
         {
             <SimulationControlBar
                 IsRunning="@_isRunning"
-                IsBusy="@_isStarting"
+                IsBusy="@IsSimulationBusy"
                 Engine="@_activeEngine"
                 SimulationTime="@_statsCollector.Stats.SimulationTime"
                 EvacuatedCount="@_statsCollector.Stats.EvacuatedAgents"
@@ -42,23 +42,33 @@
                 OnReset="ResetSimulation"
                 OnRenderModeChanged="HandleRenderModeChanged"
                 OnToggleWhiskers="HandleToggleWhiskers"
-                OnCycleSpeed="HandleCycleSpeed"
+                OnSpeedChanged="HandleSpeedChanged"
                 OnOpenStats="() => _isStatsOpen = true"
                 OnExit="StopSimulation" />
         }
 
+        @if (_tourPreview)
+        {
+            @* Tour-only illustration: no simulation state or action callbacks are connected. *@
+            <div class="map-tour-controls-preview" hidden inert aria-hidden="true">
+                <SimulationControlBar />
+            </div>
+        }
+
         <div class="map-drawing-toolbar">
-            <MapDrawingTools Category="@_activeCategory" Shape="@_selectedShape" DrawMode="@_activeDrawMode"
+            <AppButton Class="map-tour-replay" OnClick="ReplayMapTour" Disabled='@(!_tourReady || _isStarting || _isSimulating || _tourPreview || _activeDrawMode != "none")' aria-label="@L.Tour.Replay">? <span>@L.Tour.Replay</span></AppButton>
+            <MapDrawingTools TourPreview="@_tourPreview" Category="@_activeCategory" Shape="@_selectedShape" DrawMode="@_activeDrawMode"
                              Hint="@_activeDrawHint" PointCount="@_currentPointCount"
                              OnCategory="SelectCategory" OnShape="SelectShape" OnFinish="FinishPolygon" OnCancel="CancelDrawing" />
         </div>
     </div>
 
     <aside id="map-control-panel" class="side-panel-wrapper surface-panel">
-        <SidePanel HasEvacuationZone="@_mapItems.Any(item => item.Category == ZoneCategory.EvacuationZone)"
+        <SidePanel HasEvacuationZone="@HasEvacuationZone"
                    CensusLoaded="@CensusService.IsLoaded"
                    CensusLoading="@_isCensusLoading"
                    CensusPopulation="@_censusPopulation"
+                   ManualAgentCount="@(_simulationConfig.UseGusCensus ? null : (int?)_simulationConfig.AgentCount)"
                    BranchName='@(_activeSession?.BranchName ?? "main")' Expanded="@_isMobilePanelOpen"
                    IsSimulating="@_isSimulating" EvacuatedCount="@_statsCollector.Stats.EvacuatedAgents"
                    TotalSimulatedAgents="@_totalSimulationAgents" SimulationTime="@_statsCollector.Stats.SimulationTime"

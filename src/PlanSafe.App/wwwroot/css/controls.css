@@ -193,6 +193,29 @@ dialog.feature-dialog {
 dialog.feature-dialog::backdrop {
   background: var(--ui-scrim);
 }
+dialog.feature-dialog.fullscreen-qr-dialog[open] {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  margin: 0 !important;
+  inset: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: rgba(11, 15, 25, 0.96) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+}
+dialog.feature-dialog.fullscreen-qr-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(16px);
+}
 .feature-dialog-header,
 .feature-dialog-footer {
   padding: 16px 22px;

@@ -6,6 +6,9 @@
     <title>Plan Safe</title>
     <base href="/" />
     <script type="importmap"></script>
+    <script type="importmap">
+      { "imports": { "driver.js": "./lib/driver/driver.js" } }
+    </script>
     <script src="js/translations.js"></script>
     <script src="js/localization.js"></script>
     <script src="js/appearance.js"></script>
@@ -18,7 +21,9 @@
     <link rel="stylesheet" href="css/app.css" />
     <link rel="stylesheet" href="css/design-tokens.css" />
     <link rel="stylesheet" href="css/controls.css" />
-    <link rel="icon" type="image/png" href="favicon.png" />
+    <link rel="stylesheet" href="lib/driver/driver.css" />
+    <link rel="stylesheet" href="css/map-tour.css" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link href="PlanSafe.App.styles.css" rel="stylesheet" />
     <link href="manifest.webmanifest" rel="manifest" />
     <script src="lib/leaflet/leaflet.js"></script>
@@ -154,11 +159,32 @@
 
   <body>
     <div id="app">
-      <svg class="loading-progress">
-        <circle r="40%" cx="50%" cy="50%" />
-        <circle r="40%" cx="50%" cy="50%" />
-      </svg>
-      <div class="loading-progress-text"></div>
+      <main class="boot-screen ui-workspace" aria-labelledby="boot-title">
+        <div class="boot-card surface-panel surface-panel--strong">
+          <svg
+            class="boot-mark"
+            width="48"
+            height="48"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z" />
+            <path d="M9 3v15M15 6v15" />
+          </svg>
+          <h1 id="boot-title">PlanSafe</h1>
+          <div class="boot-status" role="status">
+            <span data-i18n="Common.Loading">Loading</span>
+            <span class="loading-progress-text" aria-hidden="true"></span>
+          </div>
+          <div class="loading-progress" aria-hidden="true"></div>
+        </div>
+      </main>
     </div>
 
     <div id="blazor-error-ui">

@@ -123,6 +123,52 @@ public class CrowdSimulationEngine
         return engine;
     }
 
+    /// <summary>Rebuilds navigation for edited terrain without resetting agents or evacuation progress.</summary>
+    public async Task UpdateMapAsync(MapScenario scenario, double offsetX = 0, double offsetY = 0,
+        CancellationToken cancellationToken = default)
+    {
+        if (MapScenario is null) throw new InvalidOperationException("A map simulation is required.");
+        var prepared = new CrowdSimulationEngine(scenario, AgentCount);
+        var scheduler = new PreparationScheduler();
+        foreach (var _ in prepared.PrepareMapGridSteps(scenario)) await scheduler.YieldAsync(cancellationToken);
+        await prepared.PotentialFieldMap.BuildStaticFieldAsync(prepared._mapExitZones, cancellationToken);
+        foreach (var _ in prepared.PrepareReachableMaskSteps()) await scheduler.YieldAsync(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var previousExits = MapScenario.Exits;
+        var counts = new int[scenario.Exits.Length];
+        for (int oldIndex = 0; oldIndex < previousExits.Length; oldIndex++)
+        {
+            var exit = previousExits[oldIndex];
+            int newIndex = Array.FindIndex(scenario.Exits, candidate =>
+                Math.Abs(candidate.X - exit.X - offsetX) < 0.01 &&
+                Math.Abs(candidate.Y - exit.Y - offsetY) < 0.01 && candidate.Radius == exit.Radius);
+            if (newIndex >= 0) counts[newIndex] += _evacuatedPerExit[oldIndex];
+        }
+        double whiskerLength = WhiskerLength;
+        ConfigureMapScenario(scenario);
+        WhiskerLength = whiskerLength;
+        PotentialFieldMap = prepared.PotentialFieldMap;
+        SpatialHashGridIndex = prepared.SpatialHashGridIndex;
+        _reachableMask = prepared._reachableMask;
+        _reachableMaskScenario = scenario;
+        _spawnCells = null;
+        _evacuatedPerExit = counts;
+        for (int index = 0; index < SimulatedAgentCount; index++)
+        {
+            AgentPositionX[index] += offsetX;
+            AgentPositionY[index] += offsetY;
+            _recoveryAnchorX[index] += offsetX;
+            _recoveryAnchorY[index] += offsetY;
+        }
+        if (_initialCustomPositions is not null)
+            for (int index = 0; index < _initialCustomPositions.Length; index++)
+                _initialCustomPositions[index] = (_initialCustomPositions[index].X + offsetX, _initialCustomPositions[index].Y + offsetY);
+        PotentialFieldMap.UpdateDynamicDensity(_activeMapAgents, AgentPositionX, AgentPositionY, Granulation);
+        PotentialFieldMap.RefineDynamicField();
+        _dynamicFieldTimer = 0;
+    }
+
     public CrowdSimulationEngine(double width = 200.0, double height = 200.0, int agentCount = 1000)
     {
         AgentCount = agentCount;
