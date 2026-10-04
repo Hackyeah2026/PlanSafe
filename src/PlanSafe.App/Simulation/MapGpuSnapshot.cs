@@ -4,7 +4,9 @@ namespace PlanSafe.App.Simulation;
 public sealed record MapGpuSnapshot(
     int Count, int Granulation, double SocialRepulsionWeight,
     int Columns, int Rows, double CellSize,
-    byte[] Scenario, byte[] Agents, byte[] Fields, byte[] Blocked)
+    byte[] Scenario, byte[] Agents, byte[] Fields, byte[] Blocked,
+    byte[]? RoutingFields = null, int[]? ExitTargets = null, double WeightDistance = 1, double WeightOccupancy = 0,
+    string[]? SafeZoneIds = null)
 {
     public static MapGpuSnapshot Capture(CrowdSimulationEngine engine)
     {
@@ -36,7 +38,19 @@ public sealed record MapGpuSnapshot(
         var blocked = new byte[grid.TotalCells];
         for (int i = 0; i < blocked.Length; i++) blocked[i] = grid.ObstacleMask[i] ? (byte)1 : (byte)0;
 
+        byte[]? routingFields = null;
+        if (engine.MapRouting is not null)
+        {
+            routingFields = new byte[laneBytes * engine.MapRouting.DistanceFields.Length];
+            for (int target = 0; target < engine.MapRouting.DistanceFields.Length; target++)
+                Buffer.BlockCopy(engine.MapRouting.DistanceFields[target], 0, routingFields, target * laneBytes, laneBytes);
+        }
+        var exitZoneIds = scenario.Exits.Select((exit, index) => exit.TargetId ?? $"exit-{index}").ToArray();
+        var safeZoneIds = exitZoneIds.Distinct().ToArray();
+        var zoneIndices = safeZoneIds.Select((id, index) => (Id: id, Index: index)).ToDictionary(item => item.Id, item => item.Index);
+        var exitTargets = exitZoneIds.Select(id => zoneIndices[id]).ToArray();
         return new MapGpuSnapshot(engine.AgentCount, engine.Granulation, engine.SocialRepulsionWeight,
-            grid.ColumnCount, grid.RowCount, grid.CellSize, scenario.Serialize(), agentBytes, fields, blocked);
+            grid.ColumnCount, grid.RowCount, grid.CellSize, scenario.Serialize(), agentBytes, fields, blocked,
+            routingFields, exitTargets, engine.WeightDistance, engine.WeightOccupancy, safeZoneIds);
     }
 }

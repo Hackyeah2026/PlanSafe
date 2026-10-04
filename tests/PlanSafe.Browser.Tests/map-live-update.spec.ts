@@ -10,6 +10,7 @@ for (const engine of ["wasm", "webgpu"] as const) {
       route.fulfill({ status: 204 }),
     );
     await page.addInitScript((engine) => {
+      localStorage.setItem("plansafe.map-tour.v1", "seen");
       localStorage.setItem("plansafe.language.v1", "en");
       localStorage.setItem("plansafe_simulation_engine", engine);
       localStorage.setItem(

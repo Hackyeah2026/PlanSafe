@@ -722,8 +722,10 @@ public class PotentialFieldGrid
         }
     }
 
-    public (double dx, double dy) GetFlowDirection(double px, double py)
+    public (double dx, double dy) GetFlowDirection(double px, double py, float[]? field = null, Obstacle[]? exitZones = null)
     {
+        field ??= DynamicPotentialFieldMatrix;
+        exitZones ??= _cachedExitZones;
         const float maxValidPot = float.MaxValue * 0.5f;
 
         // Ciągłe współrzędne względem środków komórek siatki
@@ -741,10 +743,10 @@ public class PotentialFieldGrid
         int idx01 = idx00 + ColumnCount;
         int idx11 = idx01 + 1;
 
-        float p00 = DynamicPotentialFieldMatrix[idx00];
-        float p10 = DynamicPotentialFieldMatrix[idx10];
-        float p01 = DynamicPotentialFieldMatrix[idx01];
-        float p11 = DynamicPotentialFieldMatrix[idx11];
+        float p00 = field[idx00];
+        float p10 = field[idx10];
+        float p01 = field[idx01];
+        float p11 = field[idx11];
 
         bool v00 = p00 < maxValidPot;
         bool v10 = p10 < maxValidPot;
@@ -755,7 +757,7 @@ public class PotentialFieldGrid
         int nearestRow = Math.Clamp((int)Math.Round(v), 0, RowCount - 1);
         int nearestIdx = nearestRow * ColumnCount + nearestCol;
 
-        if (DynamicPotentialFieldMatrix[nearestIdx] >= maxValidPot || (!v00 && !v10 && !v01 && !v11))
+        if (field[nearestIdx] >= maxValidPot || (!v00 && !v10 && !v01 && !v11))
         {
             float bestPot = maxValidPot;
             double bestDx = 1.0;
@@ -771,7 +773,7 @@ public class PotentialFieldGrid
                 if (nc >= 0 && nc < ColumnCount && nr >= 0 && nr < RowCount)
                 {
                     int nIdx = nr * ColumnCount + nc;
-                    float nPot = DynamicPotentialFieldMatrix[nIdx];
+                    float nPot = field[nIdx];
                     if (nPot < bestPot)
                     {
                         bestPot = nPot;
@@ -841,13 +843,13 @@ public class PotentialFieldGrid
         }
 
         // Inside a sink/target zone (flat potential = 0), guide agents toward the target center
-        if (_cachedExitZones != null && _cachedExitZones.Length > 0)
+        if (exitZones != null && exitZones.Length > 0)
         {
             double bestDistSq = double.MaxValue;
             double bestDirX = 0, bestDirY = 0;
-            for (int i = 0; i < _cachedExitZones.Length; i++)
+            for (int i = 0; i < exitZones.Length; i++)
             {
-                var z = _cachedExitZones[i];
+                var z = exitZones[i];
                 double cx = z.X + z.Width * 0.5;
                 double cy = z.Y + z.Height * 0.5;
                 double dx = cx - px;
@@ -871,12 +873,12 @@ public class PotentialFieldGrid
         return (1.0, 0.0);
     }
 
-    public float SamplePotential(double px, double py)
+    public float SamplePotential(double px, double py, float[]? field = null)
     {
         int col = (int)(px * InvCellSize);
         int row = (int)(py * InvCellSize);
         if (col < 0 || col >= ColumnCount || row < 0 || row >= RowCount)
             return float.MaxValue;
-        return DynamicPotentialFieldMatrix[row * ColumnCount + col];
+        return (field ?? DynamicPotentialFieldMatrix)[row * ColumnCount + col];
     }
 }
