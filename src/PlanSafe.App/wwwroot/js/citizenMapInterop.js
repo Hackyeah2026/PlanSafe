@@ -81,7 +81,7 @@ export function initCitizenMap(containerId, centerLat = 50.0614, centerLng = 19.
 /**
  * Updates citizen location, shelters, roadblocks, and route polyline.
  */
-export function updateCitizenMap(containerId, citizenLat, citizenLng, accuracyMeters, sheltersJson, selectedShelterId, roadblocksJson, routeCoordsJson, evacZonesJson, safeZonesJson) {
+export function updateCitizenMap(containerId, citizenLat, citizenLng, accuracyMeters, sheltersJson, selectedShelterId, roadblocksJson, routeCoordsJson, evacZonesJson, safeZonesJson, needsLocation = false) {
     const state = citizenMaps.get(containerId);
     if (!state) return;
 
@@ -279,7 +279,7 @@ export function updateCitizenMap(containerId, citizenLat, citizenLng, accuracyMe
 
     // 5. Update Citizen Location Marker
     citizenLayer.clearLayers();
-    if (citizenLat && citizenLng) {
+    if (Number.isFinite(citizenLat) && Number.isFinite(citizenLng)) {
         // Radar pulse marker
         const citizenHtml = `
             <div style="position: relative; width: 24px; height: 24px; transform: translate(-50%, -50%);">
@@ -314,13 +314,19 @@ export function updateCitizenMap(containerId, citizenLat, citizenLng, accuracyMe
         }
     }
 
-    // 6. Auto-fit bounds on initial load so citizen AND all shelters/safe zones are in view
-    if (!state.hasInitialFit) {
-        if (sheltersLayer.getLayers().length > 0 || citizenLayer.getLayers().length > 0) {
-            fitCitizenBounds(containerId);
+    // Focus one evacuation zone until a real in-zone location is selected.
+    // Only refit on transition, so polling does not interrupt map interaction.
+    if (needsLocation && (!state.hasInitialFit || !state.needsLocation)) {
+        const zone = zonesLayer.getLayers()[0];
+        if (zone) {
+            map.fitBounds(zone.getBounds(), { padding: [24, 24], maxZoom: 19 });
             state.hasInitialFit = true;
         }
+    } else if (!needsLocation && (!state.hasInitialFit || state.needsLocation)) {
+        fitCitizenBounds(containerId);
+        state.hasInitialFit = true;
     }
+    state.needsLocation = needsLocation;
 }
 
 /**

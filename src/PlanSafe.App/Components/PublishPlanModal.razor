@@ -390,13 +390,7 @@
             int? zoom = ActiveSession?.ZoomLevel > 0 ? ActiveSession.ZoomLevel : 14;
 
             string clientBaseUrl = Navigation.BaseUri.TrimEnd('/');
-            var clientUri = new Uri(Navigation.BaseUri);
-            string apiBaseUrl = clientUri.Port switch
-            {
-                5171 => $"http://{clientUri.Host}:49492",
-                7030 => $"https://{clientUri.Host}:49491",
-                _ => clientBaseUrl
-            };
+            string apiBaseUrl = EvacuationApiUrlResolver.Resolve(Navigation.BaseUri);
 
             var request = new PublishPlanRequest(
                 Targets: targets,
