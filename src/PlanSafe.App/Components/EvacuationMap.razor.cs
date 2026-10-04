@@ -437,10 +437,6 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
             _statsCollector.Reset(_engine.AgentCount);
 
             // 6. Initialize JS Canvas Overlay
-            _isSimulating = true;
-            StateHasChanged();
-            await Task.Delay(25);
-
             _simModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/crowdSimulatorInterop.js");
             _simulator ??= await _simModule.InvokeAsync<IJSObjectReference>("initMapSimulator", _simCanvasRef, MapContainerId);
 
@@ -478,8 +474,9 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
             }
 
             if (_disposed) return;
-            // 7. Show agents on map immediately!
+            // 7. Prepare the first frame before revealing the overlay.
             await RequestRender();
+            _isSimulating = true;
 
             // 8. Start simulation loop
             StartSimulationLoop();
