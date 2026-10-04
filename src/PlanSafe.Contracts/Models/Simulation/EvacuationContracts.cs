@@ -78,14 +78,16 @@ public sealed record TargetEvaluationDto(
 public sealed record TargetAssignmentResponse(
     EvacuationTarget? Target,
     double Distance,
-    double OccupancyRatio,
-    string Instructions,
+    double OccupancyRatio = 0.0,
+    string Instructions = "",
     double CalculatedCost = 0.0,
     double? BearingDegrees = null,
     double? FlowDirectionX = null,
     double? FlowDirectionY = null,
     bool IsSimulationEngineBased = true,
-    IReadOnlyList<TargetEvaluationDto>? TargetEvaluations = null
+    IReadOnlyList<TargetEvaluationDto>? TargetEvaluations = null,
+    IReadOnlyList<PlanSafe.Contracts.Models.Map.GeoCoordinate>? RoutePath = null,
+    bool IsOutsideZone = false
 );
 
 /// <summary>
@@ -94,11 +96,46 @@ public sealed record TargetAssignmentResponse(
 public sealed record TargetAssignmentRequest(
     double X,
     double Y,
-    double WeightDistance = 1.0,
-    double WeightOccupancy = 0.0,
+    double? WeightDistance = null,
+    double? WeightOccupancy = null,
     double? MaxDistance = null,
     IReadOnlyList<EvacuationTarget>? CustomTargets = null,
-    SimulationSnapshot? CustomSnapshot = null
+    SimulationSnapshot? CustomSnapshot = null,
+    double? Latitude = null,
+    double? Longitude = null,
+    string? SessionId = null,
+    string? CurrentTargetId = null,
+    bool IgnoreHysteresis = false,
+    bool StrictGeofence = false
+);
+
+/// <summary>
+/// Simple generic operation outcome message.
+/// </summary>
+public sealed record GenericActionResult(bool Success, string? Message = null);
+
+/// <summary>
+/// Status result of background inactivity cleanup.
+/// </summary>
+public sealed record CleanupActionResult(bool Cleaned, string? SessionId = null);
+
+/// <summary>
+/// Configuration and state representation of an active published evacuation plan session.
+/// </summary>
+public sealed record EvacuationPlanConfig(
+    string SessionId,
+    IReadOnlyList<EvacuationTarget> Targets,
+    IReadOnlyList<ObstacleDto> Obstacles,
+    IReadOnlyList<List<PlanSafe.Contracts.Models.Map.GeoCoordinate>> Roadblocks,
+    IReadOnlyList<List<PlanSafe.Contracts.Models.Map.GeoCoordinate>> EvacuationZones,
+    double WeightDistance = 0.5,
+    double WeightOccupancy = 0.5,
+    double? MapCenterLat = null,
+    double? MapCenterLng = null,
+    int? ZoomLevel = null,
+    DateTime CreatedAtUtc = default,
+    DateTime? ExpiresAtUtc = null,
+    IReadOnlyList<List<PlanSafe.Contracts.Models.Map.GeoCoordinate>>? SafeZones = null
 );
 
 /// <summary>
@@ -107,12 +144,18 @@ public sealed record TargetAssignmentRequest(
 public sealed record PublishPlanRequest(
     IReadOnlyList<EvacuationTarget> Targets,
     IReadOnlyList<ObstacleDto>? Obstacles = null,
+    IReadOnlyList<List<PlanSafe.Contracts.Models.Map.GeoCoordinate>>? Roadblocks = null,
+    IReadOnlyList<List<PlanSafe.Contracts.Models.Map.GeoCoordinate>>? EvacuationZones = null,
     string? BaseUrl = null,
     double WeightDistance = 0.5,
     double WeightOccupancy = 0.5,
     double WorldWidth = 200.0,
     double WorldHeight = 200.0,
-    SimulationSnapshot? Snapshot = null
+    double? MapCenterLat = null,
+    double? MapCenterLng = null,
+    int? ZoomLevel = null,
+    SimulationSnapshot? Snapshot = null,
+    IReadOnlyList<List<PlanSafe.Contracts.Models.Map.GeoCoordinate>>? SafeZones = null
 );
 
 /// <summary>
@@ -122,7 +165,8 @@ public sealed record PublishPlanResponse(
     string SessionId,
     string EvacuateUrl,
     string QrCodeSvg,
-    DateTime CreatedAtUtc
+    DateTime CreatedAtUtc,
+    DateTime? ExpiresAtUtc = null
 );
 
 /// <summary>

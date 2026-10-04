@@ -14,6 +14,9 @@ public readonly record struct GeoCoordinate(double Latitude, double Longitude)
         return null;
     }
 
+    public double Lat => Latitude;
+    public double Lng => Longitude;
+
     public double[] ToArray() => [Latitude, Longitude];
 
     public override string ToString() => $"({Latitude:F5}°, {Longitude:F5}°)";

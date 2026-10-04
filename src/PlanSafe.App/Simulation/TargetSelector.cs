@@ -31,7 +31,7 @@ public static class TargetSelector
                 Distance: 0.0,
                 OccupancyRatio: 0.0,
                 Instructions: "Brak dostępnych punktów ewakuacji.",
-                CalculatedCost: double.PositiveInfinity,
+                CalculatedCost: 0.0,
                 IsSimulationEngineBased: false,
                 TargetEvaluations: Array.Empty<TargetEvaluationDto>());
         }
@@ -44,7 +44,7 @@ public static class TargetSelector
                 Distance: 0.0,
                 OccupancyRatio: 0.0,
                 Instructions: "Brak aktywnych punktów ewakuacyjnych.",
-                CalculatedCost: double.PositiveInfinity,
+                CalculatedCost: 0.0,
                 IsSimulationEngineBased: false,
                 TargetEvaluations: Array.Empty<TargetEvaluationDto>());
         }
@@ -155,147 +155,18 @@ public static class TargetSelector
         double? maxDistanceMeters = null,
         IReadOnlyList<IReadOnlyList<(double Lat, double Lng)>>? roadblocks = null)
     {
-        if (targets == null || targets.Count == 0)
-        {
-            return new TargetAssignmentResponse(
-                Target: null,
-                Distance: 0.0,
-                OccupancyRatio: 0.0,
-                Instructions: "Brak dostępnych punktów ewakuacji na mapie.",
-                CalculatedCost: double.PositiveInfinity,
-                IsSimulationEngineBased: false,
-                TargetEvaluations: Array.Empty<TargetEvaluationDto>());
-        }
+        var convertedRoadblocks = roadblocks?.Select(rb =>
+            (IReadOnlyList<PlanSafe.Contracts.Models.Map.GeoCoordinate>)rb.Select(pt => new PlanSafe.Contracts.Models.Map.GeoCoordinate(pt.Lat, pt.Lng)).ToList()
+        ).ToList();
 
-        var activeTargets = targets.Where(t => t.IsActive).ToList();
-        if (activeTargets.Count == 0)
-        {
-            return new TargetAssignmentResponse(
-                Target: null,
-                Distance: 0.0,
-                OccupancyRatio: 0.0,
-                Instructions: "Brak aktywnych punktów ewakuacyjnych na mapie.",
-                CalculatedCost: double.PositiveInfinity,
-                IsSimulationEngineBased: false,
-                TargetEvaluations: Array.Empty<TargetEvaluationDto>());
-        }
-
-        double wDist = Math.Max(0.0, weightDistance);
-        double wOcc = Math.Max(0.0, weightOccupancy);
-
-        double dMax = maxDistanceMeters.GetValueOrDefault(0.0);
-        if (dMax <= 0.0)
-        {
-            double calculatedMaxDist = activeTargets.Max(t =>
-                GeoMath.CalculateDistanceMeters(citizenLat, citizenLng, t.Latitude ?? t.Y, t.Longitude ?? t.X));
-            dMax = Math.Max(100.0, calculatedMaxDist > 0.0 ? calculatedMaxDist : DefaultMaxDistance);
-        }
-
-        bool hasAnyTargetWithCapacity = activeTargets.Any(t => t.CurrentOccupancy < t.Capacity);
-
-        EvacuationTarget? bestTarget = null;
-        double minCost = double.PositiveInfinity;
-        double bestDistance = 0.0;
-        double bestOccupancyRatio = 0.0;
-        var evaluations = new List<TargetEvaluationDto>();
-
-        foreach (var target in activeTargets)
-        {
-            double targetLat = target.Latitude ?? target.Y;
-            double targetLng = target.Longitude ?? target.X;
-
-            double dist = GeoMath.CalculateDistanceMeters(citizenLat, citizenLng, targetLat, targetLng);
-            double normalizedDist = Math.Clamp(dist / dMax, 0.0, 10.0);
-
-            int capacity = Math.Max(1, target.Capacity);
-            double occRatio = (double)target.CurrentOccupancy / capacity;
-
-            double distCost = wDist * normalizedDist;
-            double occCost = wOcc * occRatio;
-            double cost = distCost + occCost;
-
-            bool isFull = target.CurrentOccupancy >= capacity;
-            if (isFull && hasAnyTargetWithCapacity)
-            {
-                cost += CapacityOverflowPenalty;
-            }
-
-            // Roadblock intersection test
-            if (roadblocks != null && roadblocks.Count > 0)
-            {
-                bool hitsRoadblock = false;
-                foreach (var line in roadblocks)
-                {
-                    for (int i = 0; i + 1 < line.Count; i++)
-                    {
-                        if (GeoMath.SegmentsIntersect(citizenLat, citizenLng, targetLat, targetLng, line[i].Lat, line[i].Lng, line[i + 1].Lat, line[i + 1].Lng))
-                        {
-                            hitsRoadblock = true;
-                            break;
-                        }
-                    }
-                    if (hitsRoadblock) break;
-                }
-
-                if (hitsRoadblock)
-                {
-                    cost += RoadblockBlockagePenalty;
-                }
-            }
-
-            if (cost < minCost)
-            {
-                minCost = cost;
-                bestTarget = target;
-                bestDistance = dist;
-                bestOccupancyRatio = occRatio;
-            }
-
-            evaluations.Add(new TargetEvaluationDto(
-                TargetId: target.Id,
-                TargetName: target.Name,
-                WalkableDistance: Math.Round(dist, 1),
-                NormalizedDistance: Math.Round(normalizedDist, 3),
-                OccupancyRatio: Math.Round(occRatio, 3),
-                DistanceCost: Math.Round(distCost, 4),
-                OccupancyCost: Math.Round(occCost, 4),
-                TotalCost: Math.Round(cost, 4),
-                IsFull: isFull,
-                IsSelected: false));
-        }
-
-        if (bestTarget == null)
-        {
-            bestTarget = activeTargets[0];
-            bestDistance = GeoMath.CalculateDistanceMeters(citizenLat, citizenLng, bestTarget.Latitude ?? bestTarget.Y, bestTarget.Longitude ?? bestTarget.X);
-            bestOccupancyRatio = bestTarget.OccupancyRatio;
-        }
-
-        for (int i = 0; i < evaluations.Count; i++)
-        {
-            if (evaluations[i].TargetId == bestTarget.Id)
-            {
-                evaluations[i] = evaluations[i] with { IsSelected = true };
-                break;
-            }
-        }
-
-        double targetDestLat = bestTarget.Latitude ?? bestTarget.Y;
-        double targetDestLng = bestTarget.Longitude ?? bestTarget.X;
-        double bearingDeg = GeoMath.CalculateBearingDegrees(citizenLat, citizenLng, targetDestLat, targetDestLng);
-        string instructions = FormatInstructions(bestTarget, bestDistance, bestOccupancyRatio);
-
-        return new TargetAssignmentResponse(
-            Target: bestTarget,
-            Distance: Math.Round(bestDistance, 1),
-            OccupancyRatio: Math.Round(bestOccupancyRatio, 3),
-            Instructions: instructions,
-            CalculatedCost: Math.Round(minCost, 4),
-            BearingDegrees: bearingDeg,
-            FlowDirectionX: Math.Cos(bearingDeg * Math.PI / 180.0),
-            FlowDirectionY: Math.Sin(bearingDeg * Math.PI / 180.0),
-            IsSimulationEngineBased: false,
-            TargetEvaluations: evaluations);
+        return PlanSafe.Contracts.Simulation.TargetSelector.SelectGeoTarget(
+            citizenLat,
+            citizenLng,
+            targets,
+            weightDistance,
+            weightOccupancy,
+            maxDistanceMeters,
+            convertedRoadblocks);
     }
 
     public static double CalculateDistance(double px, double py, EvacuationTarget target)

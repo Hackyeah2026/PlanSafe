@@ -60,11 +60,15 @@
                    BranchName='@(_activeSession?.BranchName ?? "main")' Expanded="@isMobilePanelOpen"
                    IsSimulating="@_isSimulating" EvacuatedCount="@_statsCollector.Stats.EvacuatedAgents"
                    TotalSimulatedAgents="@_simTotalAgents" SimulationTime="@_statsCollector.Stats.SimulationTime"
+                   OnStartEvacuation="() => _isPublishPlanOpen = true"
                    OnStartSimulation="HandleStartSimulation" OnConfigureSimulation="() => _isConfigOpen = true"
                    OnScenarios="() => _isTreeMapOpen = true" OnNewBranch="() => _isCreateBranchOpen = true"
                    OnRecenter="HandleRecenter" OnOpenStatistics="() => _isStatsOpen = true"
                    OnToggle="ToggleMobilePanel" />
     </aside>
+
+    <PublishPlanModal IsOpen="@_isPublishPlanOpen" MapItems="@_mapItems"
+                      ActiveSession="@_activeSession" OnClose="() => _isPublishPlanOpen = false" />
 
     <!-- Scenario Modals -->
     <CreateBranchModal
@@ -95,3 +99,7 @@
         Stats="@(_isSimulating ? _statsCollector.Stats : _sampleStats)"
         IsLive="@_isSimulating" />
 </div>
+
+@code {
+    private bool _isPublishPlanOpen;
+}

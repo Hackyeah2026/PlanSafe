@@ -7,6 +7,9 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" PrivateAssets="all" />
     <ProjectReference Include="../PlanSafe.Contracts/PlanSafe.Contracts.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="../../data/osm/krakow_osm.bin" Link="wwwroot/data/krakow_osm.bin" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
   <Target Name="CompileTypeScript" BeforeTargets="PrepareForBuild">
     <Exec Command="npm run build" WorkingDirectory="$(MSBuildProjectDirectory)/../.." />
     <ItemGroup>
