@@ -599,9 +599,16 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
 
     private async Task StopSimulationLoopAsync()
     {
-        _isRunning = false;
         _simCts?.Cancel();
-        if (_simulationLoopTask != null) await _simulationLoopTask;
+        try
+        {
+            if (_simulationLoopTask != null) await _simulationLoopTask;
+            if (_isRunning && _activeEngine == "webgpu") await SampleGpuTelemetry();
+        }
+        finally
+        {
+            _isRunning = false;
+        }
     }
 
     private async Task SampleGpuTelemetry()
@@ -622,7 +629,6 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
         else
         {
             await StopSimulationLoopAsync();
-            if (_activeEngine == "webgpu") await SampleGpuTelemetry();
         }
         await InvokeAsync(StateHasChanged);
     }

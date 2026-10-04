@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import assert from "node:assert/strict";
 
 declare global {
@@ -249,7 +249,9 @@ for (const mode of [
         ) > 0.2,
     );
     await page.getByRole("button", { name: "Pauza", exact: true }).click();
-    await page.waitForTimeout(150);
+    await expect(
+      page.getByRole("button", { name: "Start", exact: true }),
+    ).toBeVisible();
     const time = await page.locator(".sim-time-text").textContent();
     await page.waitForTimeout(200);
     assert.equal(await page.locator(".sim-time-text").textContent(), time);
