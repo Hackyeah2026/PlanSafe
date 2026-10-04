@@ -1597,22 +1597,22 @@
     <value>{{current}} of {{total}}</value>
   </data>
   <data name="Tour.WelcomeTitle" xml:space="preserve">
-    <value>Plan a safer evacuation</value>
+    <value>Plan a safe evacuation with PlanSafe</value>
   </data>
   <data name="Tour.WelcomeBody" xml:space="preserve">
-    <value>Define evacuation areas, choose safe destinations and mark blocked routes. Test how people reach safety, then share your plan. This tour previews the tools without changing your plan.</value>
+    <value>Define evacuation areas, choose safe destinations and mark blocked routes. Test how people reach safety, then share your plan.</value>
   </data>
   <data name="Tour.ZoneTitle" xml:space="preserve">
     <value>1. Where are people leaving?</value>
   </data>
   <data name="Tour.ZoneBody" xml:space="preserve">
-    <value>Evacuation zones mark the areas people leave. Choose this orange tool, then Polygon or Circle. The population estimate uses census data inside your zones; you can also set a custom population in Configuration.</value>
+    <value>Evacuation zones are areas people need to leave. Choose the “Evacuation zone” tool, then Polygon or Circle. The number of residents comes from census data for these zones. You can set a custom number in Settings; we'll show you where to find them shortly.</value>
   </data>
   <data name="Tour.SafeTitle" xml:space="preserve">
     <value>2. Where should they go?</value>
   </data>
   <data name="Tour.SafeBody" xml:space="preserve">
-    <value>Safe locations are destinations for evacuees. Use this green tool to draw a safe polygon or circle. Saved plans can also contain safe point markers. Add a reachable safe location to give people somewhere to go.</value>
+    <value>Safe locations are destinations for evacuees. Use this green tool to draw a polygon or circle. Add a reachable safe location to give people somewhere to go.</value>
   </data>
   <data name="Tour.BlockadeTitle" xml:space="preserve">
     <value>3. Mark blocked passages</value>
@@ -1624,7 +1624,7 @@
     <value>Draw a polygon</value>
   </data>
   <data name="Tour.PolygonBody" xml:space="preserve">
-    <value>Choose Evacuation zone or Safe location, then Polygon. Click at least three corners on the map: the third creates the area. Keep clicking to add corners, then choose Done to finish. Navigate returns you to moving around the map.</value>
+    <value>Choose Evacuation zone or Safe location, then Polygon. Click at least three corners on the map: the third creates the area. Keep clicking to add corners, then choose Done to finish.</value>
   </data>
   <data name="Tour.CircleTitle" xml:space="preserve">
     <value>Draw a circle in two clicks</value>
@@ -1636,19 +1636,19 @@
     <value>Remove an element</value>
   </data>
   <data name="Tour.RemoveBody" xml:space="preserve">
-    <value>Switch to Navigate, then click a zone, safe location or blockade on the map. Its popup shows the element details and a Remove button. Remove deletes that element from the current plan, so check which item you have selected.</value>
+    <value>Switch to Navigate, then click a zone, safe location or blockade on the map. Its popup shows the element details and a Remove button.</value>
   </data>
   <data name="Tour.SettingsTitle" xml:space="preserve">
     <value>Tune your scenario</value>
   </data>
   <data name="Tour.SettingsBody" xml:space="preserve">
-    <value>Configuration lets you choose census data or a custom population, simulation speed and frame rate. Balance distance against shelter occupancy when assigning destinations, and switch between people, speed and density views. Save applies your settings.</value>
+    <value>Configuration lets you choose census data or a custom population, simulation speed and frame rate. Balance distance against shelter occupancy when assigning destinations, and switch between people, speed and density views.</value>
   </data>
   <data name="Tour.SimulationTitle" xml:space="preserve">
     <value>Test your plan</value>
   </data>
   <data name="Tour.SimulationBody" xml:space="preserve">
-    <value>Start simulation runs the crowd model on your map using your zones, safe locations, blockades and settings. Add an evacuation zone and a safe destination first. Watch movement and evacuation progress; pause, change playback speed or inspect statistics with the simulation controls.</value>
+    <value>This button runs the crowd movement model using your zones, safe locations, blockades and settings. First, add an evacuation zone and a safe destination. Watch movement and evacuation progress; you can pause playback, change its speed and inspect statistics. You can adjust map elements and settings and run the simulation as many times as you need.</value>
   </data>
   <data name="Tour.EvacuationTitle" xml:space="preserve">
     <value>Share the evacuation plan</value>
@@ -1657,9 +1657,9 @@
     <value>Start evacuation opens a review of your plan. From there, Publish plan creates a shareable link and QR code for the citizen view. Opening this button does not publish automatically. Replay this guide any time with Map tour.</value>
   </data>
   <data name="Tour.ControlsTitle" xml:space="preserve">
-    <value>Simulation controls — preview</value>
+    <value>Simulation controls</value>
   </data>
   <data name="Tour.ControlsBody" xml:space="preserve">
-    <value>This is a preview; no simulation is running. The counter shows elapsed time and evacuation progress. Play/pause controls playback; Step advances one tick while paused, and Reset restarts the run. Switch between people, speed and density views. The speed button cycles playback rates, including MAX. The chart opens statistics; × closes simulation mode and returns to planning.</value>
+    <value>This panel lets you control a running simulation. The counter shows elapsed time and evacuation progress. Play/Pause controls playback; Step advances the simulation by one step while paused, and Reset starts the run again. Switch between people, speed and density views. The speed button changes the playback rate, including MAX. The chart opens statistics, and × closes simulation mode and returns to planning.</value>
   </data>
 </root>
