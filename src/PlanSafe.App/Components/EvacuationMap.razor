@@ -68,6 +68,7 @@
                    CensusLoaded="@CensusService.IsLoaded"
                    CensusLoading="@_isCensusLoading"
                    CensusPopulation="@_censusPopulation"
+                   ManualAgentCount="@(_simulationConfig.UseGusCensus ? null : (int?)_simulationConfig.AgentCount)"
                    BranchName='@(_activeSession?.BranchName ?? "main")' Expanded="@_isMobilePanelOpen"
                    IsSimulating="@_isSimulating" EvacuatedCount="@_statsCollector.Stats.EvacuatedAgents"
                    TotalSimulatedAgents="@_totalSimulationAgents" SimulationTime="@_statsCollector.Stats.SimulationTime"

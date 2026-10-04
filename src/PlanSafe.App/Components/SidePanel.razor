@@ -5,7 +5,17 @@
     <Icon><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10" /><path d="M12 11v6M12 7h.01" /></svg></Icon>
     <ChildContent>
         <section class="command-overview" aria-label="@L.Census.Population">
-            @if (!HasEvacuationZone)
+            @if (ManualAgentCount is int agentCount)
+            {
+                <p class="command-label"><UiIcon Kind="UiIconKind.People" /> @L.Simulation.AgentCountLabel</p>
+                <p class="command-population">@agentCount.ToString("N0")</p>
+                <p class="command-caption">@L.Census.CustomCount</p>
+                @if (!HasEvacuationZone)
+                {
+                    <p class="command-hint">@L.Drawing.StartHint</p>
+                }
+            }
+            else if (!HasEvacuationZone)
             {
                 <div class="command-empty">
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.4"><path d="m12 2 10 8-4 12H6L2 10z" /></svg>
@@ -61,6 +71,7 @@
     [Parameter] public bool CensusLoaded { get; set; }
     [Parameter] public bool CensusLoading { get; set; }
     [Parameter] public int CensusPopulation { get; set; }
+    [Parameter] public int? ManualAgentCount { get; set; }
     [Parameter] public string BranchName { get; set; } = "main";
     [Parameter] public bool Expanded { get; set; }
     [Parameter] public bool IsSimulating { get; set; }
