@@ -163,6 +163,7 @@ public partial class EvacuationMap : IAsyncDisposable
         _activeSession = session;
         _branchParentSession = session;
         _mapItems = session.Items;
+        _simConfig = session.SimulationConfig?.Clone() ?? new SimulationConfig();
         _isTreeMapOpen = false;
 
         double lat = session.MapCenter is { Length: >= 2 } ? session.MapCenter[0] : 50.0614;
@@ -427,6 +428,11 @@ public partial class EvacuationMap : IAsyncDisposable
             }
 
             _simTotalAgents = initialPositions.Count;
+            int capacity = 0;
+            for (int i = 0; i < targets.Count; i++)
+                targets[i] = targets[i] with { Capacity = capacity };
+            for (int i = 0; i < mapScenario.Exits.Length; i++)
+                mapScenario.Exits[i] = mapScenario.Exits[i] with { Capacity = capacity };
 
             // 5. Initialize Unified Simulation Engine with MapScenario
             _engine = await CrowdSimulationEngine.CreateMapAsync(mapScenario, initialPositions,
@@ -448,7 +454,7 @@ public partial class EvacuationMap : IAsyncDisposable
                 minLat = minLat,
                 maxLng = maxLng,
                 obstacles = Array.Empty<object>(),
-                targets = targets.Select(t => new { x = t.X, y = t.Y, width = t.Width, height = t.Height, name = t.Name, id = t.Id })
+                targets = targets.Select(t => new { x = t.X, y = t.Y, width = t.Width, height = t.Height, name = t.Name, id = t.Id, capacity = t.Capacity })
             });
 
             await _simulator.InvokeVoidAsync("setMapTerrain",
@@ -860,6 +866,10 @@ public partial class EvacuationMap : IAsyncDisposable
 
         return result;
     }
+
+    private int PlannedAgentCount => _isSimulating ? _simTotalAgents
+        : !_simConfig.UseGusCensus && _simConfig.AgentCount > 0 ? _simConfig.AgentCount
+        : _censusPopulation > 0 ? _censusPopulation : 500;
 
     private void RecalculateCensusData()
     {

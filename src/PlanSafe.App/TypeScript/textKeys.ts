@@ -322,6 +322,8 @@ export const TextKeys = {
     OccupancySummary: "Shelter.OccupancySummary",
     OccupancyValue: "Shelter.OccupancyValue",
     OccupancyWeight: "Shelter.OccupancyWeight",
+    PeopleCount: "Shelter.PeopleCount",
+    PeopleHere: "Shelter.PeopleHere",
     Places: "Shelter.Places",
     PresetA: "Shelter.PresetA",
     PresetB: "Shelter.PresetB",
@@ -943,4 +945,6 @@ export const englishText: Record<TextKey, string> = {
   "Statistics.TimeAxis": "Time elapsed since alarm [s]",
   "Statistics.TimeLabel": "TIME:",
   "Statistics.Title": "Analytics and statistics",
+  "Shelter.PeopleCount": "{0} people",
+  "Shelter.PeopleHere": "People currently here",
 };

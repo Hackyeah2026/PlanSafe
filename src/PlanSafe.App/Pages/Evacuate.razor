@@ -182,22 +182,25 @@
                                         <i class="bi bi-people-fill text-warning me-1"></i> @L.Shelter.Occupancy
                                     </div>
                                     <div class="h3 fw-bold font-monospace mb-1">
-                                        <span class="badge @occClass" data-testid="target-occupancy">@occPercent%</span>
+                                        <span class="badge @occClass" data-testid="target-occupancy">@(target.HasCapacityLimit ? $"{occPercent}%" : target.CurrentOccupancy.ToString())</span>
                                     </div>
                                     <div class="text-muted" >
-                                        @L.Shelter.Places(target.CurrentOccupancy, target.Capacity)
+                                        @(target.HasCapacityLimit ? L.Shelter.Places(target.CurrentOccupancy, target.Capacity) : L.Shelter.PeopleHere)
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Occupancy Progress Bar -->
+                        @if (target.HasCapacityLimit)
+                        {
                         <div class="mb-3">
                             <div class="progress" style="height: 6px;">
                                 <div class="progress-bar @barClass" role="progressbar" aria-valuenow="@Math.Clamp(occPercent, 0, 100)" aria-valuemin="0" aria-valuemax="100" aria-label="@L.Shelter.OccupancyLabelAccessible" style="width: @Math.Clamp(occPercent, 0, 100)%;"></div>
                             </div>
                         </div>
 
+                        }
                         <!-- Direction Indicator (Compass) -->
                         var dirRounded = (int)Math.Round(directionDegree);
                         <div class="evac-direction d-flex align-items-center gap-3 p-3 mb-3" >
