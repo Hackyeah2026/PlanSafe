@@ -56,15 +56,15 @@ public class OsmObstacleService : IOsmObstacleService
             string localBin = Path.Combine(AppContext.BaseDirectory, "wwwroot", "data", "krakow_osm.bin");
             if (!File.Exists(localBin))
             {
-                localBin = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "src", "PlanSafe.App", "wwwroot", "data", "krakow_osm.bin"));
+                localBin = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "data", "osm", "krakow_osm.bin"));
             }
             if (!File.Exists(localBin))
             {
-                localBin = Path.Combine(Directory.GetCurrentDirectory(), "src", "PlanSafe.App", "wwwroot", "data", "krakow_osm.bin");
+                localBin = Path.Combine(Directory.GetCurrentDirectory(), "data", "osm", "krakow_osm.bin");
             }
             if (!File.Exists(localBin))
             {
-                localBin = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "PlanSafe.App", "wwwroot", "data", "krakow_osm.bin"));
+                localBin = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "data", "osm", "krakow_osm.bin"));
             }
 
             if (File.Exists(localBin))

@@ -1,3 +1,7 @@
+using MapScenarioBuilder = PlanSafe.Contracts.Simulation.MapScenarioBuilder;
+using MapScenario = PlanSafe.Contracts.Simulation.MapScenario;
+using MapExit = PlanSafe.Contracts.Simulation.MapExit;
+using MapSpawnZone = PlanSafe.Contracts.Simulation.MapSpawnZone;
 using PlanSafe.App.Simulation;
 using PlanSafe.Contracts.Models.Session;
 using PlanSafe.Contracts.Models.Simulation;

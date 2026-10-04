@@ -3,6 +3,9 @@
     <PublishAot>true</PublishAot>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="../../data/osm/krakow_osm.bin" Link="Data/OSM/krakow_osm.bin" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Always" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <ProjectReference Include="../PlanSafe.Contracts/PlanSafe.Contracts.csproj" />
   </ItemGroup>

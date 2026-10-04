@@ -75,6 +75,22 @@ public static class GeoMath
     private static double Cross(double ax, double ay, double bx, double by) => (ax * by) - (ay * bx);
 
     /// <summary>
+    /// Ray-casting point-in-polygon test (WGS84 lat/lng).
+    /// </summary>
+    public static bool IsPointInPolygon(double lat, double lng, IReadOnlyList<PlanSafe.Contracts.Models.Map.GeoCoordinate> polygon)
+    {
+        return PlanSafe.Contracts.Simulation.GeoMath.IsPointInPolygon(lat, lng, polygon);
+    }
+
+    /// <summary>
+    /// Tests whether point (lat, lng) is within circular buffer of radius in meters.
+    /// </summary>
+    public static bool IsPointInCircle(double lat, double lng, double centerLat, double centerLng, double radiusMeters)
+    {
+        return PlanSafe.Contracts.Simulation.GeoMath.IsPointInCircle(lat, lng, centerLat, centerLng, radiusMeters);
+    }
+
+    /// <summary>
     /// Computes the perpendicular distance in meters from a geographic point (px, py) to a segment (x1, y1)-(x2, y2).
     /// </summary>
     public static double DistancePointToSegmentMeters(double px, double py, double x1, double y1, double x2, double y2)
