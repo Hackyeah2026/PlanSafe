@@ -6,6 +6,11 @@ name: Mikrus checks and deploy
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: Skip unit, API, and browser tests for this deployment
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -14,7 +19,7 @@ jobs:
   unit-test:
     if: >-
       github.event_name != 'workflow_dispatch' ||
-      github.ref == 'refs/heads/main'
+      (github.ref == 'refs/heads/main' && !inputs.skip_tests)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -44,7 +49,7 @@ jobs:
   api-test:
     if: >-
       github.event_name != 'workflow_dispatch' ||
-      github.ref == 'refs/heads/main'
+      (github.ref == 'refs/heads/main' && !inputs.skip_tests)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -68,7 +73,7 @@ jobs:
   browser-test:
     if: >-
       github.event_name != 'workflow_dispatch' ||
-      github.ref == 'refs/heads/main'
+      (github.ref == 'refs/heads/main' && !inputs.skip_tests)
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -97,7 +102,7 @@ jobs:
           path: artifacts/browser/
           retention-days: 7
 
-  # Preserve the existing required check name and fail it when any suite fails.
+  # Require passing tests unless this manual deployment explicitly skips them.
   # always() prevents a failed dependency from turning this check into a skip.
   check:
     needs: [unit-test, api-test, browser-test]
@@ -107,17 +112,24 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
-      - name: Require all test jobs to pass
+      - name: Check test results or record manual bypass
         env:
+          SKIP_TESTS: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_tests }}
           UNIT_RESULT: ${{ needs.unit-test.result }}
           API_RESULT: ${{ needs.api-test.result }}
           BROWSER_RESULT: ${{ needs.browser-test.result }}
         run: |
           echo "unit=$UNIT_RESULT api=$API_RESULT browser=$BROWSER_RESULT"
+          if [[ "$SKIP_TESTS" == true ]]; then
+            echo 'Unit, API, and browser tests skipped for this manual deployment.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           [[ "$UNIT_RESULT" == success && "$API_RESULT" == success && "$BROWSER_RESULT" == success ]]
 
   package:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: >-
+      !cancelled() && needs.check.result == 'success' &&
+      github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: check
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -154,7 +166,9 @@ jobs:
           retention-days: 7
 
   deploy:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: >-
+      !cancelled() && needs.package.result == 'success' &&
+      github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: package
     runs-on: ubuntu-24.04
     timeout-minutes: 15
