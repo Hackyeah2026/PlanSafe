@@ -116,12 +116,6 @@
   height: 16px;
   flex: none;
 }
-.command-actions ::deep .command-statistics {
-  min-height: 32px;
-  background: transparent;
-  color: var(--ui-muted);
-  font-size: 13px;
-}
 .command-actions .command-caption {
   margin: -2px 0 0;
   text-align: center;

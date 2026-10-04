@@ -1255,7 +1255,7 @@
     <value>MEAN / PEAK DENSITY</value>
   </data>
   <data name="Statistics.DensityTitle" xml:space="preserve">
-    <value>3. Crowd density profile: μ(t) ± σ</value>
+    <value>3. Average Crowd Density Over Time</value>
   </data>
   <data name="Statistics.DensityUnit" xml:space="preserve">
     <value>people/m²</value>
@@ -1303,7 +1303,7 @@
     <value>Speed profile</value>
   </data>
   <data name="Statistics.SpeedTitle" xml:space="preserve">
-    <value>2. Agent mean speed profile: μ(t) ± σ</value>
+    <value>2. Average Agent Speed Over Time</value>
   </data>
   <data name="Statistics.TimeAxis" xml:space="preserve">
     <value>Time elapsed since alarm [s]</value>
@@ -1541,5 +1541,41 @@
   </data>
   <data name="Shelter.PeopleHere" xml:space="preserve">
     <value>People currently here</value>
+  </data>
+  <data name="Statistics.AverageSpeed" xml:space="preserve">
+    <value>Average speed (mean)</value>
+  </data>
+  <data name="Statistics.AverageDensity" xml:space="preserve">
+    <value>Average density (mean)</value>
+  </data>
+  <data name="Statistics.Freeflow" xml:space="preserve">
+    <value>Free flow</value>
+  </data>
+  <data name="Statistics.Bottleneck" xml:space="preserve">
+    <value>Bottleneck</value>
+  </data>
+  <data name="Statistics.Jam" xml:space="preserve">
+    <value>Jam</value>
+  </data>
+  <data name="Statistics.Queue" xml:space="preserve">
+    <value>Queue</value>
+  </data>
+  <data name="Statistics.Critical" xml:space="preserve">
+    <value>Critical</value>
+  </data>
+  <data name="Statistics.NoData" xml:space="preserve">
+    <value>NO DATA</value>
+  </data>
+  <data name="Statistics.StartHint" xml:space="preserve">
+    <value>Start a simulation to see statistics.</value>
+  </data>
+  <data name="Statistics.ChartKey" xml:space="preserve">
+    <value>Chart key</value>
+  </data>
+  <data name="Statistics.StandardDeviation" xml:space="preserve">
+    <value>Mean +/- 1 standard deviation</value>
+  </data>
+  <data name="Statistics.ReferenceThresholds" xml:space="preserve">
+    <value>Reference thresholds</value>
   </data>
 </root>

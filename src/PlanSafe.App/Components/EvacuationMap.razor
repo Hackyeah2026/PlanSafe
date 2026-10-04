@@ -65,7 +65,7 @@
                    OnStartEvacuation="HandleStartEvacuation"
                    OnStartSimulation="HandleStartSimulation" OnConfigureSimulation="() => _isConfigOpen = true"
                    OnScenarios="() => _isTreeMapOpen = true" OnNewBranch="() => _isCreateBranchOpen = true"
-                   OnRecenter="HandleRecenter" OnOpenStatistics="() => _isStatsOpen = true"
+                   OnRecenter="HandleRecenter"
                    OnToggle="ToggleMobilePanel" />
     </aside>
 
@@ -103,7 +103,7 @@
     <StatisticsPopup
         IsOpen="_isStatsOpen"
         OnClose="() => _isStatsOpen = false"
-        Stats="@(_isSimulating ? _statsCollector.Stats : _sampleStats)"
+        Stats="@_statsCollector.Stats"
         IsLive="@_isSimulating" />
 </div>
 

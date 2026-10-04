@@ -52,9 +52,6 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path fill-rule="evenodd" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM10 7l7 5-7 5Z" /></svg> @(IsSimulating ? L.Simulation.StopAction : L.Simulation.StartAction)
             </AppButton>
             <AppButton OnClick="OnStartEvacuation"><UiIcon Kind="UiIconKind.Warning" /> @L.Evacuation.Start</AppButton>
-            <AppButton Class="command-statistics" OnClick="OnOpenStatistics">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 20V12M12 20V4M19 20V9" /></svg> @L.Statistics.Label
-            </AppButton>
         </footer>
     </ChildContent>
 </CollapsibleMapPanel>
@@ -77,5 +74,4 @@
     [Parameter] public EventCallback OnScenarios { get; set; }
     [Parameter] public EventCallback OnNewBranch { get; set; }
     [Parameter] public EventCallback OnRecenter { get; set; }
-    [Parameter] public EventCallback OnOpenStatistics { get; set; }
 }

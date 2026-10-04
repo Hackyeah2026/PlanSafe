@@ -1,0 +1,40 @@
+.profile-legend {
+  margin: 4px 8px;
+  color: var(--ui-text);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.legend-items li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.swatch {
+  display: inline-block;
+  flex: 0 0 28px;
+}
+
+.mean {
+  border-top: 3px solid #38bdf8;
+}
+
+.band {
+  height: 12px;
+  background: rgb(56 189 248 / 20%);
+  border: 1px solid #38bdf8;
+}
+
+.reference {
+  border-top: 2px dashed;
+}
