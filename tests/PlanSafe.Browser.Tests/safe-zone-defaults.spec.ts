@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
 
+test.beforeEach(async ({ context }) => {
+  await context.addInitScript(() =>
+    localStorage.setItem("plansafe.map-tour.v1", "seen"),
+  );
+});
+
 test("safe zones have no occupancy limit or manual capacity editor", async ({
   page,
   context,

@@ -64,6 +64,20 @@ public partial class EvacuationMap : IAsyncDisposable
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (_tourPending && !_disposed)
+        {
+            _tourPending = false;
+            try
+            {
+                await _tourModule!.InvokeVoidAsync("start", MapContainerId, _dotNetRef);
+            }
+            catch (JSException ex)
+            {
+                OnMapTourClosed();
+                Console.WriteLine($"[PlanSafe] Map tour unavailable: {ex.Message}");
+            }
+        }
+
         if (firstRender && !_isMapInitialized && !_disposed)
         {
             _isMapInitialized = true;
@@ -108,6 +122,9 @@ public partial class EvacuationMap : IAsyncDisposable
             if (_disposed) return;
 
             _mapItems = _activeSession.Items;
+            await InitializeMapTour();
+            if (_disposed) return;
+            _tourReady = true;
             StateHasChanged();
 
             // Create the map before loading population data. Terrain loads when simulation starts.
@@ -705,6 +722,7 @@ public partial class EvacuationMap : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         _disposed = true;
+        await DisposeMapTour();
         _preparationCancellation?.Cancel();
         await StopSimulationLoopAsync();
         _simulationCancellation?.Dispose();

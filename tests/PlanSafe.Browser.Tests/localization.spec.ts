@@ -1,5 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 
+test.beforeEach(async ({ context }) => {
+  await context.addInitScript(() =>
+    localStorage.setItem("plansafe.map-tour.v1", "seen"),
+  );
+});
+
 async function openMenu(page: Page) {
   const menu = page.locator(".global-menu");
   if (!(await menu.evaluate((element) => element.hasAttribute("open")))) {
@@ -15,6 +21,9 @@ for (const [locale, language, caption] of [
 ]) {
   test(`browser locale ${locale} selects ${language}`, async ({ browser }) => {
     const context = await browser.newContext({ locale });
+    await context.addInitScript(() =>
+      localStorage.setItem("plansafe.map-tour.v1", "seen"),
+    );
     const page = await context.newPage();
     await page.route("https://tile.openstreetmap.org/**", (route) =>
       route.fulfill({ status: 204 }),

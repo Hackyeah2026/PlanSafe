@@ -1578,4 +1578,88 @@
   <data name="Statistics.ReferenceThresholds" xml:space="preserve">
     <value>Reference thresholds</value>
   </data>
+  <data name="Tour.Replay" xml:space="preserve">
+    <value>Map tour</value>
+  </data>
+  <data name="Tour.Next" xml:space="preserve">
+    <value>Next</value>
+  </data>
+  <data name="Tour.Back" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="Tour.Done" xml:space="preserve">
+    <value>Start planning</value>
+  </data>
+  <data name="Tour.Close" xml:space="preserve">
+    <value>Close tour</value>
+  </data>
+  <data name="Tour.Progress" xml:space="preserve">
+    <value>{{current}} of {{total}}</value>
+  </data>
+  <data name="Tour.WelcomeTitle" xml:space="preserve">
+    <value>Plan a safer evacuation</value>
+  </data>
+  <data name="Tour.WelcomeBody" xml:space="preserve">
+    <value>Define evacuation areas, choose safe destinations and mark blocked routes. Test how people reach safety, then share your plan. This tour previews the tools without changing your plan.</value>
+  </data>
+  <data name="Tour.ZoneTitle" xml:space="preserve">
+    <value>1. Where are people leaving?</value>
+  </data>
+  <data name="Tour.ZoneBody" xml:space="preserve">
+    <value>Evacuation zones mark the areas people leave. Choose this orange tool, then Polygon or Circle. The population estimate uses census data inside your zones; you can also set a custom population in Configuration.</value>
+  </data>
+  <data name="Tour.SafeTitle" xml:space="preserve">
+    <value>2. Where should they go?</value>
+  </data>
+  <data name="Tour.SafeBody" xml:space="preserve">
+    <value>Safe locations are destinations for evacuees. Use this green tool to draw a safe polygon or circle. Saved plans can also contain safe point markers. Add a reachable safe location to give people somewhere to go.</value>
+  </data>
+  <data name="Tour.BlockadeTitle" xml:space="preserve">
+    <value>3. Mark blocked passages</value>
+  </data>
+  <data name="Tour.BlockadeBody" xml:space="preserve">
+    <value>Blockades are line barriers that people must avoid. Select Blockade, click the start of the barrier on the map, then click its end. Use them to represent closed streets or inaccessible passages.</value>
+  </data>
+  <data name="Tour.PolygonTitle" xml:space="preserve">
+    <value>Draw a polygon</value>
+  </data>
+  <data name="Tour.PolygonBody" xml:space="preserve">
+    <value>Choose Evacuation zone or Safe location, then Polygon. Click at least three corners on the map: the third creates the area. Keep clicking to add corners, then choose Done to finish. Navigate returns you to moving around the map.</value>
+  </data>
+  <data name="Tour.CircleTitle" xml:space="preserve">
+    <value>Draw a circle in two clicks</value>
+  </data>
+  <data name="Tour.CircleBody" xml:space="preserve">
+    <value>Choose Evacuation zone or Safe location, then Circle. Click once to place the centre, move the pointer to set the radius, then click again to confirm. On touch screens, tap the centre and then the edge.</value>
+  </data>
+  <data name="Tour.RemoveTitle" xml:space="preserve">
+    <value>Remove an element</value>
+  </data>
+  <data name="Tour.RemoveBody" xml:space="preserve">
+    <value>Switch to Navigate, then click a zone, safe location or blockade on the map. Its popup shows the element details and a Remove button. Remove deletes that element from the current plan, so check which item you have selected.</value>
+  </data>
+  <data name="Tour.SettingsTitle" xml:space="preserve">
+    <value>Tune your scenario</value>
+  </data>
+  <data name="Tour.SettingsBody" xml:space="preserve">
+    <value>Configuration lets you choose census data or a custom population, simulation speed and frame rate. Balance distance against shelter occupancy when assigning destinations, and switch between people, speed and density views. Save applies your settings.</value>
+  </data>
+  <data name="Tour.SimulationTitle" xml:space="preserve">
+    <value>Test your plan</value>
+  </data>
+  <data name="Tour.SimulationBody" xml:space="preserve">
+    <value>Start simulation runs the crowd model on your map using your zones, safe locations, blockades and settings. Add an evacuation zone and a safe destination first. Watch movement and evacuation progress; pause, change playback speed or inspect statistics with the simulation controls.</value>
+  </data>
+  <data name="Tour.EvacuationTitle" xml:space="preserve">
+    <value>Share the evacuation plan</value>
+  </data>
+  <data name="Tour.EvacuationBody" xml:space="preserve">
+    <value>Start evacuation opens a review of your plan. From there, Publish plan creates a shareable link and QR code for the citizen view. Opening this button does not publish automatically. Replay this guide any time with Map tour.</value>
+  </data>
+  <data name="Tour.ControlsTitle" xml:space="preserve">
+    <value>Simulation controls — preview</value>
+  </data>
+  <data name="Tour.ControlsBody" xml:space="preserve">
+    <value>This is a preview; no simulation is running. The counter shows elapsed time and evacuation progress. Play/pause controls playback; Step advances one tick while paused, and Reset restarts the run. Switch between people, speed and density views. The speed button cycles playback rates, including MAX. The chart opens statistics; × closes simulation mode and returns to planning.</value>
+  </data>
 </root>

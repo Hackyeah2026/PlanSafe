@@ -22,6 +22,7 @@ public sealed class LocalizedText(IStringLocalizer<UiStrings> strings)
     public ShelterText Shelter { get; } = new(strings);
     public SimulationText Simulation { get; } = new(strings);
     public StatisticsText Statistics { get; } = new(strings);
+    public TourText Tour { get; } = new(strings);
 
     public sealed class AppearanceText(IStringLocalizer<UiStrings> strings)
     {
@@ -611,5 +612,37 @@ public sealed class LocalizedText(IStringLocalizer<UiStrings> strings)
         public string TimeAxis => strings["Statistics.TimeAxis"].Value;
         public string TimeLabel => strings["Statistics.TimeLabel"].Value;
         public string Title => strings["Statistics.Title"].Value;
+    }
+
+    public sealed class TourText(IStringLocalizer<UiStrings> strings)
+    {
+        public string Back => strings["Tour.Back"].Value;
+        public string BlockadeBody => strings["Tour.BlockadeBody"].Value;
+        public string BlockadeTitle => strings["Tour.BlockadeTitle"].Value;
+        public string CircleBody => strings["Tour.CircleBody"].Value;
+        public string CircleTitle => strings["Tour.CircleTitle"].Value;
+        public string Close => strings["Tour.Close"].Value;
+        public string ControlsBody => strings["Tour.ControlsBody"].Value;
+        public string ControlsTitle => strings["Tour.ControlsTitle"].Value;
+        public string Done => strings["Tour.Done"].Value;
+        public string EvacuationBody => strings["Tour.EvacuationBody"].Value;
+        public string EvacuationTitle => strings["Tour.EvacuationTitle"].Value;
+        public string Next => strings["Tour.Next"].Value;
+        public string PolygonBody => strings["Tour.PolygonBody"].Value;
+        public string PolygonTitle => strings["Tour.PolygonTitle"].Value;
+        public string Progress => strings["Tour.Progress"].Value;
+        public string RemoveBody => strings["Tour.RemoveBody"].Value;
+        public string RemoveTitle => strings["Tour.RemoveTitle"].Value;
+        public string Replay => strings["Tour.Replay"].Value;
+        public string SafeBody => strings["Tour.SafeBody"].Value;
+        public string SafeTitle => strings["Tour.SafeTitle"].Value;
+        public string SettingsBody => strings["Tour.SettingsBody"].Value;
+        public string SettingsTitle => strings["Tour.SettingsTitle"].Value;
+        public string SimulationBody => strings["Tour.SimulationBody"].Value;
+        public string SimulationTitle => strings["Tour.SimulationTitle"].Value;
+        public string WelcomeBody => strings["Tour.WelcomeBody"].Value;
+        public string WelcomeTitle => strings["Tour.WelcomeTitle"].Value;
+        public string ZoneBody => strings["Tour.ZoneBody"].Value;
+        public string ZoneTitle => strings["Tour.ZoneTitle"].Value;
     }
 }

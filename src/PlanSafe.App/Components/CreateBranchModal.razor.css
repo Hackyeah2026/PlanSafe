@@ -35,7 +35,11 @@
 .input-prefix {
   position: absolute;
   left: 12px;
-  top: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
   color: var(--ui-success);
 }
 .form-control-custom {
@@ -43,6 +47,7 @@
 }
 .input-prefix-wrapper .form-control-custom {
   width: 100%;
+  padding-left: 40px;
 }
 .form-textarea-custom {
   resize: vertical;
