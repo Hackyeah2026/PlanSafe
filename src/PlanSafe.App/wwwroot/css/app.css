@@ -133,8 +133,7 @@ code {
 
 /* PlanSafe Leaflet Custom Markers & Popups */
 
-.drawing-mode-active .leaflet-container,
-.drawing-mode-active .leaflet-grab,
+.leaflet-container.drawing-mode-active,
 .drawing-mode-active .leaflet-interactive {
   cursor: crosshair !important;
 }
