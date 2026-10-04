@@ -239,7 +239,9 @@ test("publishing and sharing work in Polish and English", async ({ page }) => {
   await expect(dialog.getByRole("link")).not.toBeVisible();
   await expect(dialog).not.toContainText("LANGTEST");
 
-  const closeProjectorBtn = dialog.getByRole("button", { name: "Close projector" });
+  const closeProjectorBtn = dialog.getByRole("button", {
+    name: "Close projector",
+  });
   await expect(closeProjectorBtn).toBeVisible();
   await closeProjectorBtn.click();
 
