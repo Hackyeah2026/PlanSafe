@@ -1,3 +1,5 @@
+import { agentRenderMinRadius } from "./agentRenderSize.js";
+
 export interface RenderOptions {
   showDensityHeatmap: boolean;
   showFlowField: boolean;
@@ -255,7 +257,10 @@ export class CrowdCanvasRenderer implements ICrowdRenderer {
     radiusMeters: number,
   ) {
     const ctx = this.ctx;
-    const rPixels = Math.max(2.5, radiusMeters * ((scaleX + scaleY) * 0.5));
+    const rPixels = Math.max(
+      agentRenderMinRadius(scaleX, scaleY, 2.5),
+      radiusMeters * ((scaleX + scaleY) * 0.5),
+    );
 
     for (let i = 0; i < count; i++) {
       if (active[i] === 0) continue;
@@ -280,6 +285,7 @@ export class CrowdCanvasRenderer implements ICrowdRenderer {
       ctx.fill();
 
       // Heading directional pointer: strictly points along the path of least resistance to goal!
+      if (rPixels < 2) continue;
       const hx = headX[i];
       const hy = headY[i];
       ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";

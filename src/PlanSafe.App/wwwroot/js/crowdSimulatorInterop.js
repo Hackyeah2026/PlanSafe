@@ -1,4 +1,9 @@
-import { GpuSimulationEngine, isWebGpuSupported } from "./crowdSimulatorGpu.js";
+import {
+  GpuSimulationEngine,
+  isWebGpuSupported,
+  parseMapScenario,
+} from "./crowdSimulatorGpu.js";
+import { agentRenderMinRadius } from "./agentRenderSize.js";
 
 export function checkWebGpuSupport() {
   return isWebGpuSupported();
@@ -31,6 +36,40 @@ export function initSimulator(canvasRef, mapContainerId = null) {
   let originLng = null;
   let minLat = null;
   let maxLng = null;
+  let mapTerrain = null;
+
+  function setMapTerrain(blocked, columns, rows, cellSize) {
+    if (blocked.length !== columns * rows || !(cellSize > 0))
+      throw new Error("Invalid map terrain mask.");
+    mapTerrain = { blocked, columns, rows, cellSize };
+  }
+
+  function isTerrainBlocked(x, y) {
+    if (!mapTerrain) return false;
+    const col = Math.floor(x / mapTerrain.cellSize);
+    const row = Math.floor(y / mapTerrain.cellSize);
+    return (
+      col < 0 ||
+      row < 0 ||
+      col >= mapTerrain.columns ||
+      row >= mapTerrain.rows ||
+      mapTerrain.blocked[row * mapTerrain.columns + col] !== 0
+    );
+  }
+
+  function terrainSegmentClear(x0, y0, x1, y1) {
+    if (!mapTerrain) return true;
+    const samples = Math.max(
+      1,
+      Math.ceil((2 * Math.hypot(x1 - x0, y1 - y0)) / mapTerrain.cellSize),
+    );
+    for (let step = 0; step <= samples; step++) {
+      const t = step / samples;
+      if (isTerrainBlocked(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t))
+        return false;
+    }
+    return true;
+  }
 
   function updateLeafletProjection() {
     if (!leafletMap && mapContainerId) {
@@ -76,8 +115,12 @@ export function initSimulator(canvasRef, mapContainerId = null) {
   }
 
   // --- Heatmap / Metric Grid Setup ---
-  const gridCols = 180;
-  const gridRows = 180;
+  let gridCols = 1;
+  let gridRows = 1;
+  let gridOriginX = 0;
+  let gridOriginY = 0;
+  let cellMetersX = 1;
+  let cellMetersY = 1;
   let offscreenCanvas = document.createElement("canvas");
   offscreenCanvas.width = gridCols;
   offscreenCanvas.height = gridRows;
@@ -94,6 +137,34 @@ export function initSimulator(canvasRef, mapContainerId = null) {
   let trackedMinSpeed = 0.1;
   let trackedMaxSpeed = 2.0;
   let trackedMaxDensity = 5.0;
+
+  function updateHeatmapGrid() {
+    // Sample only the viewport, with roughly two pixels per cell. The map's
+    // full extent must not determine the width of a local crowd stream.
+    const pixelsX = Math.max(Math.abs(scaleX), 0.0001);
+    const pixelsY = Math.max(Math.abs(scaleY), 0.0001);
+    cellMetersX = Math.max(1, 2 / pixelsX, canvas.width / (1024 * pixelsX));
+    cellMetersY = Math.max(1, 2 / pixelsY, canvas.height / (1024 * pixelsY));
+    const a = screenToWorld(0, 0);
+    const b = screenToWorld(canvas.width, canvas.height);
+    gridOriginX =
+      Math.floor(Math.max(0, Math.min(a.x, b.x)) / cellMetersX) * cellMetersX;
+    gridOriginY =
+      Math.floor(Math.max(0, Math.min(a.y, b.y)) / cellMetersY) * cellMetersY;
+    const endX = Math.min(worldWidth, Math.max(a.x, b.x));
+    const endY = Math.min(worldHeight, Math.max(a.y, b.y));
+    const columns = Math.max(1, Math.ceil((endX - gridOriginX) / cellMetersX));
+    const rows = Math.max(1, Math.ceil((endY - gridOriginY) / cellMetersY));
+    if (columns === gridCols && rows === gridRows) return;
+    gridCols = columns;
+    gridRows = rows;
+    offscreenCanvas.width = gridCols;
+    offscreenCanvas.height = gridRows;
+    speedSum = new Float32Array(gridCols * gridRows);
+    weightSum = new Float32Array(gridCols * gridRows);
+    vxSum = new Float32Array(gridCols * gridRows);
+    vySum = new Float32Array(gridCols * gridRows);
+  }
 
   // --- Last Render State for Instant Redraw (Pan, Zoom, Resize) ---
   let lastFloatArray = null;
@@ -169,8 +240,11 @@ export function initSimulator(canvasRef, mapContainerId = null) {
       const sp = Math.hypot(vel.vx, vel.vy);
       if (sp < 0.05) break;
       const stepD = Math.max(0.4, Math.min(1.4, sp * 0.7));
-      curX -= (vel.vx / sp) * stepD;
-      curY -= (vel.vy / sp) * stepD;
+      const nextX = curX - (vel.vx / sp) * stepD;
+      const nextY = curY - (vel.vy / sp) * stepD;
+      if (!terrainSegmentClear(curX, curY, nextX, nextY)) break;
+      curX = nextX;
+      curY = nextY;
       if (curX < 0 || curX > worldWidth || curY < 0 || curY > worldHeight)
         break;
       p.trail.unshift({ x: curX, y: curY });
@@ -185,8 +259,9 @@ export function initSimulator(canvasRef, mapContainerId = null) {
   }
 
   function sampleVelocity(wx, wy) {
-    const gx = (wx / worldWidth) * gridCols - 0.5;
-    const gy = (wy / worldHeight) * gridRows - 0.5;
+    if (isTerrainBlocked(wx, wy)) return null;
+    const gx = (wx - gridOriginX) / cellMetersX - 0.5;
+    const gy = (wy - gridOriginY) / cellMetersY - 0.5;
     if (gx < 0 || gx >= gridCols - 1 || gy < 0 || gy >= gridRows - 1)
       return null;
 
@@ -261,8 +336,14 @@ export function initSimulator(canvasRef, mapContainerId = null) {
 
       // Step along flow vector
       const stepDist = Math.max(0.45, Math.min(1.7, speed * 0.75)) * 0.5;
-      p.x += (vel.vx / speed) * stepDist;
-      p.y += (vel.vy / speed) * stepDist;
+      const nextX = p.x + (vel.vx / speed) * stepDist;
+      const nextY = p.y + (vel.vy / speed) * stepDist;
+      if (!terrainSegmentClear(p.x, p.y, nextX, nextY)) {
+        respawnFlowParticle(p, floatArray, count);
+        continue;
+      }
+      p.x = nextX;
+      p.y = nextY;
 
       p.trail.push({ x: p.x, y: p.y });
       if (p.trail.length > maxTrailPoints) {
@@ -281,6 +362,7 @@ export function initSimulator(canvasRef, mapContainerId = null) {
       for (let k = 0; k < trailLen - 1; k++) {
         const p0 = p.trail[k];
         const p1 = p.trail[k + 1];
+        if (!terrainSegmentClear(p0.x, p0.y, p1.x, p1.y)) continue;
         const s0 = worldToScreen(p0.x, p0.y);
         const s1 = worldToScreen(p1.x, p1.y);
 
@@ -912,12 +994,9 @@ export function initSimulator(canvasRef, mapContainerId = null) {
     if (isMapMode) {
       updateLeafletProjection();
     }
-    const worldOrigin = worldToScreen(0, 0);
-    const screenWorldW = worldWidth * scaleX;
-    const screenWorldH = worldHeight * scaleY;
-
     if (renderMode === "heatmap" || renderMode === "density") {
       updateTrailCanvas();
+      updateHeatmapGrid();
       const isDensity = renderMode === "density";
       trailCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
 
@@ -926,14 +1005,10 @@ export function initSimulator(canvasRef, mapContainerId = null) {
       vxSum.fill(0);
       vySum.fill(0);
 
-      const cellMetersX = worldWidth / gridCols;
-      const cellMetersY = worldHeight / gridRows;
-      const kernelRadiusMeters = Math.max(
-        cellMetersX * 2.0,
-        Math.min(worldWidth * 0.035, 6.0),
+      const minimumKernelRadius = Math.max(
+        2.0,
+        Math.hypot(cellMetersX, cellMetersY) * 1.1,
       );
-      const kernelRadiusSq = kernelRadiusMeters * kernelRadiusMeters;
-      const invKernelRadiusSq = 1.0 / kernelRadiusSq;
 
       for (let i = 0; i < count; i++) {
         const rawR = floatArray[i * 5 + 4];
@@ -945,8 +1020,11 @@ export function initSimulator(canvasRef, mapContainerId = null) {
         const v = floatArray[i * 5 + 3];
         const speed = Math.hypot(u, v);
 
-        const gx = (wx / worldWidth) * gridCols;
-        const gy = (wy / worldHeight) * gridRows;
+        const kernelRadiusMeters = Math.max(minimumKernelRadius, rawR * 2.5);
+        const kernelRadiusSq = kernelRadiusMeters * kernelRadiusMeters;
+        const invKernelRadiusSq = 1.0 / kernelRadiusSq;
+        const gx = (wx - gridOriginX) / cellMetersX;
+        const gy = (wy - gridOriginY) / cellMetersY;
 
         const radCellsX = Math.ceil(kernelRadiusMeters / cellMetersX);
         const radCellsY = Math.ceil(kernelRadiusMeters / cellMetersY);
@@ -958,8 +1036,9 @@ export function initSimulator(canvasRef, mapContainerId = null) {
 
         for (let cy = minY; cy <= maxY; cy++) {
           for (let cx = minX; cx <= maxX; cx++) {
-            const cellWx = (cx + 0.5) * cellMetersX;
-            const cellWy = (cy + 0.5) * cellMetersY;
+            const cellWx = gridOriginX + (cx + 0.5) * cellMetersX;
+            const cellWy = gridOriginY + (cy + 0.5) * cellMetersY;
+            if (isTerrainBlocked(cellWx, cellWy)) continue;
 
             const dx = cellWx - wx;
             const dy = cellWy - wy;
@@ -972,7 +1051,7 @@ export function initSimulator(canvasRef, mapContainerId = null) {
               if (weight > 0.001) {
                 const idx = cy * gridCols + cx;
                 if (!isDensity) speedSum[idx] += speed * weight;
-                weightSum[idx] += isDensity ? weight * granulation : weight;
+                weightSum[idx] += weight;
                 vxSum[idx] += u * weight;
                 vySum[idx] += v * weight;
               }
@@ -988,7 +1067,8 @@ export function initSimulator(canvasRef, mapContainerId = null) {
       if (isDensity) {
         let frameMaxDensity = 0.0;
         for (let i = 0; i < totalCells; i++) {
-          if (weightSum[i] > frameMaxDensity) frameMaxDensity = weightSum[i];
+          if (weightSum[i] * granulation > frameMaxDensity)
+            frameMaxDensity = weightSum[i] * granulation;
         }
         if (frameMaxDensity > 0.1) {
           trackedMaxDensity += (frameMaxDensity - trackedMaxDensity) * 0.05;
@@ -996,15 +1076,16 @@ export function initSimulator(canvasRef, mapContainerId = null) {
         }
 
         for (let i = 0; i < totalCells; i++) {
-          const w = weightSum[i];
+          const coverage = weightSum[i];
+          const w = coverage * granulation;
           const pixelOffset = i * 4;
-          if (w > 0.005) {
+          if (coverage > 0.005) {
             const rgb = getDensityColor(w);
             const norm = Math.min(
               1.0,
               Math.max(0.0, w / (trackedMaxDensity || 2.0)),
             );
-            const t = Math.min(1.0, w / 0.15);
+            const t = Math.min(1.0, coverage / 0.45);
             const edgeFade = t * t * (3.0 - 2.0 * t);
             const alpha = Math.min(
               240,
@@ -1043,7 +1124,7 @@ export function initSimulator(canvasRef, mapContainerId = null) {
             const avgSpeed = speedSum[i] / w;
             const rgb = getHeatmapSpeedColor(avgSpeed);
             const normWeight = Math.min(1.0, Math.max(0.0, w / 2.0));
-            const t = Math.min(1.0, w / 0.15);
+            const t = Math.min(1.0, w / 0.45);
             const edgeFade = t * t * (3.0 - 2.0 * t);
             const alpha = Math.min(
               240,
@@ -1064,13 +1145,14 @@ export function initSimulator(canvasRef, mapContainerId = null) {
       trailCtx.save();
       trailCtx.imageSmoothingEnabled = true;
       trailCtx.imageSmoothingQuality = "high";
-      trailCtx.filter = "blur(2.0px)";
+      trailCtx.filter = "none";
+      const heatmapOrigin = worldToScreen(gridOriginX, gridOriginY);
       trailCtx.drawImage(
         offscreenCanvas,
-        worldOrigin.x,
-        worldOrigin.y,
-        screenWorldW,
-        screenWorldH,
+        heatmapOrigin.x,
+        heatmapOrigin.y,
+        gridCols * cellMetersX * scaleX,
+        gridRows * cellMetersY * scaleY,
       );
       trailCtx.restore();
 
@@ -1137,6 +1219,11 @@ export function initSimulator(canvasRef, mapContainerId = null) {
     }
 
     // Batch agents into preallocated color buckets
+    const minimumAgentRadius = agentRenderMinRadius(
+      scaleX,
+      scaleY,
+      isMapMode ? 4.0 : 3.2,
+    );
     for (let c = 0; c < paletteSize; c++) {
       colorBuckets[c].length = 0;
     }
@@ -1171,8 +1258,8 @@ export function initSimulator(canvasRef, mapContainerId = null) {
         : 0;
       const speed = Math.hypot(u, v);
       const r = Math.max(
-        rawR * Math.min(scaleX, scaleY),
-        isMapMode ? 4.0 : 3.2,
+        rawR * Math.min(Math.abs(scaleX), Math.abs(scaleY)),
+        minimumAgentRadius,
       );
       const colorIdx = Math.min(
         paletteSize - 1,
@@ -1204,6 +1291,7 @@ export function initSimulator(canvasRef, mapContainerId = null) {
       for (let c = 0; c < paletteSize; c++) {
         const bucket = colorBuckets[c];
         for (let j = 0; j < bucket.length; j += 3) {
+          if (bucket[j + 2] < 2) continue;
           ctx.moveTo(bucket[j] + bucket[j + 2], bucket[j + 1]);
           ctx.arc(bucket[j], bucket[j + 1], bucket[j + 2], 0, Math.PI * 2);
         }
@@ -1228,6 +1316,13 @@ export function initSimulator(canvasRef, mapContainerId = null) {
       }
       await gpuEngine.syncInFlight(0);
       gpuEngine.initializeMap(snapshot);
+      const terrain = parseMapScenario(snapshot.scenario);
+      setMapTerrain(
+        terrain.blocked,
+        terrain.columns,
+        terrain.rows,
+        terrain.cellSize,
+      );
       gpuMapSnapshot = snapshot;
       isGpuReady = true;
     } catch (error) {
@@ -1329,7 +1424,7 @@ export function initSimulator(canvasRef, mapContainerId = null) {
           scaleY,
           offsetX,
           offsetY,
-          isMapMode ? 4.0 : 3.2,
+          agentRenderMinRadius(scaleX, scaleY, isMapMode ? 4.0 : 3.2),
           granulation,
           showWhiskers,
           whiskerLength,
@@ -1427,6 +1522,7 @@ export function initSimulator(canvasRef, mapContainerId = null) {
   return {
     render: render,
     renderBinary: renderBinary,
+    setMapTerrain: setMapTerrain,
     initGpu: initGpu,
     initMapGpu: initMapGpu,
     resetMapGpu: resetMapGpu,
@@ -1462,6 +1558,7 @@ export function initSimulator(canvasRef, mapContainerId = null) {
       return isWebGpuSupported();
     },
     setWorldConfig: function (config) {
+      if (config.worldWidth || config.worldHeight) mapTerrain = null;
       weightDistance = config.weightDistance ?? weightDistance;
       weightOccupancy = config.weightOccupancy ?? weightOccupancy;
       if (config.worldWidth) worldWidth = config.worldWidth;

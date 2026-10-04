@@ -449,6 +449,10 @@ public partial class EvacuationMap : ComponentBase, IAsyncDisposable
                 targets = targets.Select(t => new { x = t.X, y = t.Y, width = t.Width, height = t.Height, name = t.Name, id = t.Id })
             });
 
+            await _simulator.InvokeVoidAsync("setMapTerrain",
+                Array.ConvertAll(mapScenario.Blocked, blocked => blocked ? (byte)1 : (byte)0),
+                mapScenario.Columns, mapScenario.Rows, mapScenario.CellSize);
+
             _activeEngine = "wasm";
             try
             {

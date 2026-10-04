@@ -49,6 +49,8 @@ test(
       const result = await page.evaluate(async () => {
         const { GpuSimulationEngine } = await import("/crowdSimulatorGpu.js");
         const { initSimulator } = await import("/crowdSimulatorInterop.js");
+        const { agentRenderMinRadius } = await import("/agentRenderSize.js");
+        const { CrowdWebGLRenderer } = await import("/webglRenderer.js");
         const engine = new GpuSimulationEngine();
         await engine.boot();
         const device = engine.device;
@@ -134,6 +136,85 @@ test(
         ctx.drawImage(zoomed, 0, 0);
         const zoomedPixel = [...ctx.getImageData(80, 70, 1, 1).data];
         const oldPixel = [...ctx.getImageData(50, 55, 1, 1).data];
+        // At overview zoom, neither the body nor cluster outline may retain
+        // the old four-pixel radius. Check actual GPU pixel coverage.
+        const overviewCoverage = [];
+        for (const scale of [1, 0.25, 0.0625]) {
+          const distant = await engine.drawAgents(
+            200,
+            150,
+            scale,
+            scale,
+            50,
+            50,
+            agentRenderMinRadius(scale, scale, 4),
+            3,
+            false,
+            2.5,
+          );
+          ctx.clearRect(0, 0, 200, 150);
+          ctx.drawImage(distant, 0, 0);
+          const center = 50 + 20 * scale;
+          const pixels = ctx.getImageData(
+            Math.floor(center) - 4,
+            Math.floor(center) - 4,
+            9,
+            9,
+          ).data;
+          let coverage = 0;
+          for (let i = 3; i < pixels.length; i += 4)
+            coverage += pixels[i] / 255;
+          overviewCoverage.push(coverage);
+        }
+        const glCanvas = document.createElement("canvas");
+        glCanvas.width = 200;
+        glCanvas.height = 150;
+        const glRenderer = new CrowdWebGLRenderer(glCanvas);
+        const glCoverage = [];
+        const position = new Float32Array([20]);
+        const zero = new Float32Array([0]);
+        const speed = new Float32Array([1.4]);
+        const active = new Uint8Array([1]);
+        const options = {
+          showDensityHeatmap: false,
+          showFlowField: false,
+          showSpawnZones: false,
+          agentRadius: 0.35,
+        };
+        for (const scale of [1, 0.25, 0.0625]) {
+          glRenderer.setGrid(
+            200 / scale,
+            150 / scale,
+            1,
+            0,
+            0,
+            new Uint8Array(0),
+          );
+          const render = (count) => {
+            glRenderer.render(
+              count,
+              position,
+              position,
+              zero,
+              zero,
+              speed,
+              zero,
+              zero,
+              active,
+              options,
+            );
+            ctx.clearRect(0, 0, 200, 150);
+            ctx.drawImage(glCanvas, 0, 0);
+            return ctx.getImageData(0, 0, 200, 150).data;
+          };
+          const baseline = render(0);
+          const pixels = render(1);
+          let coverage = 0;
+          for (let i = 0; i < pixels.length; i++)
+            coverage += Math.abs(pixels[i] - baseline[i]);
+          glCoverage.push(coverage);
+        }
+        const glError = glCanvas.getContext("webgl2").getError();
         // Default rendering and paused zoom must not request the full CPU preview.
         const original = GpuSimulationEngine.prototype.capturePreview;
         GpuSimulationEngine.prototype.capturePreview = () => {
@@ -163,6 +244,9 @@ test(
           emptyPixel,
           zoomedPixel,
           oldPixel,
+          overviewCoverage,
+          glCoverage,
+          glError,
           initial,
           stepped,
           reset,
@@ -173,6 +257,17 @@ test(
       assert.deepEqual(errors, []);
       assert.deepEqual(result.gpuErrors, []);
       assert.equal(result.validation, undefined);
+      assert.equal(result.glError, 0);
+      assert.ok(result.glCoverage[0] > result.glCoverage[1]);
+      assert.ok(result.glCoverage[1] > result.glCoverage[2]);
+      assert.ok(result.overviewCoverage[0] > result.overviewCoverage[1]);
+      assert.ok(
+        result.overviewCoverage[1] > result.overviewCoverage[2],
+        JSON.stringify(result.overviewCoverage),
+      );
+      assert.ok(
+        result.overviewCoverage[2] > 0 && result.overviewCoverage[2] < 3,
+      );
       assert.equal(result.telemetry.activeDots, 64);
       assert.equal(result.telemetry.evacuatedAgents, 6);
       assert.equal(result.telemetry.activeAgents, 191);
