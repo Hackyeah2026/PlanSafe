@@ -11,7 +11,9 @@
     "test:gpu": "npm run build && node --test scripts/test-gpu-runtime.mjs scripts/test-map-gpu.mjs scripts/test-map-view.mjs scripts/test-map-terrain.mjs scripts/test-map-spawn.mjs",
     "format": "prettier --write . && dotnet format whitespace PlanSafe.slnx",
     "format:check": "prettier --check . && dotnet format whitespace PlanSafe.slnx --verify-no-changes",
-    "test:appearance": "node --test scripts/test-appearance.mjs"
+    "test:appearance": "node --test scripts/test-appearance.mjs",
+    "benchmark:cpu": "node scripts/performance/benchmark.mjs cpu",
+    "benchmark:gpu": "npm run build && node scripts/performance/benchmark.mjs gpu"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

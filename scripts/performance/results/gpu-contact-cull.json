@@ -1,0 +1,227 @@
+{
+  "adapter": {
+    "vendor": "nvidia",
+    "architecture": "lovelace",
+    "device": "",
+    "description": "",
+    "isFallback": false
+  },
+  "hasTimestamp": true,
+  "cases": [
+    {
+      "name": "sparse-10k",
+      "slots": 10000,
+      "grid": [250, 167],
+      "potentialGrid": [600, 400],
+      "samples": [
+        {
+          "tickMs": 0.125,
+          "phases": {
+            "clearPipeline": 0.001696,
+            "binPipeline": 0.0020160000000000004,
+            "physicsPipeline": 0.033472
+          },
+          "computePasses": 96
+        },
+        {
+          "tickMs": 0.09062500018626451,
+          "phases": {
+            "clearPipeline": 0.0018560000000000002,
+            "binPipeline": 0.0019520000000000004,
+            "physicsPipeline": 0.03299200000000001
+          },
+          "computePasses": 96
+        },
+        {
+          "tickMs": 0.09687499981373549,
+          "phases": {
+            "clearPipeline": 0.0019200000000000003,
+            "binPipeline": 0.0019840000000000005,
+            "physicsPipeline": 0.03315200000000001
+          },
+          "computePasses": 96
+        }
+      ],
+      "telemetryMs": 27.5,
+      "previewMs": 3.5999999940395355,
+      "renderMs": 43.29999999701977
+    },
+    {
+      "name": "dense-10k",
+      "slots": 10000,
+      "grid": [250, 167],
+      "potentialGrid": [600, 400],
+      "samples": [
+        {
+          "tickMs": 1.0187499998137355,
+          "phases": {
+            "clearPipeline": 0.0016529999999999997,
+            "binPipeline": 0.0024319999999999993,
+            "physicsPipeline": 0.9295999999999999
+          },
+          "computePasses": 96
+        },
+        {
+          "tickMs": 1.0031249998137355,
+          "phases": {
+            "clearPipeline": 0.001696,
+            "binPipeline": 0.002463999999999999,
+            "physicsPipeline": 0.927008
+          },
+          "computePasses": 96
+        },
+        {
+          "tickMs": 1.0343749998137355,
+          "phases": {
+            "clearPipeline": 0.0016960000000000002,
+            "binPipeline": 0.0026239999999999996,
+            "physicsPipeline": 0.9119360000000001
+          },
+          "computePasses": 96
+        }
+      ],
+      "telemetryMs": 2.8999999910593033,
+      "previewMs": 3.4000000059604645,
+      "renderMs": 3.5999999940395355
+    },
+    {
+      "name": "city-16k-g1",
+      "slots": 16000,
+      "grid": [250, 167],
+      "potentialGrid": [600, 400],
+      "samples": [
+        {
+          "tickMs": 0.12187500018626451,
+          "phases": {
+            "clearPipeline": 0.0015359999999999998,
+            "binPipeline": 0.002112,
+            "physicsPipeline": 0.046688
+          },
+          "computePasses": 96
+        },
+        {
+          "tickMs": 0.125,
+          "phases": {
+            "clearPipeline": 0.0014399999999999999,
+            "binPipeline": 0.00224,
+            "physicsPipeline": 0.04755199999999999
+          },
+          "computePasses": 96
+        },
+        {
+          "tickMs": 0.12187500018626451,
+          "phases": {
+            "clearPipeline": 0.0013759999999999998,
+            "binPipeline": 0.002272,
+            "physicsPipeline": 0.047167999999999995
+          },
+          "computePasses": 96
+        }
+      ],
+      "telemetryMs": 3,
+      "previewMs": 3.5,
+      "renderMs": 2.4000000059604645
+    },
+    {
+      "name": "city-16k-g3",
+      "slots": 5334,
+      "grid": [250, 167],
+      "potentialGrid": [600, 400],
+      "samples": [
+        {
+          "tickMs": 0.12187499972060323,
+          "phases": {
+            "clearDensityPipeline": 0.0032180000000000017,
+            "accumulateDensityPipeline": 0.001742,
+            "decodeDensityPipeline": 0.002976000000000001,
+            "smoothDensityOnlyPipeline": 0.002592,
+            "clearPipeline": 0.0014399999999999999,
+            "binPipeline": 0.001696,
+            "physicsPipeline": 0.026175999999999987
+          },
+          "computePasses": 224
+        },
+        {
+          "tickMs": 0.125,
+          "phases": {
+            "clearDensityPipeline": 0.0033460000000000018,
+            "accumulateDensityPipeline": 0.010158,
+            "decodeDensityPipeline": 0.002944000000000001,
+            "smoothDensityOnlyPipeline": 0.0025599999999999993,
+            "clearPipeline": 0.0014719999999999996,
+            "binPipeline": 0.0016,
+            "physicsPipeline": 0.02572799999999999
+          },
+          "computePasses": 224
+        },
+        {
+          "tickMs": 0.12187499972060323,
+          "phases": {
+            "clearDensityPipeline": 0.003008000000000001,
+            "accumulateDensityPipeline": 0.0018240000000000003,
+            "decodeDensityPipeline": 0.0029760000000000008,
+            "smoothDensityOnlyPipeline": 0.0023679999999999994,
+            "clearPipeline": 0.001536,
+            "binPipeline": 0.0015039999999999997,
+            "physicsPipeline": 0.025599999999999987
+          },
+          "computePasses": 224
+        }
+      ],
+      "telemetryMs": 3,
+      "previewMs": 3.2000000029802322,
+      "renderMs": 2.9000000059604645
+    },
+    {
+      "name": "city-16k-g16",
+      "slots": 1000,
+      "grid": [250, 167],
+      "potentialGrid": [600, 400],
+      "samples": [
+        {
+          "tickMs": 0.15625,
+          "phases": {
+            "clearDensityPipeline": 0.003104000000000001,
+            "accumulateDensityPipeline": 0.0025599999999999998,
+            "decodeDensityPipeline": 0.002880000000000001,
+            "smoothDensityOnlyPipeline": 0.007551999999999988,
+            "clearPipeline": 0.001376,
+            "binPipeline": 0.001568,
+            "physicsPipeline": 0.016384000000000003
+          },
+          "computePasses": 288
+        },
+        {
+          "tickMs": 0.12187500018626451,
+          "phases": {
+            "clearDensityPipeline": 0.003040000000000001,
+            "accumulateDensityPipeline": 0.0025919999999999997,
+            "decodeDensityPipeline": 0.0029760000000000008,
+            "smoothDensityOnlyPipeline": 0.007455999999999989,
+            "clearPipeline": 0.0014079999999999997,
+            "binPipeline": 0.0016640000000000001,
+            "physicsPipeline": 0.016512
+          },
+          "computePasses": 288
+        },
+        {
+          "tickMs": 0.125,
+          "phases": {
+            "clearDensityPipeline": 0.0031360000000000008,
+            "accumulateDensityPipeline": 0.002368,
+            "decodeDensityPipeline": 0.003072000000000001,
+            "smoothDensityOnlyPipeline": 0.012928000000000009,
+            "clearPipeline": 0.0014400000000000003,
+            "binPipeline": 0.0015359999999999996,
+            "physicsPipeline": 0.015872000000000004
+          },
+          "computePasses": 288
+        }
+      ],
+      "telemetryMs": 3,
+      "previewMs": 2.2999999970197678,
+      "renderMs": 3.9000000059604645
+    }
+  ],
+  "errors": []
+}
