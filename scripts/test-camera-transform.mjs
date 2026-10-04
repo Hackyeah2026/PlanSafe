@@ -16,13 +16,17 @@ function context() {
   );
 }
 
-function setup(t) {
+function setup(t, mapMode = false) {
   const ctx = context();
   const handlers = new Map();
   const windowHandlers = new Map();
+  const mapHandlers = new Map();
+  let mapProjectionScale = 10000;
   const canvas = {
     width: 800,
     height: 500,
+    clientWidth: 800,
+    clientHeight: 500,
     style: {},
     getContext: () => ctx,
     // Canvas is displayed at twice its backing size, like the responsive demo.
@@ -40,11 +44,21 @@ function setup(t) {
   globalThis.window = {
     addEventListener: (name, handler) => windowHandlers.set(name, handler),
     removeEventListener: (name) => windowHandlers.delete(name),
+    PlanSafeMap: {
+      getMap: () => ({
+        on: (name, handler) => mapHandlers.set(name, handler),
+        off: (name) => mapHandlers.delete(name),
+        latLngToContainerPoint: ([lat, lng]) => ({
+          x: (lng - 19.9) * mapProjectionScale,
+          y: (50.07 - lat) * mapProjectionScale,
+        }),
+      }),
+    },
   };
   globalThis.document = {
     createElement: () => ({ getContext: () => context() }),
   };
-  const simulator = initSimulator(canvas);
+  const simulator = initSimulator(canvas, mapMode ? "map" : null);
   t.after(() => {
     simulator.dispose();
     globalThis.window = previousWindow;
@@ -80,7 +94,13 @@ function setup(t) {
     simulator,
     handlers,
     windowHandlers,
+    mapHandlers,
+    ctx,
     agents,
+    setMapProjectionScale: (value) => {
+      mapProjectionScale = value;
+      mapHandlers.get("zoom")();
+    },
     render,
     obstacles,
     targets,
@@ -181,4 +201,61 @@ test("the fallback evacuation zone and agent radii follow zoom", (t) => {
   const after = geometry(afterFrame, s.obstacles, [exit]);
   close(after.sx / before.sx, 1.25);
   close(afterFrame.circles[0][2] / beforeFrame.circles[0][2], 1.25);
+});
+
+for (const mapMode of [false, true]) {
+  test(`${mapMode ? "map" : "demo"} agents keep shrinking at distant zoom levels`, (t) => {
+    const s = setup(t, mapMode);
+    // An individual pedestrian and one larger cluster representative.
+    s.agents[4] = 0.35;
+    s.agents[9] = 0.7;
+    s.agents[1] = 10;
+    s.agents[5] = 17;
+    s.agents[6] = 8;
+    const originalAgents = s.agents.slice();
+    const setScale = (value) => {
+      if (mapMode) {
+        s.simulator.setWorldConfig({
+          originLat: 50.07,
+          originLng: 19.9,
+          minLat: 50.05,
+          maxLng: 19.92,
+        });
+        s.setMapProjectionScale(value * 10000);
+      } else {
+        s.simulator.setTransform({ scale: value, offsetX: 100, offsetY: 100 });
+      }
+    };
+    let previousRadius = Infinity;
+    for (const scale of [4, 1, 0.25, 0.0625, 0.02]) {
+      setScale(scale);
+      const frame = s.render();
+      assert.equal(frame.circles.length, 2);
+      const radius = frame.circles[0][2];
+      assert.ok(radius > 0 && radius < previousRadius);
+      if (scale <= 1)
+        assert.ok(
+          radius < 1,
+          "Overview dots must be smaller than one pixel in radius",
+        );
+      previousRadius = radius;
+    }
+    // Physical sizes still take over at close zoom, including larger clusters.
+    setScale(20);
+    const closeFrame = s.render();
+    close(closeFrame.circles[1][2] / closeFrame.circles[0][2], 2);
+    assert.deepEqual(s.agents, originalAgents);
+  });
+}
+
+test("cluster outlines do not inflate tiny overview dots", (t) => {
+  const s = setup(t);
+  s.simulator.setTransform({ scale: 0.1, offsetX: 100, offsetY: 100 });
+  s.ctx.calls.length = 0;
+  s.simulator.renderBinary(s.agents, 2, "agents", false, 2.5, 4, false);
+  assert.equal(s.ctx.calls.filter((call) => call.method === "arc").length, 2);
+  s.simulator.setTransform({ scale: 4, offsetX: 0, offsetY: 0 });
+  s.ctx.calls.length = 0;
+  s.simulator.renderBinary(s.agents, 2, "agents", false, 2.5, 4, false);
+  assert.equal(s.ctx.calls.filter((call) => call.method === "arc").length, 4);
 });

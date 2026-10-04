@@ -31,7 +31,7 @@ fn clip(pixel: vec2<f32>) -> vec4<f32> {
   @builtin(instance_index) instance: u32) -> Vertex {
   let agent = agents[instance];
   let uv = corner(index);
-  let radius = max(agent.radius * min(camera.transform.x, camera.transform.y), camera.viewport.z);
+  let radius = max(agent.radius * min(abs(camera.transform.x), abs(camera.transform.y)), camera.viewport.z);
   let center = agent.pos * camera.transform.xy + camera.transform.zw;
   let bucket = min(31., floor(length(agent.vel) * (32. / 2.2))) / 31.;
   var color: vec3<f32>;
@@ -71,11 +71,14 @@ fn clip(pixel: vec2<f32>) -> vec4<f32> {
 @fragment fn fragment(input: Vertex) -> @location(0) vec4<f32> {
   var color = input.color;
   let distance = length(input.uv);
-  let aa = max(fwidth(distance), 0.001);
+  let aa = max(fwidth(distance), 0.5 / input.radius);
   if (input.circle == 1u) {
-    let alpha = 1. - smoothstep(1. - aa, 1. + aa, distance);
+    // Subpixel dots lose coverage with their area instead of retaining an
+    // opaque antialiasing fringe when zoomed far out.
+    let coverage = min(1., input.radius * input.radius);
+    let alpha = (1. - smoothstep(1. - aa, 1. + aa, distance)) * coverage;
     if (alpha <= 0.) { discard; }
-    if (camera.viewport.w > 1.) {
+    if (camera.viewport.w > 1. && input.radius >= 2.) {
       let outline = smoothstep(1. - 1.2 / input.radius - aa, 1. - 1.2 / input.radius + aa, distance);
       color = vec4(mix(color.rgb, vec3(1.), outline * 0.45), alpha);
     } else { color.a = alpha; }

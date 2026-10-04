@@ -97,6 +97,35 @@ public sealed class MapScenario
     public MapSpawnZone[] SpawnZones { get; }
     public double WorldWidth => Columns * CellSize;
     public double WorldHeight => Rows * CellSize;
+
+    /// <summary>Checks the full movement segment, including thin walls between two open endpoints.</summary>
+    public bool CrossesBlockedCell(double fromX, double fromY, double toX, double toY)
+    {
+        int minCol = Math.Max(0, (int)Math.Floor(Math.Min(fromX, toX) / CellSize));
+        int maxCol = Math.Min(Columns - 1, (int)Math.Floor(Math.Max(fromX, toX) / CellSize));
+        int minRow = Math.Max(0, (int)Math.Floor(Math.Min(fromY, toY) / CellSize));
+        int maxRow = Math.Min(Rows - 1, (int)Math.Floor(Math.Max(fromY, toY) / CellSize));
+        double dx = toX - fromX, dy = toY - fromY;
+        for (int row = minRow; row <= maxRow; row++)
+            for (int col = minCol; col <= maxCol; col++)
+            {
+                if (!Blocked[row * Columns + col]) continue;
+                double enter = 0, leave = 1;
+                if (Clip(fromX, dx, col * CellSize, (col + 1) * CellSize, ref enter, ref leave) &&
+                    Clip(fromY, dy, row * CellSize, (row + 1) * CellSize, ref enter, ref leave) &&
+                    enter <= leave && leave > 0 && enter < 1) return true;
+            }
+        return false;
+
+        static bool Clip(double from, double delta, double lo, double hi, ref double enter, ref double leave)
+        {
+            if (Math.Abs(delta) < 0.000001) return from >= lo && from <= hi;
+            double a = (lo - from) / delta, b = (hi - from) / delta;
+            enter = Math.Max(enter, Math.Min(a, b));
+            leave = Math.Min(leave, Math.Max(a, b));
+            return enter <= leave;
+        }
+    }
     public int TotalPeople => SpawnZones.Sum(zone => zone.People);
 
     /// <summary>Anything outside the raster counts as blocked.</summary>
