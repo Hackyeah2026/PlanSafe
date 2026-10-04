@@ -42,7 +42,7 @@
                 OnReset="ResetSimulation"
                 OnRenderModeChanged="HandleRenderModeChanged"
                 OnToggleWhiskers="HandleToggleWhiskers"
-                OnCycleSpeed="HandleCycleSpeed"
+                OnSpeedChanged="HandleSpeedChanged"
                 OnOpenStats="() => _isStatsOpen = true"
                 OnExit="StopSimulation" />
         }
@@ -64,7 +64,7 @@
     </div>
 
     <aside id="map-control-panel" class="side-panel-wrapper surface-panel">
-        <SidePanel HasEvacuationZone="@_mapItems.Any(item => item.Category == ZoneCategory.EvacuationZone)"
+        <SidePanel HasEvacuationZone="@HasEvacuationZone"
                    CensusLoaded="@CensusService.IsLoaded"
                    CensusLoading="@_isCensusLoading"
                    CensusPopulation="@_censusPopulation"

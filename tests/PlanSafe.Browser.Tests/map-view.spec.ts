@@ -341,6 +341,25 @@ for (const mode of [
       (await page.locator(".sim-evac-counter").textContent()) ?? "",
       /\/ 37/,
     );
+    if (mode === "default" || mode === "wasm" || mode === "mobile") {
+      const speed = page.getByTestId("map-time-scale");
+      await speed.selectOption("max");
+      await expect(speed).toHaveValue("max");
+      await speed.selectOption("0.25");
+      await expect(speed).toHaveValue("0.25");
+      await page.getByRole("button", { name: "Start", exact: true }).click();
+      await page.waitForTimeout(1600);
+      await page.getByRole("button", { name: "Pause", exact: true }).click();
+      const slowedTime = parseFloat(
+        (await page.locator(".sim-time-text").textContent())!,
+      );
+      assert.ok(
+        slowedTime >= 0.2 && slowedTime < 1,
+        `Quarter-speed playback advanced ${slowedTime} simulated seconds`,
+      );
+      await speed.selectOption("1");
+      await expect(speed).toHaveValue("1");
+    }
     await page.getByRole("button", { name: "Density", exact: true }).click();
     await page.getByRole("button", { name: "Speed", exact: true }).click();
     await page.getByRole("button", { name: "Agents", exact: true }).click();

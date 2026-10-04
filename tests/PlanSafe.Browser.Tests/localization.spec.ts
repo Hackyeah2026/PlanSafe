@@ -164,9 +164,32 @@ test("switching a running simulation preserves its state", async ({ page }) => {
 });
 
 test("publishing and sharing work in Polish and English", async ({ page }) => {
-  await page.addInitScript(() =>
-    localStorage.setItem("plansafe.language.v1", "pl"),
-  );
+  await page.addInitScript(() => {
+    localStorage.setItem("plansafe.language.v1", "pl");
+    localStorage.setItem(
+      "plansafe_sessions_v1",
+      JSON.stringify([
+        {
+          id: "localized-publishing",
+          branchName: "Localized publishing",
+          mapCenter: [50.07, 19.9],
+          zoomLevel: 16,
+          items: [
+            {
+              id: "evacuation",
+              type: "circle_zone",
+              center: [50.07, 19.899],
+              radius: 20,
+            },
+            { id: "safe", type: "safe_point", position: [50.07, 19.901] },
+          ],
+          simulationConfig: { agentCount: 100, useGusCensus: false },
+          tags: {},
+        },
+      ]),
+    );
+    localStorage.setItem("plansafe_active_session_id", "localized-publishing");
+  });
   await page.route("**/api/evacuate/publish-plan", (route) =>
     route.fulfill({
       json: {

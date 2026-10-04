@@ -129,6 +129,7 @@ export const TextKeys = {
     Start: "Evacuation.Start",
     Title: "Evacuation.Title",
     WalkingTime: "Evacuation.WalkingTime",
+    ZoneRequired: "Evacuation.ZoneRequired",
   },
   EvacuationUi: {
     Appearance: "EvacuationUi.Appearance",
@@ -719,6 +720,8 @@ export const englishText: Record<TextKey, string> = {
   "Evacuation.Start": "Start evacuation",
   "Evacuation.Title": "Evacuation assistant",
   "Evacuation.WalkingTime": "~{0} min on foot",
+  "Evacuation.ZoneRequired":
+    "Draw at least one evacuation zone before starting an evacuation.",
   "Location.Acquired": "GPS location acquired.",
   "Location.Active": "GPS ACTIVE",
   "Location.BrowserMessage": "Browser message:",

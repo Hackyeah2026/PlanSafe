@@ -27,6 +27,7 @@ public partial class EvacuationMap : IAsyncDisposable
     private DotNetObjectReference<EvacuationMap>? _dotNetRef;
 
     private List<MapZoneItem> _mapItems = new();
+    private bool HasEvacuationZone => _mapItems.Any(item => item.Category == ZoneCategory.EvacuationZone);
     private MapSession? _activeSession;
     private MapSession? _branchParentSession;
     private bool _isCreateBranchOpen = false;
@@ -207,6 +208,14 @@ public partial class EvacuationMap : IAsyncDisposable
     private async Task HandleStartEvacuation()
     {
         if (_isStarting || _isPublishPlanOpen) return;
+        if (!HasEvacuationZone)
+        {
+            _simulationWarningMessage = () => L.Evacuation.ZoneRequired;
+            StateHasChanged();
+            return;
+        }
+
+        _simulationWarningMessage = null;
         await StopSimulation();
         _isPublishPlanOpen = true;
     }
@@ -559,29 +568,11 @@ public partial class EvacuationMap : IAsyncDisposable
         await InvokeAsync(StateHasChanged);
     }
 
-    private Task HandleCycleSpeed()
+    private Task HandleSpeedChanged(double speed)
     {
-        if (_simulationConfig.Unlimited)
-        {
-            _simulationConfig.Unlimited = false;
-            _simulationConfig.TimeScale = 1.0f;
-        }
-        else if (_simulationConfig.TimeScale < 2.0f)
-        {
-            _simulationConfig.TimeScale = 2.5f;
-        }
-        else if (_simulationConfig.TimeScale < 5.0f)
-        {
-            _simulationConfig.TimeScale = 5.0f;
-        }
-        else if (_simulationConfig.TimeScale < 10.0f)
-        {
-            _simulationConfig.TimeScale = 15.0f;
-        }
-        else
-        {
-            _simulationConfig.Unlimited = true;
-        }
+        _simulationConfig.Unlimited = speed == 0;
+        if (!_simulationConfig.Unlimited)
+            _simulationConfig.TimeScale = (float)speed;
         StateHasChanged();
         return Task.CompletedTask;
     }

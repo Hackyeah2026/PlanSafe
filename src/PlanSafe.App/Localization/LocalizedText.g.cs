@@ -166,6 +166,7 @@ public sealed class LocalizedText(IStringLocalizer<UiStrings> strings)
         public string Start => strings["Evacuation.Start"].Value;
         public string Title => strings["Evacuation.Title"].Value;
         public string WalkingTime(object arg0) => strings["Evacuation.WalkingTime", arg0].Value;
+        public string ZoneRequired => strings["Evacuation.ZoneRequired"].Value;
     }
 
     public sealed class EvacuationUiText(IStringLocalizer<UiStrings> strings)

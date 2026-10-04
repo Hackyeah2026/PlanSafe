@@ -360,6 +360,9 @@
   <data name="Evacuation.WalkingTime" xml:space="preserve">
     <value>~{0} min on foot</value>
   </data>
+  <data name="Evacuation.ZoneRequired" xml:space="preserve">
+    <value>Draw at least one evacuation zone before starting an evacuation.</value>
+  </data>
   <data name="Location.Acquired" xml:space="preserve">
     <value>GPS location acquired.</value>
   </data>
