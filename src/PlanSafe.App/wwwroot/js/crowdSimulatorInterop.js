@@ -1344,6 +1344,13 @@ export function initSimulator(canvasRef, mapContainerId = null) {
     gpuEngine.initializeMap(gpuMapSnapshot);
   }
 
+  async function updateMapGpu(snapshot, offsetX, offsetY) {
+    if (!gpuEngine || !isGpuReady)
+      throw new Error("Map GPU simulation is not ready.");
+    await gpuEngine.updateMap(snapshot, offsetX, offsetY);
+    gpuMapSnapshot = snapshot;
+  }
+
   async function initGpu(agentCount, granulation, socialWeight, config) {
     if (!isWebGpuSupported()) {
       throw new Error("WebGPU is not supported in this environment.");
@@ -1531,6 +1538,7 @@ export function initSimulator(canvasRef, mapContainerId = null) {
     setMapTerrain: setMapTerrain,
     initGpu: initGpu,
     initMapGpu: initMapGpu,
+    updateMapGpu: updateMapGpu,
     resetMapGpu: resetMapGpu,
     stepGpu: stepGpu,
     renderGpu: renderGpu,

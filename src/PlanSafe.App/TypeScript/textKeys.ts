@@ -509,6 +509,7 @@ export const TextKeys = {
     Units: "Simulation.Units",
     Unlimited: "Simulation.Unlimited",
     UnlimitedOption: "Simulation.UnlimitedOption",
+    UpdateFailed: "Simulation.UpdateFailed",
     WebGpuUnavailable: "Simulation.WebGpuUnavailable",
     ZoneRequired: "Simulation.ZoneRequired",
   },
@@ -1028,6 +1029,7 @@ export const englishText: Record<TextKey, string> = {
     "Metric units: Agent radius ~{0} m · Speed ~1.4 m/s (5.0 km/h)",
   "Simulation.Unlimited": "Unlimited",
   "Simulation.UnlimitedOption": "Unlimited",
+  "Simulation.UpdateFailed": "Failed to update simulation routes: {0}",
   "Simulation.WebGpuUnavailable": "WebGPU is unavailable in this browser",
   "Simulation.ZoneRequired":
     "Draw at least one evacuation zone before starting the simulation.",

@@ -15,11 +15,19 @@ public sealed class MapSimulationBounds
     public double WorldWidth { get; }
     public double WorldHeight { get; }
 
-    public MapSimulationBounds(List<MapZoneItem> items, MapSession? session)
+    public MapSimulationBounds(List<MapZoneItem> items, MapSession? session, MapSimulationBounds? previous = null)
     {
         (MinimumLatitude, MaximumLatitude, MinimumLongitude, MaximumLongitude) = ComputeBoundingBox(items, session);
+        if (previous is not null)
+        {
+            MinimumLatitude = Math.Min(MinimumLatitude, previous.MinimumLatitude);
+            MaximumLatitude = Math.Max(MaximumLatitude, previous.MaximumLatitude);
+            MinimumLongitude = Math.Min(MinimumLongitude, previous.MinimumLongitude);
+            MaximumLongitude = Math.Max(MaximumLongitude, previous.MaximumLongitude);
+        }
         double midpointLatitude = (MinimumLatitude + MaximumLatitude) / 2.0;
-        MetersPerDegreeLongitude = MetersPerDegreeLatitude * Math.Cos(midpointLatitude * Math.PI / 180.0);
+        MetersPerDegreeLongitude = previous?.MetersPerDegreeLongitude
+            ?? MetersPerDegreeLatitude * Math.Cos(midpointLatitude * Math.PI / 180.0);
         WorldWidth = Math.Max(50.0, (MaximumLongitude - MinimumLongitude) * MetersPerDegreeLongitude);
         WorldHeight = Math.Max(50.0, (MaximumLatitude - MinimumLatitude) * MetersPerDegreeLatitude);
     }

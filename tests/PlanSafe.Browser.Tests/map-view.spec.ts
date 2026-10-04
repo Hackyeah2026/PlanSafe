@@ -328,7 +328,7 @@ for (const mode of [
     await page.getByRole("button", { name: "Pause", exact: true }).click();
     await expect(
       page.getByRole("button", { name: "Start", exact: true }),
-    ).toBeVisible();
+    ).toBeEnabled();
     const time = await page.locator(".sim-time-text").textContent();
     await page.waitForTimeout(200);
     assert.equal(await page.locator(".sim-time-text").textContent(), time);

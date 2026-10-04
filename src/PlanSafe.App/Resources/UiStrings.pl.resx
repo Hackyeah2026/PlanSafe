@@ -1218,6 +1218,9 @@
   <data name="Simulation.UnlimitedOption" xml:space="preserve">
     <value>Bez limitu</value>
   </data>
+  <data name="Simulation.UpdateFailed" xml:space="preserve">
+    <value>Nie udało się zaktualizować tras symulacji: {0}</value>
+  </data>
   <data name="Simulation.WebGpuUnavailable" xml:space="preserve">
     <value>WebGPU niedostępne w tej przeglądarce</value>
   </data>
