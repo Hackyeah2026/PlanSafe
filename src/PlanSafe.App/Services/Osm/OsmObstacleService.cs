@@ -385,12 +385,25 @@ public class OsmObstacleService : IOsmObstacleService
         builder.Fill(isWalkable: true);
         await SetAreasAsync(builder, OsmAreaKind.Water, isWalkable: false);
 
+        // Raster-width fences beside a street can cover its centre even though the
+        // geometries never intersect. Preserve a narrow lane along mapped ground
+        // ways; water, railways and buildings still use their own obstacle rules.
+        var streetCells = new MapScenarioBuilder(builder.Columns * cellSize, builder.Rows * cellSize, cellSize);
+        foreach (var (_, (xs, ys)) in roads)
+        {
+            await scheduler.YieldAsync(cancellationToken);
+            streetCells.SetCorridor(xs, ys, Math.Max(1.0, minimumHalfWidth));
+        }
+        var outsideStreets = streetCells.ToMask();
+        for (int i = 0; i < outsideStreets.Length; i++) outsideStreets[i] = !outsideStreets[i];
+
         var obstacles = new SegmentIndex(20.0);
         foreach (var line in lines)
         {
             await scheduler.YieldAsync(cancellationToken);
             var (xs, ys) = Line(line.Nodes);
-            builder.SetCorridor(xs, ys, Math.Max(line.HalfWidth, minimumHalfWidth), isWalkable: false);
+            builder.SetCorridor(xs, ys, Math.Max(line.HalfWidth, minimumHalfWidth), isWalkable: false,
+                onlyWhere: line.Kind == OsmLineKind.Barrier ? outsideStreets : null);
             for (int i = 0; i + 1 < xs.Length; i++) obstacles.Add(xs[i], ys[i], xs[i + 1], ys[i + 1], line.Kind);
         }
         foreach (var gate in Query(_gateIndex, _gates, minLat, minLng, maxLat, maxLng))
