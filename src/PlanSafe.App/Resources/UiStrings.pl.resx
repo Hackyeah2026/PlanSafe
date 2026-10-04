@@ -1314,4 +1314,226 @@
   <data name="Statistics.Title" xml:space="preserve">
     <value>Analizy i statystyki</value>
   </data>
+  <data name="EvacuationUi.PageTitle" xml:space="preserve">
+    <value>Ewakuacja - PlanSafe</value>
+  </data>
+  <data name="EvacuationUi.Appearance" xml:space="preserve">
+    <value>Wygląd</value>
+  </data>
+  <data name="EvacuationUi.LoadingLabel" xml:space="preserve">
+    <value>Wczytywanie ewakuacji</value>
+  </data>
+  <data name="EvacuationUi.Loading" xml:space="preserve">
+    <value>Wczytywanie schronień i strefy ewakuacji...</value>
+  </data>
+  <data name="EvacuationUi.PlanUnavailable" xml:space="preserve">
+    <value>Plan ewakuacji jest niedostępny</value>
+  </data>
+  <data name="EvacuationUi.RefreshPage" xml:space="preserve">
+    <value>Odśwież stronę</value>
+  </data>
+  <data name="EvacuationUi.MapLabel" xml:space="preserve">
+    <value>Mapa strefy ewakuacji</value>
+  </data>
+  <data name="EvacuationUi.MapSelectLabel" xml:space="preserve">
+    <value>Mapa: wybierz swoją lokalizację wewnątrz strefy ewakuacji</value>
+  </data>
+  <data name="EvacuationUi.MapTools" xml:space="preserve">
+    <value>Narzędzia mapy</value>
+  </data>
+  <data name="EvacuationUi.FitHint" xml:space="preserve">
+    <value>Pokaż całą strefę i schronienia</value>
+  </data>
+  <data name="EvacuationUi.Fit" xml:space="preserve">
+    <value>Dopasuj mapę</value>
+  </data>
+  <data name="EvacuationUi.Legend" xml:space="preserve">
+    <value>Legenda</value>
+  </data>
+  <data name="EvacuationUi.FullShelter" xml:space="preserve">
+    <value>Pełne schronienie</value>
+  </data>
+  <data name="EvacuationUi.Information" xml:space="preserve">
+    <value>Informacje o ewakuacji</value>
+  </data>
+  <data name="EvacuationUi.YourShelter" xml:space="preserve">
+    <value>Twoje schronienie</value>
+  </data>
+  <data name="EvacuationUi.Details" xml:space="preserve">
+    <value>Szczegóły</value>
+  </data>
+  <data name="EvacuationUi.Dismiss" xml:space="preserve">
+    <value>Zamknij</value>
+  </data>
+  <data name="EvacuationUi.CorrectionHint" xml:space="preserve">
+    <value>Wybierz swoją lokalizację wewnątrz strefy na mapie.</value>
+  </data>
+  <data name="EvacuationUi.CancelCorrection" xml:space="preserve">
+    <value>Anuluj zmianę lokalizacji</value>
+  </data>
+  <data name="EvacuationUi.NotSet" xml:space="preserve">
+    <value>Nie ustawiono Twojej lokalizacji.</value>
+  </data>
+  <data name="EvacuationUi.RefreshGps" xml:space="preserve">
+    <value>Odśwież GPS</value>
+  </data>
+  <data name="EvacuationUi.UseGps" xml:space="preserve">
+    <value>Użyj GPS</value>
+  </data>
+  <data name="EvacuationUi.SelectMap" xml:space="preserve">
+    <value>Wybierz na mapie</value>
+  </data>
+  <data name="EvacuationUi.HideMap" xml:space="preserve">
+    <value>Ukryj mapę</value>
+  </data>
+  <data name="EvacuationUi.ShowMap" xml:space="preserve">
+    <value>Pokaż mapę</value>
+  </data>
+  <data name="EvacuationUi.LocationHelp" xml:space="preserve">
+    <value>Pomoc z lokalizacją</value>
+  </data>
+  <data name="EvacuationUi.PreviewHint" xml:space="preserve">
+    <value>Trasa zaczyna się obecnie w środku strefy, a nie w Twojej potwierdzonej lokalizacji.</value>
+  </data>
+  <data name="EvacuationUi.PickHint" xml:space="preserve">
+    <value>Wybierz swoją rzeczywistą lokalizację wewnątrz zacieniowanej strefy ewakuacji.</value>
+  </data>
+  <data name="EvacuationUi.SelectMyLocation" xml:space="preserve">
+    <value>Wybierz moją lokalizację na mapie</value>
+  </data>
+  <data name="EvacuationUi.FindingLocation" xml:space="preserve">
+    <value>Ustalanie lokalizacji...</value>
+  </data>
+  <data name="EvacuationUi.RetryGps" xml:space="preserve">
+    <value>Ponów GPS</value>
+  </data>
+  <data name="EvacuationUi.Assignment" xml:space="preserve">
+    <value>Przydział schronienia</value>
+  </data>
+  <data name="EvacuationUi.Navigate" xml:space="preserve">
+    <value>Nawiguj w Mapach Google</value>
+  </data>
+  <data name="EvacuationUi.NewTab" xml:space="preserve">
+    <value>(otwiera nową kartę)</value>
+  </data>
+  <data name="EvacuationUi.Direction" xml:space="preserve">
+    <value>Kierunek do schronienia</value>
+  </data>
+  <data name="EvacuationUi.BearingHint" xml:space="preserve">
+    <value>Kierunek geograficzny. Sprawdź trasę pieszą w nawigacji.</value>
+  </data>
+  <data name="EvacuationUi.FindingShelter" xml:space="preserve">
+    <value>Wyszukiwanie schronienia...</value>
+  </data>
+  <data name="EvacuationUi.Checking" xml:space="preserve">
+    <value>Sprawdzanie odległości, zajętości i blokad dróg.</value>
+  </data>
+  <data name="EvacuationUi.Where" xml:space="preserve">
+    <value>Gdzie jesteś?</value>
+  </data>
+  <data name="EvacuationUi.LocationHint" xml:space="preserve">
+    <value>Użyj GPS lub wybierz swoją lokalizację wewnątrz strefy na mapie.</value>
+  </data>
+  <data name="EvacuationUi.Outside" xml:space="preserve">
+    <value>Twoja lokalizacja jest poza strefą ewakuacji.</value>
+  </data>
+  <data name="EvacuationUi.CorrectMap" xml:space="preserve">
+    <value>Popraw swoją lokalizację na mapie</value>
+  </data>
+  <data name="EvacuationUi.NoShelter" xml:space="preserve">
+    <value>Brak dostępnego schronienia</value>
+  </data>
+  <data name="EvacuationUi.NoAssignment" xml:space="preserve">
+    <value>Nie ma dostępnego przydziału schronienia dla Twojej lokalizacji.</value>
+  </data>
+  <data name="EvacuationUi.LoadError" xml:space="preserve">
+    <value>Nie udało się wczytać planu ewakuacji. Odśwież stronę, aby spróbować ponownie.</value>
+  </data>
+  <data name="EvacuationUi.WrongPlan" xml:space="preserve">
+    <value>Ten link ewakuacyjny nie odpowiada już opublikowanemu planowi. Poproś organizatora o aktualny link.</value>
+  </data>
+  <data name="EvacuationUi.Expired" xml:space="preserve">
+    <value>Sesja ewakuacji wygasła. Skontaktuj się ze służbami ratunkowymi, aby uzyskać aktualne informacje.</value>
+  </data>
+  <data name="EvacuationUi.GpsDenied" xml:space="preserve">
+    <value>Dostęp do lokalizacji jest zablokowany. Zezwól na lokalizację w ustawieniach witryny w przeglądarce i ponów GPS lub wybierz swoją lokalizację na mapie.</value>
+  </data>
+  <data name="EvacuationUi.GpsTimeout" xml:space="preserve">
+    <value>Ustalanie lokalizacji trwało zbyt długo. Ponów GPS lub wybierz swoją lokalizację na mapie.</value>
+  </data>
+  <data name="EvacuationUi.GpsUnavailable" xml:space="preserve">
+    <value>Urządzenie nie mogło ustalić Twojej lokalizacji. Sprawdź, czy usługi lokalizacji są włączone, lub wybierz swoją lokalizację na mapie.</value>
+  </data>
+  <data name="EvacuationUi.GpsInsecure" xml:space="preserve">
+    <value>GPS wymaga bezpiecznego połączenia HTTPS. Wybierz swoją lokalizację na mapie, aby kontynuować.</value>
+  </data>
+  <data name="EvacuationUi.GpsUnsupported" xml:space="preserve">
+    <value>Ta przeglądarka nie obsługuje GPS. Wybierz swoją lokalizację na mapie, aby kontynuować.</value>
+  </data>
+  <data name="EvacuationUi.GpsError" xml:space="preserve">
+    <value>Nie udało się pobrać Twojej lokalizacji. Ponów GPS lub wybierz swoją lokalizację na mapie.</value>
+  </data>
+  <data name="EvacuationUi.WalkingTime" xml:space="preserve">
+    <value>około {0} min pieszo</value>
+  </data>
+  <data name="EvacuationUi.Places" xml:space="preserve">
+    <value>{0} / {1} miejsc</value>
+  </data>
+  <data name="EvacuationUi.SelectedCoordinates" xml:space="preserve">
+    <value>{0}°N, {1}°E (wybrano na mapie)</value>
+  </data>
+  <data name="EvacuationUx.ExpandPanel" xml:space="preserve">
+    <value>Rozwiń informacje o ewakuacji</value>
+  </data>
+  <data name="EvacuationUx.CollapsePanel" xml:space="preserve">
+    <value>Zwiń informacje o ewakuacji</value>
+  </data>
+  <data name="EvacuationUx.ConfirmLocation" xml:space="preserve">
+    <value>Potwierdź swoją lokalizację</value>
+  </data>
+  <data name="EvacuationUx.PickOnMap" xml:space="preserve">
+    <value>Wybierz swoją lokalizację na mapie</value>
+  </data>
+  <data name="EvacuationUx.PickInside" xml:space="preserve">
+    <value>Wybierz punkt wewnątrz strefy</value>
+  </data>
+  <data name="EvacuationUx.GpsConfirmed" xml:space="preserve">
+    <value>Lokalizacja z GPS</value>
+  </data>
+  <data name="EvacuationUx.MapConfirmed" xml:space="preserve">
+    <value>Lokalizacja wybrana na mapie</value>
+  </data>
+  <data name="EvacuationUx.ChangeLocation" xml:space="preserve">
+    <value>Zmień lokalizację</value>
+  </data>
+  <data name="EvacuationUx.ShelterDetails" xml:space="preserve">
+    <value>Szczegóły schronienia</value>
+  </data>
+  <data name="EvacuationUx.OutsideHint" xml:space="preserve">
+    <value>Twoja lokalizacja jest poza strefą ewakuacji. Wybierz punkt wewnątrz zacieniowanego obszaru.</value>
+  </data>
+  <data name="EvacuationUx.GpsPending" xml:space="preserve">
+    <value>Ustalanie Twojej lokalizacji. Możesz też wybrać ją na mapie.</value>
+  </data>
+  <data name="EvacuationUx.LocationHint" xml:space="preserve">
+    <value>Wybierz, gdzie jesteś, aby znaleźć trasę do schronienia.</value>
+  </data>
+  <data name="EvacuationUx.GpsDenied" xml:space="preserve">
+    <value>Dostęp do lokalizacji jest zablokowany. Wybierz punkt na mapie lub zezwól na lokalizację w ustawieniach przeglądarki i spróbuj ponownie.</value>
+  </data>
+  <data name="EvacuationUx.GpsTimeout" xml:space="preserve">
+    <value>Ustalanie GPS trwa zbyt długo. Wybierz lokalizację na mapie lub spróbuj ponownie.</value>
+  </data>
+  <data name="EvacuationUx.GpsUnavailable" xml:space="preserve">
+    <value>GPS nie ustalił Twojej lokalizacji. Wybierz ją na mapie lub spróbuj ponownie.</value>
+  </data>
+  <data name="EvacuationUx.GpsInsecure" xml:space="preserve">
+    <value>GPS wymaga HTTPS. Wybierz lokalizację na mapie, aby kontynuować.</value>
+  </data>
+  <data name="EvacuationUx.GpsUnsupported" xml:space="preserve">
+    <value>Ta przeglądarka nie obsługuje GPS. Wybierz lokalizację na mapie.</value>
+  </data>
+  <data name="EvacuationUx.GpsError" xml:space="preserve">
+    <value>Nie udało się ustalić lokalizacji. Wybierz ją na mapie lub ponów GPS.</value>
+  </data>
 </root>

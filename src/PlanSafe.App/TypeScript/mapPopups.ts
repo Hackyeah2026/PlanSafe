@@ -95,7 +95,7 @@ export function createShelterPopup(
 ): HTMLElement {
   const popup = element("div", "");
   const hint = bindText(element("small", ""), TextKeys.Shelter.SelectHint);
-  hint.style.color = "#0ea5e9";
+  hint.style.color = "var(--ui-info)";
   popup.append(
     element("strong", "", name),
     document.createElement("br"),
@@ -127,17 +127,18 @@ export function createShelterIcon(
 ): HTMLElement {
   const icon = element("div", "");
   icon.style.cssText =
-    "transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; pointer-events: auto; cursor: pointer;";
+    "display: flex; flex-direction: column; align-items: center; pointer-events: auto; cursor: pointer;";
   const badge = element("div", "", isSelected ? "★" : "⌂");
   badge.style.cssText =
-    "width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 15px;" +
+    "box-sizing: border-box; flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 15px;" +
     (isSelected
       ? "box-shadow: 0 0 0 6px rgba(14, 165, 233, 0.45), 0 0 20px rgba(14, 165, 233, 0.8); border: 2.5px solid #ffffff;"
       : "box-shadow: 0 2px 8px rgba(0,0,0,0.5); border: 1.5px solid rgba(255,255,255,0.85);");
   badge.style.backgroundColor = color;
   const label = element("div", "", `${name} (${occupancyPercent}%)`);
+  label.title = name;
   label.style.cssText =
-    "background-color: rgba(15, 23, 42, 0.88); color: #ffffff; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-top: 3px; white-space: nowrap; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 2px 6px rgba(0,0,0,0.4);";
+    "background: var(--ui-strong); color: var(--ui-text); padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-top: 3px; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; border: 1px solid var(--ui-border); box-shadow: var(--ui-shadow);";
   icon.append(badge, label);
   return icon;
 }

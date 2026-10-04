@@ -1,14 +1,9 @@
 @namespace PlanSafe.App.Components
 
-<div class="map-command-panel @(!Expanded ? "collapsed" : "")">
-    <header class="command-header">
-        <h2><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10" /><path d="M12 11v6M12 7h.01" /></svg> @L.Map.ZoneInfo</h2>
-        <button type="button" class="command-toggle" @onclick="OnToggle" aria-label="@(Expanded ? L.Map.CollapseInfo : L.Map.ExpandInfo)" aria-expanded="@Expanded.ToString().ToLowerInvariant()" aria-controls="map-information-content">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2"><path d="@(Expanded ? "m6 9 6 6 6-6" : "m6 15 6-6 6 6")" /></svg>
-        </button>
-    </header>
-
-    <div id="map-information-content" class="command-content">
+<CollapsibleMapPanel ContentId="map-information-content" Title="@L.Map.ZoneInfo"
+                     Expanded="Expanded" OnToggle="OnToggle" ExpandLabel="@L.Map.ExpandInfo" CollapseLabel="@L.Map.CollapseInfo">
+    <Icon><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10" /><path d="M12 11v6M12 7h.01" /></svg></Icon>
+    <ChildContent>
         <section class="command-overview" aria-label="@L.Census.Population">
             @if (!HasEvacuationZone)
             {
@@ -61,8 +56,8 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 20V12M12 20V4M19 20V9" /></svg> @L.Statistics.Label
             </AppButton>
         </footer>
-    </div>
-</div>
+    </ChildContent>
+</CollapsibleMapPanel>
 
 @code {
     [Parameter] public bool HasEvacuationZone { get; set; }

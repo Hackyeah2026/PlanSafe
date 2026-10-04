@@ -190,7 +190,9 @@ code {
 }
 
 /* Leaflet creates these children outside Blazor's CSS isolation. */
-.map-module-layout .plansafe-leaflet-popup .leaflet-popup-content-wrapper {
+:is(.map-module-layout, .evac-workspace)
+  .plansafe-leaflet-popup
+  .leaflet-popup-content-wrapper {
   color: var(--ui-text);
   background: var(--ui-strong);
   backdrop-filter: var(--ui-blur);
@@ -201,16 +203,22 @@ code {
     inset 0 1px 0 var(--ui-edge);
   padding: 2px;
 }
-.map-module-layout .plansafe-leaflet-popup .leaflet-popup-tip {
+:is(.map-module-layout, .evac-workspace)
+  .plansafe-leaflet-popup
+  .leaflet-popup-tip {
   background: var(--ui-strong);
   border: 1px solid var(--ui-border);
 }
-.map-module-layout .plansafe-leaflet-popup .leaflet-popup-close-button {
+:is(.map-module-layout, .evac-workspace)
+  .plansafe-leaflet-popup
+  .leaflet-popup-close-button {
   color: var(--ui-muted);
   top: 8px;
   right: 8px;
 }
-.map-module-layout .plansafe-leaflet-popup .leaflet-popup-close-button:hover {
+:is(.map-module-layout, .evac-workspace)
+  .plansafe-leaflet-popup
+  .leaflet-popup-close-button:hover {
   color: var(--ui-text);
 }
 .map-module-layout .map-popup-card {
@@ -275,17 +283,17 @@ code {
   cursor: pointer;
 }
 /* Leaflet-generated controls use the same material as the floating panels. */
-.map-module-layout .leaflet-container {
+:is(.map-module-layout, .evac-workspace) .leaflet-container {
   font-family: inherit;
 }
-.map-module-layout .leaflet-top.leaflet-left {
+:is(.map-module-layout, .evac-workspace) .leaflet-top.leaflet-left {
   top: auto;
-  bottom: 12px;
+  bottom: max(16px, env(safe-area-inset-bottom));
 }
-.map-module-layout .leaflet-left .leaflet-control {
-  margin-left: 16px;
+:is(.map-module-layout, .evac-workspace) .leaflet-left .leaflet-control {
+  margin: 0 0 0 max(16px, env(safe-area-inset-left));
 }
-.map-module-layout .leaflet-control-zoom {
+:is(.map-module-layout, .evac-workspace) .leaflet-control-zoom {
   background: var(--ui-surface);
   color: var(--ui-text);
   border: 1px solid var(--ui-border);
@@ -295,15 +303,20 @@ code {
   box-shadow: var(--ui-shadow);
   overflow: hidden;
 }
-.map-module-layout .leaflet-control-zoom a {
+:is(.map-module-layout, .evac-workspace) .leaflet-control-zoom a {
+  width: 44px;
+  height: 44px;
+  line-height: 44px;
   color: inherit;
   background: transparent;
   border-bottom-color: var(--ui-border);
 }
-.map-module-layout .leaflet-control-zoom a:hover {
+:is(.map-module-layout, .evac-workspace) .leaflet-control-zoom a:hover {
   background: var(--ui-fill);
 }
-.map-module-layout .leaflet-container .leaflet-control-attribution {
+:is(.map-module-layout, .evac-workspace)
+  .leaflet-container
+  .leaflet-control-attribution {
   background: var(--ui-surface);
   color: var(--ui-muted);
   border-top-left-radius: 8px;
@@ -311,33 +324,44 @@ code {
 .map-module-layout .leaflet-popup-pane {
   z-index: 1100;
 }
-[data-bs-theme="dark"] .map-module-layout .leaflet-tile-pane {
+[data-bs-theme="dark"]
+  :is(.map-module-layout, .evac-workspace)
+  .leaflet-tile-pane {
   filter: invert(1) hue-rotate(180deg) brightness(1.06) contrast(0.88)
     saturate(0.55);
 }
-[data-bs-theme="dark"] .map-module-layout .leaflet-container {
+[data-bs-theme="dark"]
+  :is(.map-module-layout, .evac-workspace)
+  .leaflet-container {
   background: #2b2d33;
 }
 @media (max-width: 767.98px) {
-  .map-module-layout .leaflet-left .leaflet-control {
-    margin-left: 10px;
+  :is(.map-module-layout, .evac-workspace) .leaflet-top.leaflet-left {
+    top: calc(max(10px, env(safe-area-inset-top)) + 74px);
+    bottom: auto;
+    left: auto;
+    right: max(10px, env(safe-area-inset-right));
+  }
+  :is(.map-module-layout, .evac-workspace) .leaflet-left .leaflet-control {
+    margin: 0;
   }
   .map-module-layout .leaflet-top.leaflet-left {
-    bottom: 92px;
-  }
-  .map-module-layout.panel-open .leaflet-top.leaflet-left {
-    bottom: calc(46dvh + 36px);
+    top: max(10px, env(safe-area-inset-top));
   }
 }
 
-@media (max-width: 767.98px) {
-  .map-module-layout.simulating .leaflet-top.leaflet-left {
-    bottom: 250px;
-  }
-  .map-module-layout.panel-open.simulating .leaflet-top.leaflet-left {
-    bottom: calc(46dvh + 190px);
-  }
-  .map-module-layout.simulating .leaflet-left .leaflet-control {
-    margin-left: 78px;
-  }
+/* Leaflet owns these elements, so citizen-map rules cannot use Razor CSS isolation. */
+.evac-workspace .leaflet-popup-content {
+  overflow-wrap: anywhere;
+}
+.evac-workspace .leaflet-control-attribution {
+  max-width: 100vw;
+}
+.evac-workspace .citizen-position {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ui-primary-bg);
+  border: 3px solid white;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--ui-accent) 20%, transparent);
 }

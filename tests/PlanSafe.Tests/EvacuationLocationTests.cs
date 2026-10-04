@@ -29,7 +29,7 @@ public class EvacuationLocationTests
     }
 
     [Fact]
-    public void MissingGpsStartsAtZoneCentroidWithVerificationWarning()
+    public void MissingGpsFramesZoneCenterButCannotNavigate()
     {
         var page = new Evacuate();
         Set(page, "evacZones", new List<List<GeoCoordinate>>
@@ -44,7 +44,11 @@ public class EvacuationLocationTests
         Assert.Equal(50.0001, (double)Get("gpsLatitude")!, 9);
         Assert.Equal(19.0001, (double)Get("gpsLongitude")!, 9);
         Assert.True((bool)Get("isProvisionalLocation")!);
-        Assert.False((bool)Get("isLocationWarningDismissed")!);
+        var target = new EvacuationTarget("test", "Shelter", 19.0001, 50.0001, 1, 1, 100, 0);
+        Set(page, "assignment", new TargetAssignmentResponse(target, 10));
+        var url = typeof(Evacuate).GetMethod("GetMapsUrl", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .Invoke(page, new object[] { target });
+        Assert.Null(url);
     }
 
     [Fact]

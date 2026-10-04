@@ -1,0 +1,45 @@
+@using PlanSafe.Contracts.Models.Simulation
+
+<section class="assignment" aria-label="@L.EvacuationUi.Assignment" aria-busy="@Loading.ToString().ToLowerInvariant()">
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <StatusMessage Tone="StatusTone.Warning" role="alert">@ErrorMessage</StatusMessage>
+    }
+    @if (Assignment?.Target is { } target && NavigationUrl is not null)
+    {
+        <h3 class="target-name" data-testid="target-name" aria-live="polite">@target.Name</h3>
+        <p class="target-journey">
+            <strong data-testid="target-distance">@(Assignment.Distance >= 1000 ? $"{Assignment.Distance / 1000:F2} km" : $"{Assignment.Distance:F0} m")</strong>
+            <span class="ui-muted">@L.EvacuationUi.WalkingTime(EstimatedWalkMinutes)</span>
+        </p>
+        <a href="@NavigationUrl" target="_blank" rel="noopener noreferrer" class="app-button app-button--primary navigation-link">
+            @L.EvacuationUi.Navigate <UiIcon Kind="UiIconKind.ArrowRight" />
+            <span class="visually-hidden">@L.EvacuationUi.NewTab</span>
+        </a>
+        <details class="shelter-details">
+            <summary>@L.EvacuationUx.ShelterDetails</summary>
+            <div class="occupancy-row"><span>@L.Shelter.Occupancy</span><span data-testid="target-occupancy">@L.EvacuationUi.Places(target.CurrentOccupancy, target.Capacity)</span></div>
+        </details>
+    }
+    else if (Loading)
+    {
+        <p role="status" data-testid="calculating-assignment">@L.EvacuationUi.FindingShelter</p>
+    }
+    else
+    {
+        <div class="assignment-state">
+            <h3>@L.EvacuationUi.NoShelter</h3>
+            <p class="ui-muted">@L.EvacuationUi.NoAssignment</p>
+            <AppButton OnClick="OnRefresh">@L.Common.Retry</AppButton>
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter] public TargetAssignmentResponse? Assignment { get; set; }
+    [Parameter] public string? NavigationUrl { get; set; }
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public string? ErrorMessage { get; set; }
+    [Parameter] public EventCallback OnRefresh { get; set; }
+    private int EstimatedWalkMinutes => Math.Max(1, (int)Math.Ceiling((Assignment?.Distance ?? 0) / 72));
+}

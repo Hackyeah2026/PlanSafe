@@ -1,37 +1,3 @@
-.map-command-panel {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  width: 100%;
-}
-.command-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 16px;
-  flex: none;
-}
-.command-header h2 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-size: 15px;
-  font-weight: 650;
-}
-.command-header svg {
-  width: 15px;
-  height: 15px;
-  flex: none;
-}
-.command-toggle {
-  display: none;
-}
-.command-content {
-  overflow-y: auto;
-  min-height: 0;
-}
 .command-overview {
   padding: 16px;
 }
@@ -162,26 +128,6 @@
   font-size: 11px;
 }
 @media (max-width: 767.98px) {
-  .command-header {
-    padding: 6px 12px 6px 16px;
-  }
-  .command-toggle {
-    display: grid;
-    place-items: center;
-    min-width: 44px;
-    min-height: 44px;
-    padding: 0;
-    border: 0;
-    border-radius: var(--ui-control-radius);
-    color: inherit;
-    background: transparent;
-  }
-  .command-toggle:hover {
-    background: var(--ui-fill);
-  }
-  .collapsed .command-content {
-    display: none;
-  }
   .command-empty {
     padding: 8px;
   }

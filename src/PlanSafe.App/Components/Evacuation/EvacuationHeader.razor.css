@@ -1,0 +1,81 @@
+.evac-header {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top));
+  left: max(16px, env(safe-area-inset-left));
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 4px 12px;
+}
+.evac-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.evac-brand ::deep svg {
+  color: var(--ui-accent);
+  width: 18px;
+  height: 18px;
+}
+h1 {
+  margin: 0;
+  padding-left: 8px;
+  border-left: 1px solid var(--ui-border);
+  font-size: 14px;
+  font-weight: 400;
+}
+.evac-appearance {
+  position: relative;
+}
+summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.appearance-icon {
+  display: flex;
+  font-size: 20px;
+}
+.appearance-content {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 12px);
+  width: 280px;
+  max-width: calc(100vw - 40px);
+  padding: 12px;
+}
+@media (max-width: 767.98px) {
+  .evac-header {
+    top: max(10px, env(safe-area-inset-top));
+    left: max(10px, env(safe-area-inset-left));
+    right: max(10px, env(safe-area-inset-right));
+    gap: 8px;
+  }
+}
+
+@media (max-height: 540px) and (min-width: 600px) and (max-width: 767.98px) {
+  .evac-header {
+    right: calc(max(10px, env(safe-area-inset-right)) + 396px);
+  }
+  .appearance-content {
+    position: fixed;
+    top: 64px;
+    left: 0;
+    right: auto;
+  }
+  .evac-brand > span {
+    display: none;
+  }
+  h1 {
+    border: 0;
+    padding: 0;
+  }
+}

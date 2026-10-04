@@ -6,6 +6,10 @@ namespace PlanSafe.Tests;
 public class EvacuationApiUrlResolverTests
 {
     [Theory]
+    [InlineData("http://127.0.0.1:5000/", "http://127.0.0.1:5001")]
+    [InlineData("http://localhost:5000/", "http://localhost:5001")]
+    [InlineData("http://192.168.1.10:5000/", "http://192.168.1.10:5001")]
+    [InlineData("http://[::1]:5000/", "http://[::1]:5001")]
     [InlineData("http://127.0.0.1:5050/", "http://127.0.0.1:5051")]
     [InlineData("http://localhost:5050/", "http://localhost:5051")]
     [InlineData("http://192.168.1.10:5050/", "http://192.168.1.10:5051")]
