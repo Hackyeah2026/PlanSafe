@@ -114,7 +114,7 @@ test("switching updates Razor and map popups without restarting the page, and pe
   await expect(page.locator("html")).toHaveAttribute("lang", "pl");
   await page.goto("/evacuate");
   await expect(
-    page.getByText("Asystent ewakuacji", { exact: true }),
+    page.getByText("Twoja trasa ewakuacji", { exact: true }),
   ).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("lang", "pl");
 });
@@ -156,4 +156,53 @@ test("switching a running simulation preserves its state", async ({ page }) => {
   ).toBeVisible();
   await menu.getByRole("button", { name: "English", exact: true }).click();
   await expect(page.getByTestId("status")).toContainText("Running");
+});
+
+test("publishing and sharing work in Polish and English", async ({ page }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem("plansafe.language.v1", "pl"),
+  );
+  await page.route("**/api/evacuate/publish-plan", (route) =>
+    route.fulfill({
+      json: {
+        sessionId: "LANGTEST",
+        evacuateUrl: "http://127.0.0.1:5171/evacuate?session=LANGTEST",
+        qrCodeSvg:
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" /></svg>',
+      },
+    }),
+  );
+  await page.goto("/map");
+  await page
+    .getByRole("button", { name: "Rozpocznij ewakuację", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Opublikuj plan", exact: true })
+    .click();
+  let dialog = page.getByRole("dialog");
+  await expect(
+    dialog.getByRole("heading", { name: "Udostępnij plan ewakuacji" }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("link", { name: "Ewakuuj kolejną osobę" }),
+  ).toHaveAttribute("href", /session=LANGTEST$/);
+  await dialog
+    .getByRole("button", { name: "Zamknij", exact: true })
+    .last()
+    .click();
+  const menu = await openMenu(page);
+  await menu.getByRole("button", { name: "English", exact: true }).click();
+  await menu.locator("summary").click();
+  await page
+    .getByRole("button", { name: "Start evacuation", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Publish plan", exact: true }).click();
+  dialog = page.getByRole("dialog");
+  await expect(
+    dialog.getByRole("heading", { name: "Share evacuation plan" }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("link", { name: "Evacuate next person" }),
+  ).toHaveAttribute("href", /session=LANGTEST$/);
+  await expect(dialog).toContainText("LANGTEST");
 });

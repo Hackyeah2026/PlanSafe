@@ -57,7 +57,7 @@ public static class TargetSelector
                         Target: null,
                         Distance: 0.0,
                         OccupancyRatio: 0.0,
-                        Instructions: "Twoja obecna lokalizacja znajduje się poza wyznaczoną strefą ewakuacji.",
+                        Instructions: "Your current location is outside the designated evacuation zone.",
                         CalculatedCost: 0.0,
                         IsSimulationEngineBased: false,
                         TargetEvaluations: Array.Empty<TargetEvaluationDto>(),
@@ -74,7 +74,7 @@ public static class TargetSelector
                 Target: null,
                 Distance: 0.0,
                 OccupancyRatio: 0.0,
-                Instructions: "Brak dostępnych punktów ewakuacji.",
+                Instructions: "No evacuation points available.",
                 CalculatedCost: 0.0,
                 IsSimulationEngineBased: false,
                 TargetEvaluations: Array.Empty<TargetEvaluationDto>());
@@ -87,7 +87,7 @@ public static class TargetSelector
                 Target: null,
                 Distance: 0.0,
                 OccupancyRatio: 0.0,
-                Instructions: "Brak aktywnych punktów ewakuacyjnych.",
+                Instructions: "No active evacuation points.",
                 CalculatedCost: 0.0,
                 IsSimulationEngineBased: false,
                 TargetEvaluations: Array.Empty<TargetEvaluationDto>());
@@ -255,7 +255,7 @@ public static class TargetSelector
         string instructions = FormatInstructions(selectedTarget, selectedDist, selectedOccRatio);
         if (isOutsideZone)
         {
-            instructions = $"Uwaga: Jesteś poza wyznaczoną strefą ewakuacji. {instructions}";
+            instructions = $"Warning: You are outside the designated evacuation zone. {instructions}";
         }
 
         return new TargetAssignmentResponse(
@@ -294,7 +294,7 @@ public static class TargetSelector
                 Target: null,
                 Distance: 0.0,
                 OccupancyRatio: 0.0,
-                Instructions: "Brak dostępnych punktów ewakuacji.",
+                Instructions: "No evacuation points available.",
                 CalculatedCost: 0.0,
                 IsSimulationEngineBased: false,
                 TargetEvaluations: Array.Empty<TargetEvaluationDto>());
@@ -307,7 +307,7 @@ public static class TargetSelector
                 Target: null,
                 Distance: 0.0,
                 OccupancyRatio: 0.0,
-                Instructions: "Brak aktywnych punktów ewakuacyjnych.",
+                Instructions: "No active evacuation points.",
                 CalculatedCost: 0.0,
                 IsSimulationEngineBased: false,
                 TargetEvaluations: Array.Empty<TargetEvaluationDto>());
@@ -447,14 +447,14 @@ public static class TargetSelector
 
         string safetyStatus;
         if (occupancyRatio < 0.50)
-            safetyStatus = $"Bezpiecznie (obłożenie {(occupancyRatio * 100):F0}%)";
+            safetyStatus = $"Safe (occupancy {(occupancyRatio * 100):F0}%)";
         else if (occupancyRatio < 0.80)
-            safetyStatus = $"Umiarkowane obłożenie ({(occupancyRatio * 100):F0}%)";
+            safetyStatus = $"Moderate occupancy ({(occupancyRatio * 100):F0}%)";
         else if (occupancyRatio < 1.00)
-            safetyStatus = $"Wysokie obłożenie ({(occupancyRatio * 100):F0}%)";
+            safetyStatus = $"High occupancy ({(occupancyRatio * 100):F0}%)";
         else
-            safetyStatus = $"Przepełniony ({(occupancyRatio * 100):F0}%)";
+            safetyStatus = $"Over capacity ({(occupancyRatio * 100):F0}%)";
 
-        return $"Kieruj się do: {target.Name} (Odległość: {distFormatted} • {safetyStatus})";
+        return $"Head to: {target.Name} (Distance: {distFormatted} • {safetyStatus})";
     }
 }

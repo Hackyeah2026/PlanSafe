@@ -245,7 +245,7 @@ public sealed class TargetSelectorTests
 
         Assert.True(result.IsOutsideZone);
         Assert.Null(result.Target);
-        Assert.Contains("poza wyznaczoną strefą", result.Instructions);
+        Assert.Contains("outside the designated evacuation zone", result.Instructions);
     }
 
     [Fact]

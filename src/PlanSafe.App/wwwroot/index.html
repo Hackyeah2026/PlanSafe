@@ -113,9 +113,10 @@
                             window.planSafeTextKeys.Location.Unavailable,
                           )
                         : err2.code === 3
-                          ? "Przekroczono limit czasu oczekiwania na GPS."
-                          : err2.message ||
-                            window.planSafeLocalization.text(
+                          ? window.planSafeLocalization.text(
+                              window.planSafeTextKeys.Location.Timeout,
+                            )
+                          : window.planSafeLocalization.text(
                               window.planSafeTextKeys.Location.Error,
                             );
                   resolve({

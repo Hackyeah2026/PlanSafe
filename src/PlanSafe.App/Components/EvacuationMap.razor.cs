@@ -187,6 +187,13 @@ public partial class EvacuationMap : IAsyncDisposable
         await HandleCheckoutSession(newBranch);
     }
 
+    private async Task HandleStartEvacuation()
+    {
+        if (_isStarting || _isPublishPlanOpen) return;
+        await StopSimulation();
+        _isPublishPlanOpen = true;
+    }
+
     private async Task HandleStartSimulation()
     {
         if (_isStarting) return;
@@ -429,10 +436,6 @@ public partial class EvacuationMap : IAsyncDisposable
             _statsCollector.Reset(_engine.AgentCount);
 
             // 6. Initialize JS Canvas Overlay
-            _isSimulating = true;
-            StateHasChanged();
-            await Task.Delay(25);
-
             _simModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/crowdSimulatorInterop.js");
             _simulator ??= await _simModule.InvokeAsync<IJSObjectReference>("initMapSimulator", _simCanvasRef, MapContainerId);
 
@@ -447,6 +450,10 @@ public partial class EvacuationMap : IAsyncDisposable
                 obstacles = Array.Empty<object>(),
                 targets = targets.Select(t => new { x = t.X, y = t.Y, width = t.Width, height = t.Height, name = t.Name, id = t.Id })
             });
+
+            await _simulator.InvokeVoidAsync("setMapTerrain",
+                Array.ConvertAll(mapScenario.Blocked, blocked => blocked ? (byte)1 : (byte)0),
+                mapScenario.Columns, mapScenario.Rows, mapScenario.CellSize);
 
             _activeEngine = "wasm";
             try
@@ -466,8 +473,9 @@ public partial class EvacuationMap : IAsyncDisposable
             }
 
             if (_disposed) return;
-            // 7. Show agents on map immediately!
+            // 7. Prepare the first frame before revealing the overlay.
             await RequestRender();
+            _isSimulating = true;
 
             // 8. Start simulation loop
             StartSimulationLoop();

@@ -649,6 +649,58 @@ struct SimParams {
 const cOffsets = array<i32, 8>(0, 0, -1, 1, -1, 1, -1, 1);
 const rOffsets = array<i32, 8>(-1, 1, 0, 0, -1, -1, 1, 1);
 
+fn mapPositionBlocked(pos: vec2<f32>) -> bool {
+    let col = i32(floor(pos.x / params.mapCellSize));
+    let row = i32(floor(pos.y / params.mapCellSize));
+    if (col < 0 || row < 0 || col >= i32(params.mapCols) || row >= i32(params.mapRows)) { return true; }
+    return blockedRaster[u32(row) * params.mapCols + u32(col)] != 0u;
+}
+
+fn mapCircleClear(pos: vec2<f32>, radius: f32) -> bool {
+    if (any(pos < vec2<f32>(radius)) || any(pos > vec2<f32>(params.worldWidth - radius, params.worldHeight - radius))) { return false; }
+    let cell = params.mapCellSize;
+    let first = max(vec2<i32>(0), vec2<i32>(floor((pos - vec2<f32>(radius)) / cell)));
+    let last = min(vec2<i32>(i32(params.mapCols) - 1, i32(params.mapRows) - 1), vec2<i32>(floor((pos + vec2<f32>(radius)) / cell)));
+    for (var row = first.y; row <= last.y; row++) {
+        for (var col = first.x; col <= last.x; col++) {
+            if (blockedRaster[u32(row) * params.mapCols + u32(col)] == 0u) { continue; }
+            let lo = vec2<f32>(f32(col), f32(row)) * cell;
+            let d = pos - clamp(pos, lo, lo + vec2<f32>(cell));
+            if (dot(d, d) < radius * radius - 0.000001) { return false; }
+        }
+    }
+    return true;
+}
+
+fn mapMovementBlocked(startPos: vec2<f32>, endPos: vec2<f32>) -> bool {
+    let cell = params.mapCellSize;
+    let first = max(vec2<i32>(0), vec2<i32>(floor(min(startPos, endPos) / cell)));
+    let last = min(vec2<i32>(i32(params.mapCols) - 1, i32(params.mapRows) - 1), vec2<i32>(floor(max(startPos, endPos) / cell)));
+    let delta = endPos - startPos;
+    for (var row = first.y; row <= last.y; row++) {
+        for (var col = first.x; col <= last.x; col++) {
+            if (blockedRaster[u32(row) * params.mapCols + u32(col)] == 0u) { continue; }
+            let lo = vec2<f32>(f32(col), f32(row)) * cell;
+            let hi = lo + vec2<f32>(cell);
+            var enter = 0.0;
+            var leave = 1.0;
+            var intersects = true;
+            for (var axis = 0u; axis < 2u; axis++) {
+                if (abs(delta[axis]) < 0.000001) {
+                    if (startPos[axis] < lo[axis] || startPos[axis] > hi[axis]) { intersects = false; }
+                } else {
+                    let a = (lo[axis] - startPos[axis]) / delta[axis];
+                    let b = (hi[axis] - startPos[axis]) / delta[axis];
+                    enter = max(enter, min(a, b));
+                    leave = min(leave, max(a, b));
+                }
+            }
+            if (intersects && enter <= leave && leave > 0.0 && enter < 1.0) { return true; }
+        }
+    }
+    return false;
+}
+
 // Bilinear gradient interpolation matching C# GetFlowDirection exactly
 fn getFlowDirection(pos: vec2<f32>) -> vec2<f32> {
     let pCols = params.potCols;
@@ -1341,21 +1393,20 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         velInertia = max(0.12, velInertia / inertiaDamping);
     }
 
+    let previousPosition = agent.pos;
     agent.vel = agent.vel * (1.0 - velInertia) + finalForce * velInertia;
     agent.pos += agent.vel * params.dt;
 
     // 11. Circle-box collision resolution
     if (params.isMap == 1u) {
         let cell = params.mapCellSize;
-        let curCol = i32(floor(agent.pos.x / cell));
-        let curRow = i32(floor(agent.pos.y / cell));
+        let minCol = max(0, i32(floor((agent.pos.x - agent.radius) / cell)));
+        let maxCol = min(i32(params.mapCols) - 1, i32(floor((agent.pos.x + agent.radius) / cell)));
+        let minRow = max(0, i32(floor((agent.pos.y - agent.radius) / cell)));
+        let maxRow = min(i32(params.mapRows) - 1, i32(floor((agent.pos.y + agent.radius) / cell)));
 
-        for (var dr = -1; dr <= 1; dr++) {
-            let r = curRow + dr;
-            if (r < 0 || r >= i32(params.mapRows)) { continue; }
-            for (var dc = -1; dc <= 1; dc++) {
-                let c = curCol + dc;
-                if (c < 0 || c >= i32(params.mapCols)) { continue; }
+        for (var r = minRow; r <= maxRow; r++) {
+            for (var c = minCol; c <= maxCol; c++) {
                 let cellIdx = u32(r) * params.mapCols + u32(c);
                 if (blockedRaster[cellIdx] == 0u) { continue; }
 
@@ -1367,17 +1418,54 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 let qy = clamp(agent.pos.y, minY, maxY);
                 let dbox = agent.pos - vec2<f32>(qx, qy);
                 let dboxSq = dot(dbox, dbox);
-                if (dboxSq < agent.radius * agent.radius && dboxSq > 0.000001) {
-                    let d = sqrt(dboxSq);
-                    let norm = dbox / d;
-                    let pen = agent.radius - d;
-                    agent.pos += norm * pen;
-                    let nVel = dot(agent.vel, norm);
-                    if (nVel < 0.0) {
-                        agent.vel -= nVel * norm;
+                if (dboxSq < agent.radius * agent.radius) {
+                    if (dboxSq > 0.000001) {
+                        let d = sqrt(dboxSq);
+                        let norm = dbox / d;
+                        let pen = agent.radius - d;
+                        agent.pos += norm * pen;
+                        let nVel = dot(agent.vel, norm);
+                        if (nVel < 0.0) { agent.vel -= nVel * norm; }
+                    } else {
+                        let distances = vec4<f32>(agent.pos.x - minX, maxX - agent.pos.x, agent.pos.y - minY, maxY - agent.pos.y);
+                        let nearest = min(min(distances.x, distances.y), min(distances.z, distances.w));
+                        if (nearest == distances.x) { agent.pos.x = minX - agent.radius; agent.vel.x = min(0.0, agent.vel.x); }
+                        else if (nearest == distances.y) { agent.pos.x = maxX + agent.radius; agent.vel.x = max(0.0, agent.vel.x); }
+                        else if (nearest == distances.z) { agent.pos.y = minY - agent.radius; agent.vel.y = min(0.0, agent.vel.y); }
+                        else { agent.pos.y = maxY + agent.radius; agent.vel.y = max(0.0, agent.vel.y); }
                     }
                 }
             }
+        }
+
+        // Resolving one raster box can push into its neighbor at a concave
+        // corner. Keep the last walkable position instead of crossing a wall.
+        agent.pos = clamp(agent.pos, vec2<f32>(agent.radius), vec2<f32>(params.worldWidth - agent.radius, params.worldHeight - agent.radius));
+        if (!mapPositionBlocked(previousPosition) && (mapPositionBlocked(agent.pos) || mapMovementBlocked(previousPosition, agent.pos))) {
+            agent.pos = previousPosition;
+            agent.vel = vec2<f32>(0.0);
+        } else if (mapPositionBlocked(agent.pos)) {
+            // Repair an already embedded snapshot against the whole building,
+            // rather than pushing back and forth between adjacent wall cells.
+            let center = vec2<i32>(floor(previousPosition / cell));
+            let reach = i32(ceil(20.0 / cell));
+            var bestDistance = 400.0;
+            var bestPosition = agent.pos;
+            for (var row = max(0, center.y - reach); row <= min(i32(params.mapRows) - 1, center.y + reach); row++) {
+                for (var col = max(0, center.x - reach); col <= min(i32(params.mapCols) - 1, center.x + reach); col++) {
+                    if (blockedRaster[u32(row) * params.mapCols + u32(col)] != 0u) { continue; }
+                    let candidate = (vec2<f32>(f32(col), f32(row)) + vec2<f32>(0.5)) * cell;
+                    let d = candidate - previousPosition;
+                    let distance = dot(d, d);
+                    if (distance > bestDistance || !mapCircleClear(candidate, agent.radius)) { continue; }
+                    let pc = clamp(vec2<i32>(floor(candidate / params.potCellSize)), vec2<i32>(0), vec2<i32>(i32(params.potCols) - 1, i32(params.potRows) - 1));
+                    if (potentialGrid[u32(pc.y) * params.potCols + u32(pc.x)] >= 1.7014117e38) { continue; }
+                    bestDistance = distance;
+                    bestPosition = candidate;
+                }
+            }
+            agent.pos = bestPosition;
+            agent.vel = vec2<f32>(0.0);
         }
 
         // Evacuation check: agent reached an exit

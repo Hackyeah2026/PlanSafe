@@ -9,7 +9,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:parity": "node --test scripts/test-physics-parity.ts",
     "test:potential": "npm run build && node --test scripts/test-potential-parity.ts",
-    "test:camera": "npm run build && node --test scripts/test-camera-transform.mjs",
+    "test:camera": "npm run build && node --test scripts/test-camera-transform.mjs scripts/test-heatmap.mjs",
     "test:map": "npm run build && tsc -p tsconfig.tests.json && node --test scripts/test-map-interop.ts",
     "test:gpu": "npm run test:browser",
     "format": "prettier --write . && dotnet format whitespace PlanSafe.slnx",

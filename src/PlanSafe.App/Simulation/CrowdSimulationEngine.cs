@@ -2250,10 +2250,21 @@ public class CrowdSimulationEngine
             AgentPositionX[agentIndex] = Math.Clamp(AgentPositionX[agentIndex], AgentRadius[agentIndex], WorldWidth - AgentRadius[agentIndex]);
             AgentPositionY[agentIndex] = Math.Clamp(AgentPositionY[agentIndex], AgentRadius[agentIndex], WorldHeight - AgentRadius[agentIndex]);
 
-            // Total blockade: agents are physically rejected from ever remaining inside a blocked building cell
-            if (IsMapScenario && MapScenario!.IsBlockedAt(AgentPositionX[agentIndex], AgentPositionY[agentIndex]))
+            // A collision correction must not jump across a thin wall or cut a
+            // blocked corner, even when the final cell happens to be open.
+            if (IsMapScenario && !MapScenario!.IsBlockedAt(px, py) &&
+                MapScenario.CrossesBlockedCell(px, py, AgentPositionX[agentIndex], AgentPositionY[agentIndex]))
             {
-                if (FindNearestReachable(AgentPositionX[agentIndex], AgentPositionY[agentIndex], 20.0) is { } openCell)
+                AgentPositionX[agentIndex] = px;
+                AgentPositionY[agentIndex] = py;
+                AgentVelocityX[agentIndex] = 0;
+                AgentVelocityY[agentIndex] = 0;
+            }
+            // Recover invalid starting state without allowing a normal step to
+            // teleport to the other side of a building.
+            else if (IsMapScenario && MapScenario!.IsBlockedAt(AgentPositionX[agentIndex], AgentPositionY[agentIndex]))
+            {
+                if (FindNearestReachable(AgentPositionX[agentIndex], AgentPositionY[agentIndex], 20.0, radius) is { } openCell)
                 {
                     double nudgeX = openCell.X - AgentPositionX[agentIndex];
                     double nudgeY = openCell.Y - AgentPositionY[agentIndex];

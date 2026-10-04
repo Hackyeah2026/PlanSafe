@@ -85,13 +85,13 @@ evacGroup.MapGet("/obstacles", (IEvacuationStateService stateService) =>
 evacGroup.MapPost("/targets/{id}/occupancy", (string id, TargetOccupancyUpdateRequest request, IEvacuationStateService stateService) =>
 {
     bool success = stateService.UpdateTargetOccupancy(id, request.Occupancy);
-    return success ? Results.Ok(new GenericActionResult(true, "Zaktualizowano obłożenie.")) : Results.NotFound(new GenericActionResult(false, "Target not found"));
+    return success ? Results.Ok(new GenericActionResult(true, "Zaktualizowano occupancy.")) : Results.NotFound(new GenericActionResult(false, "Target not found"));
 });
 
 evacGroup.MapPost("/reset", (IEvacuationStateService stateService) =>
 {
     stateService.Reset();
-    return Results.Ok(new GenericActionResult(true, "Stan ewakuacji został zresetowany."));
+    return Results.Ok(new GenericActionResult(true, "Evacuation state has been reset."));
 });
 
 evacGroup.MapPost("/cleanup-inactive", (IEvacuationStateService stateService) =>

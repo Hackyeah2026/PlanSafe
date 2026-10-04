@@ -44,7 +44,7 @@ test("missing or outside location focuses the first zone without refitting on ev
       },
       getBounds: () => points,
     }),
-    featureGroup: () => ({ getBounds: () => ({ isValid: () => true }) }),
+    latLngBounds: () => ({ extend() {}, isValid: () => false }),
   };
   const zones = [
     [

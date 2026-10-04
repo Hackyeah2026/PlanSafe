@@ -303,6 +303,12 @@
   <data name="Evacuation.GoogleMaps" xml:space="preserve">
     <value>Nawiguj pieszo w Google Maps</value>
   </data>
+  <data name="Evacuation.Heading" xml:space="preserve">
+    <value>Twoja trasa ewakuacji</value>
+  </data>
+  <data name="Evacuation.Introduction" xml:space="preserve">
+    <value>Wskaż lokalizację, sprawdź przydzielony schron i rozpocznij nawigację.</value>
+  </data>
   <data name="Evacuation.Loading" xml:space="preserve">
     <value>Wczytywanie planu ewakuacji...</value>
   </data>
@@ -342,6 +348,9 @@
   <data name="Evacuation.SessionId" xml:space="preserve">
     <value>Identyfikator aktywnej sesji ewakuacji</value>
   </data>
+  <data name="Evacuation.SessionLabel" xml:space="preserve">
+    <value>Sesja</value>
+  </data>
   <data name="Evacuation.Start" xml:space="preserve">
     <value>Rozpocznij ewakuację</value>
   </data>
@@ -371,6 +380,9 @@
   </data>
   <data name="Location.Denied" xml:space="preserve">
     <value>Odmowa dostępu do lokalizacji.</value>
+  </data>
+  <data name="Location.DismissWarning" xml:space="preserve">
+    <value>Zamknij ostrzeżenie o lokalizacji</value>
   </data>
   <data name="Location.Error" xml:space="preserve">
     <value>Błąd GPS.</value>
@@ -414,14 +426,26 @@
   <data name="Location.NetworkAcquired" xml:space="preserve">
     <value>Pobrano pozycję przez sieć/Wi-Fi.</value>
   </data>
+  <data name="Location.NotSet" xml:space="preserve">
+    <value>Nie wskazano lokalizacji</value>
+  </data>
   <data name="Location.OrMark" xml:space="preserve">
     <value>lub wskaż pozycję na mapie.</value>
   </data>
   <data name="Location.PermissionHint" xml:space="preserve">
     <value>Zezwól przeglądarce na dostęp do lokalizacji lub wskaż ją na mapie.</value>
   </data>
+  <data name="Location.ProvisionalCoordinates" xml:space="preserve">
+    <value>{0}°N, {1}°E (środek strefy - sprawdź lokalizację)</value>
+  </data>
+  <data name="Location.ProvisionalHint" xml:space="preserve">
+    <value>Trasa zaczyna się w pobliżu środka strefy. Wskaż swoją lokalizację na mapie.</value>
+  </data>
   <data name="Location.Refresh" xml:space="preserve">
     <value>Odśwież pozycję GPS</value>
+  </data>
+  <data name="Location.SecureHint" xml:space="preserve">
+    <value>Użyj HTTPS, aby uzyskać dostęp do GPS, lub wskaż lokalizację na mapie.</value>
   </data>
   <data name="Location.SelectHint" xml:space="preserve">
     <value>Kliknij na mapie, by wskazać pozycję •</value>
@@ -435,6 +459,9 @@
   <data name="Location.SelectionMode" xml:space="preserve">
     <value>Tryb wskazywania pozycji:</value>
   </data>
+  <data name="Location.Set" xml:space="preserve">
+    <value>Lokalizacja ustawiona</value>
+  </data>
   <data name="Location.Timeout" xml:space="preserve">
     <value>Przekroczono limit czasu oczekiwania na GPS.</value>
   </data>
@@ -444,8 +471,14 @@
   <data name="Location.Unsupported" xml:space="preserve">
     <value>Przeglądarka nie obsługuje geolokalizacji GPS.</value>
   </data>
+  <data name="Location.Verify" xml:space="preserve">
+    <value>Sprawdź swoją lokalizację.</value>
+  </data>
   <data name="Location.YourPosition" xml:space="preserve">
     <value>Twoja lokalizacja</value>
+  </data>
+  <data name="Map.AssemblyPoint" xml:space="preserve">
+    <value>Punkt zbiórki</value>
   </data>
   <data name="Map.Blockade" xml:space="preserve">
     <value>Blokada</value>
@@ -579,11 +612,35 @@
   <data name="Publish.CloseProjector" xml:space="preserve">
     <value>Zamknij projektor</value>
   </data>
+  <data name="Publish.CodeLabel" xml:space="preserve">
+    <value>Kod sesji</value>
+  </data>
+  <data name="Publish.CopyFailed" xml:space="preserve">
+    <value>Nie udało się skopiować linku. Zaznacz adres powyżej i skopiuj go ręcznie.</value>
+  </data>
+  <data name="Publish.CopyLink" xml:space="preserve">
+    <value>Kopiuj link</value>
+  </data>
+  <data name="Publish.CopySuccess" xml:space="preserve">
+    <value>Link skopiowany. Możesz go udostępnić.</value>
+  </data>
   <data name="Publish.Description" xml:space="preserve">
     <value>Opublikuj plan, aby otrzymać link i kod QR. Po zeskanowaniu kodu można sprawdzić przydzielony schron i trasę w przeglądarce.</value>
   </data>
   <data name="Publish.HttpError" xml:space="preserve">
     <value>Błąd publikowania planu: HTTP {0}</value>
+  </data>
+  <data name="Publish.LinkCopied" xml:space="preserve">
+    <value>Link skopiowany</value>
+  </data>
+  <data name="Publish.LinkLabel" xml:space="preserve">
+    <value>Link do planu ewakuacji</value>
+  </data>
+  <data name="Publish.NextPerson" xml:space="preserve">
+    <value>Ewakuuj kolejną osobę</value>
+  </data>
+  <data name="Publish.OpenHint" xml:space="preserve">
+    <value>Otwórz plan w przeglądarce.</value>
   </data>
   <data name="Publish.Plan" xml:space="preserve">
     <value>Opublikuj plan</value>
@@ -603,6 +660,21 @@
   <data name="Publish.PublishingPlan" xml:space="preserve">
     <value>Publikowanie planu...</value>
   </data>
+  <data name="Publish.QrLabel" xml:space="preserve">
+    <value>Kod QR planu ewakuacji</value>
+  </data>
+  <data name="Publish.Ready" xml:space="preserve">
+    <value>Plan gotowy do udostępnienia</value>
+  </data>
+  <data name="Publish.ReviewHint" xml:space="preserve">
+    <value>Sprawdź scenariusz i przygotuj link do planu.</value>
+  </data>
+  <data name="Publish.Scan" xml:space="preserve">
+    <value>Zeskanuj kod, aby otworzyć plan</value>
+  </data>
+  <data name="Publish.Scenario" xml:space="preserve">
+    <value>Twój scenariusz</value>
+  </data>
   <data name="Publish.SessionCode" xml:space="preserve">
     <value>KOD SESJI: {0}</value>
   </data>
@@ -614,6 +686,9 @@
   </data>
   <data name="Publish.ShareInstructions" xml:space="preserve">
     <value>Udostępnij link lub kod QR osobom w strefie ewakuacji.</value>
+  </data>
+  <data name="Publish.ShareTitle" xml:space="preserve">
+    <value>Udostępnij plan ewakuacji</value>
   </data>
   <data name="Publish.Submit" xml:space="preserve">
     <value>Opublikuj plan</value>
@@ -809,6 +884,9 @@
   </data>
   <data name="Shelter.OccupancyLabel" xml:space="preserve">
     <value>Waga obłożenia:</value>
+  </data>
+  <data name="Shelter.OccupancyLabelAccessible" xml:space="preserve">
+    <value>Obłożenie schronu</value>
   </data>
   <data name="Shelter.OccupancyOnly" xml:space="preserve">
     <value>Tylko obłożenie (waga 100%)</value>

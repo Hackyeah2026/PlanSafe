@@ -14,38 +14,24 @@
 
 <GlobalMenu />
 
-<div class="container-fluid pb-3" style="padding-top: 70px;" data-bs-theme="dark">
-    <!-- Header -->
-    <div class="card bg-dark text-white border-secondary mb-3 shadow">
-        <div class="card-body p-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
-            <div class="d-flex align-items-center gap-3">
-                <div class="evac-header-icon rounded-circle d-flex align-items-center justify-content-center bg-danger bg-opacity-20 border border-danger text-danger">
-                    <i class="bi bi-shield-shaded fs-3"></i>
-                </div>
-                <div>
-                    <h4 class="mb-0 text-white fw-bold d-flex align-items-center gap-2">
-                        <span>@L.Evacuation.Title</span>
-                    </h4>
-                    <span class="small text-muted d-none d-sm-inline">@L.Evacuation.Description</span>
-                </div>
-            </div>
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-                <span class="badge bg-danger px-3 py-2 fw-semibold d-inline-flex align-items-center gap-1 pulse-beacon">
-                    <i class="bi bi-broadcast"></i> @L.Evacuation.Plan
-                </span>
-                @if (!string.IsNullOrEmpty(SessionId))
-                {
-                    <span class="badge bg-black bg-opacity-50 text-info border border-secondary font-monospace px-2 py-2" title="@L.Evacuation.SessionId">
-                        <i class="bi bi-key-fill me-1"></i>@(L.Evacuation.Session(SessionId))
-                    </span>
-                }
+<div class="evac-page ui-workspace">
+    <header class="surface-panel surface-panel--strong evac-header">
+        <div class="evac-brand">
+            <span class="evac-header-icon"><UiIcon Kind="UiIconKind.Shield" /></span>
+            <div>
+                <h1>@L.Evacuation.Heading</h1>
+                <p class="ui-muted">@L.Evacuation.Introduction</p>
             </div>
         </div>
-    </div>
+        @if (!string.IsNullOrEmpty(SessionId))
+        {
+            <span class="evac-session">@L.Evacuation.SessionLabel <strong>@SessionId</strong></span>
+        }
+    </header>
 
     @if (isSessionExpired)
     {
-        <div class="alert alert-warning py-2 px-3 mb-3 d-flex align-items-center gap-2 shadow-sm" role="alert">
+        <div class="status-message status-message--warning py-2 px-3 mb-3 d-flex align-items-center gap-2 shadow-sm" role="alert">
             <i class="bi bi-clock-history text-warning fs-5"></i>
             <span><strong>@L.Location.BrowserMessage</strong> @L.Evacuation.SessionExpired</span>
         </div>
@@ -53,59 +39,49 @@
 
     @if (!isEnvironmentLoaded)
     {
-        <div class="card bg-dark text-white border-secondary p-4 text-center my-4 shadow-sm animate-fade-in" data-testid="init-loader">
+        <div class="surface-panel surface-panel--strong p-4 text-center my-4" data-testid="init-loader">
             <div class="d-flex flex-column align-items-center justify-content-center py-5">
                 <div class="spinner-border text-info mb-3" style="width: 2.5rem; height: 2.5rem;" role="status">
                     <span class="visually-hidden">@L.Simulation.LoadingParameters</span>
                 </div>
-                <h5 class="text-white fw-bold mb-1">@L.Evacuation.Loading</h5>
+                <h5 class="evac-text fw-bold mb-1">@L.Evacuation.Loading</h5>
                 <span class="text-muted small">@L.Evacuation.LoadingDetails</span>
             </div>
         </div>
     }
     else
     {
-        <!-- Main Content: Map + Right Panel -->
-        <div class="row">
-        @if (showManualMap)
+        @if (isProvisionalLocation && !isLocationWarningDismissed)
         {
+            <div class="status-message status-message--warning py-2 px-3 mb-3 d-flex align-items-center justify-content-between gap-2" role="alert" data-testid="verify-location-warning">
+                <span><strong>@L.Location.Verify</strong> @L.Location.ProvisionalHint</span>
+                <button type="button" class="app-button app-icon-button" aria-label="@L.Location.DismissWarning" @onclick="() => isLocationWarningDismissed = true"><UiIcon Kind="UiIconKind.Close" /></button>
+            </div>
+        }
+        <!-- Main Content: Map + Right Panel -->
+        <div class="row g-3 evac-content">
             <!-- Map Column -->
-            <div class="col-lg-7 col-xl-8 mb-3">
-                @if (isPickingLocation)
-                {
-                    <div class="alert alert-warning py-2 px-3 small mb-2 d-flex align-items-center justify-content-between shadow-sm animate-fade-in">
-                        <div class="d-flex align-items-center gap-2">
-                            <i class="bi bi-hand-index-thumb-fill text-warning fs-5"></i>
-                            <span><strong>@L.Location.SelectionMode</strong> @L.Location.SelectInZone</span>
-                        </div>
-                        <button type="button" class="btn-close btn-close-white" @onclick="() => isPickingLocation = false"></button>
-                    </div>
-                }
-
+            <div class="col-lg-7 col-xl-8 evac-map-column">
                 <div class="position-relative evac-map-container">
                     @if (loading)
                     {
-                        <div class="floating-map-calc-badge" data-testid="map-loading-indicator">
+                        <div class="floating-map-calc-badge surface-panel surface-panel--strong" role="status" data-testid="map-loading-indicator">
                             <span class="spinner-border spinner-border-sm text-info me-2" role="status"></span>
                             <span>@L.Evacuation.Routing</span>
                         </div>
                     }
 
                     <!-- Floating Map Tools -->
-                    <div class="floating-evac-tools">
-                        <button type="button" class="tool-btn" disabled="@isGpsLoading" @onclick="() => RequestGpsAndAssign(true)" title="@L.Location.Get">
+                    <div class="floating-evac-tools surface-panel surface-panel--strong">
+                        <button type="button" class="app-button" disabled="@isGpsLoading" @onclick="() => RequestGpsAndAssign(true)" title="@L.Location.Get">
                             <i class="bi @(isGpsLoading ? "bi-arrow-repeat spin" : "bi-crosshair") text-success"></i>
                             <span>GPS</span>
-                        </button>
-                        <button type="button" class="tool-btn" @onclick="FitMapBoundsAsync" title="@L.Map.FitShelters">
-                            <i class="bi bi-arrows-fullscreen text-info"></i>
-                            <span>@L.Common.View</span>
                         </button>
                     </div>
 
                     <!-- Real Leaflet OpenStreetMap Container -->
                     <div id="citizen-leaflet-map" style="width: 100%; height: 100%; touch-action: manipulation;"></div>
-                    <div class="floating-evac-legend d-none d-sm-block">
+                    <div class="floating-evac-legend surface-panel surface-panel--strong">
                         <i class="bi bi-hand-index-thumb me-1"></i> @L.Location.SelectHint
                         <span class="text-success"><i class="bi bi-shield-fill-check"></i> @L.Shelter.Label</span> &bull;
                         <span class="text-danger"><i class="bi bi-shield-slash-fill"></i> @L.Shelter.Full</span> &bull;
@@ -113,14 +89,13 @@
                     </div>
                 </div>
             </div>
-        }
 
         <!-- Right Panel Column -->
-        <div class="@(showManualMap ? "col-lg-5 col-xl-4" : "col-12 col-md-10 col-lg-7 col-xl-6 mx-auto") d-flex flex-column gap-3">
+        <div class="col-lg-5 col-xl-4 d-flex flex-column gap-3 evac-details-column">
             <!-- Target Assignment Card -->
-            <div class="card bg-dark text-white border-secondary shadow">
-                <div class="card-header border-secondary d-flex justify-content-between align-items-center py-2">
-                    <span class="fw-bold d-flex align-items-center text-white">
+            <div class="surface-panel surface-panel--strong evac-card">
+                <div class="evac-card-header d-flex justify-content-between align-items-center py-2">
+                    <span class="fw-bold d-flex align-items-center evac-text">
                         <i class="bi bi-shield-fill-check text-success me-2"></i> @L.Evacuation.AssignedShelter
                     </span>
                     @if (loading)
@@ -129,15 +104,15 @@
                     }
                     else
                     {
-                        <button type="button" class="btn btn-sm btn-outline-info py-0 px-2" @onclick="() => FetchAssignment(false)" title="@L.Evacuation.Refresh" style="font-size: 0.75rem;">
+                        <button type="button" class="app-button px-2" @onclick="() => FetchAssignment(false)" title="@L.Evacuation.Refresh" >
                             <i class="bi bi-arrow-clockwise me-1"></i> @L.Common.Refresh
                         </button>
                     }
                 </div>
-                <div class="card-body p-3">
+                <div class="evac-card-body">
                     @if (errorMessage != null)
                     {
-                        <div class="alert alert-warning py-2 small mb-3" role="alert">
+                        <div class="status-message status-message--warning py-2 small mb-3" role="alert">
                             <i class="bi bi-exclamation-triangle-fill me-1"></i> @(errorMessage?.Invoke())
                         </div>
                     }
@@ -146,16 +121,16 @@
                     {
                         <div class="text-center py-5" data-testid="calculating-assignment">
                             <div class="spinner-border text-info mb-3" role="status" style="width: 2.5rem; height: 2.5rem;"></div>
-                            <h5 class="text-white fw-bold mb-1">@L.Evacuation.Assigning</h5>
-                            <p class="text-white-50 small mb-0">@L.Evacuation.Analyzing</p>
+                            <h5 class="evac-text fw-bold mb-1">@L.Evacuation.Assigning</h5>
+                            <p class="ui-muted small mb-0">@L.Evacuation.Analyzing</p>
                         </div>
                     }
                     else if (!gpsLatitude.HasValue || !gpsLongitude.HasValue)
                     {
                         <div class="text-center py-5 text-muted" data-testid="pick-location-prompt">
                             <i class="bi bi-geo-alt-fill text-info display-4 mb-3 d-block"></i>
-                            <h5 class="text-white fw-bold mb-2">@L.Location.MarkTitle</h5>
-                            <p class="text-white-50 small mb-0">@L.Evacuation.RouteInstructions</p>
+                            <h5 class="evac-text fw-bold mb-2">@L.Location.MarkTitle</h5>
+                            <p class="ui-muted small mb-0">@L.Evacuation.RouteInstructions</p>
                         </div>
                     }
                     else if (isOutsideZone)
@@ -165,10 +140,10 @@
                                 <i class="bi bi-shield-exclamation"></i>
                             </div>
                             <h5 class="text-warning fw-bold mb-2">@L.Evacuation.OutsideTitle</h5>
-                            <p class="text-white-50 small mb-3">
+                            <p class="ui-muted small mb-3">
                                 @L.Evacuation.OutsideDescription
                             </p>
-                            <button type="button" class="btn btn-warning btn-sm fw-bold px-3 py-2 shadow-sm" @onclick="EnableMapLocationCorrection" data-testid="outside-zone-correct-btn">
+                            <button type="button" class="app-button fw-bold px-3 py-2 shadow-sm" @onclick="EnableMapLocationCorrection" data-testid="outside-zone-correct-btn">
                                 <i class="bi bi-geo-alt-fill me-1"></i> @L.Location.Correct
                             </button>
                         </div>
@@ -193,11 +168,11 @@
                                     <div class="text-muted small text-uppercase mb-1">
                                         <i class="bi bi-geo-alt-fill text-info me-1"></i> @L.Shelter.Distance
                                     </div>
-                                    <div class="h3 fw-bold text-white font-monospace mb-1" data-testid="target-distance">
+                                    <div class="h3 fw-bold evac-text font-monospace mb-1" data-testid="target-distance">
                                         @(assignment.Distance >= 1000 ? $"{(assignment.Distance / 1000.0):F2} km" : $"{assignment.Distance:F0} m")
                                     </div>
-                                    <div class="text-muted" style="font-size: 0.75rem;">
-                                        <i class="bi bi-clock me-1 text-warning"></i> @(L.Evacuation.WalkingTime(GetEstimatedWalkMinutes(assignment.Distance)))
+                                    <div class="text-muted" >
+                                        <i class="bi bi-clock me-1 text-warning"></i> @L.Evacuation.WalkingTime(GetEstimatedWalkMinutes(assignment.Distance))
                                     </div>
                                 </div>
                             </div>
@@ -209,8 +184,8 @@
                                     <div class="h3 fw-bold font-monospace mb-1">
                                         <span class="badge @occClass" data-testid="target-occupancy">@occPercent%</span>
                                     </div>
-                                    <div class="text-muted" style="font-size: 0.75rem;">
-                                        @(L.Shelter.Places(target.CurrentOccupancy, target.Capacity))
+                                    <div class="text-muted" >
+                                        @L.Shelter.Places(target.CurrentOccupancy, target.Capacity)
                                     </div>
                                 </div>
                             </div>
@@ -219,22 +194,22 @@
                         <!-- Occupancy Progress Bar -->
                         <div class="mb-3">
                             <div class="progress" style="height: 6px;">
-                                <div class="progress-bar @barClass" role="progressbar" style="width: @Math.Min(100, occPercent)%;"></div>
+                                <div class="progress-bar @barClass" role="progressbar" aria-valuenow="@Math.Clamp(occPercent, 0, 100)" aria-valuemin="0" aria-valuemax="100" aria-label="@L.Shelter.OccupancyLabelAccessible" style="width: @Math.Clamp(occPercent, 0, 100)%;"></div>
                             </div>
                         </div>
 
                         <!-- Direction Indicator (Compass) -->
                         var dirRounded = (int)Math.Round(directionDegree);
-                        <div class="d-flex align-items-center gap-3 p-3 rounded mb-3" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden;">
+                        <div class="evac-direction d-flex align-items-center gap-3 p-3 mb-3" >
                             <div class="compass-dial d-flex align-items-center justify-content-center flex-shrink-0">
                                 <div class="compass-arrow" style="transform: rotate(@(dirRounded)deg);">
                                     <i class="bi bi-cursor-fill text-info fs-3"></i>
                                 </div>
                             </div>
                             <div class="flex-grow-1 min-w-0" style="min-width: 0;">
-                                <div class="fw-semibold text-white d-flex flex-wrap align-items-center justify-content-between gap-1">
+                                <div class="fw-semibold evac-text d-flex flex-wrap align-items-center justify-content-between gap-1">
                                     <span>@L.Evacuation.Direction</span>
-                                    <span class="badge bg-secondary font-monospace text-wrap" style="font-size: 0.75rem;">~@(dirRounded)&deg; @GetCompassCardinal(dirRounded)</span>
+                                    <span class="badge evac-neutral-badge font-monospace text-wrap" >~@(dirRounded)&deg; @GetCompassCardinal(dirRounded)</span>
                                 </div>
                                 <div class="text-muted small mt-1 text-break">
                                     <span class="text-success"><i class="bi bi-geo-fill me-1"></i>@L.Demo.Coordinates</span>
@@ -243,7 +218,7 @@
                         </div>
 
                         <!-- Google Maps Walking Route Link (Citizen Mode) -->
-                        <a href="@mapsUrl" target="_blank" class="btn btn-success btn-lg w-100 py-3 fw-bold mb-0 d-flex align-items-center justify-content-center gap-2 shadow text-uppercase">
+                        <a href="@mapsUrl" target="_blank" rel="noopener" class="app-button app-button--success w-100 py-3 fw-bold mb-0 d-flex align-items-center justify-content-center gap-2 shadow text-uppercase">
                             <i class="bi bi-signpost-2-fill fs-5"></i>
                             <span>@L.Evacuation.GoogleMaps</span>
                             <i class="bi bi-arrow-right"></i>
@@ -254,35 +229,35 @@
                         <div class="text-center py-4 text-muted">
                             <i class="bi bi-shield-x fs-1 mb-2 d-block"></i>
                             <p class="mb-2">@L.Evacuation.NoAssignment</p>
-                            <button class="btn btn-primary btn-sm" @onclick="() => FetchAssignment(false)">@L.Common.Retry</button>
+                            <button class="app-button app-button--primary" @onclick="() => FetchAssignment(false)">@L.Common.Retry</button>
                         </div>
                     }
                 </div>
             </div>
 
             <!-- Citizen View: GPS Reading Card -->
-            <div class="card bg-dark text-white border-secondary shadow">
-                <div class="card-header border-secondary d-flex justify-content-between align-items-center py-2">
-                    <span class="fw-semibold text-white d-flex align-items-center">
-                        <i class="bi bi-geo-alt-fill text-info me-2"></i> @L.Location.GpsPosition
+            <div class="surface-panel surface-panel--strong evac-card">
+                <div class="evac-card-header d-flex justify-content-between align-items-center py-2">
+                    <span class="fw-semibold evac-text d-flex align-items-center">
+                        <i class="bi bi-geo-alt-fill text-info me-2"></i> @L.Location.YourPosition
                     </span>
                     <div class="d-flex align-items-center gap-2">
                         @if (gpsLatitude.HasValue && gpsLongitude.HasValue)
                         {
-                            <span class="badge bg-success bg-opacity-75">@L.Location.Active</span>
-                            <button type="button" class="btn btn-sm btn-outline-secondary p-1" title="@L.Location.Refresh" disabled="@isGpsLoading" @onclick="() => RequestGpsAndAssign(true)">
+                            <span class="badge bg-success bg-opacity-75">@L.Location.Set</span>
+                            <button type="button" class="app-button" title="@L.Location.Refresh" aria-label="@L.Location.Refresh" disabled="@isGpsLoading" @onclick="() => RequestGpsAndAssign(true)">
                                 <i class="bi bi-arrow-clockwise"></i>
                             </button>
                         }
                         else
                         {
-                            <button type="button" class="btn btn-sm btn-outline-info d-flex align-items-center gap-1 shadow-sm py-1 px-2" style="font-size:0.75rem;" disabled="@isGpsLoading" @onclick="() => RequestGpsAndAssign(true)">
+                            <button type="button" class="app-button d-flex align-items-center gap-1 shadow-sm py-1 px-2"  disabled="@isGpsLoading" @onclick="() => RequestGpsAndAssign(true)">
                                 <i class="bi bi-crosshair"></i> @L.Location.Get
                             </button>
                         }
                     </div>
                 </div>
-                <div class="card-body p-3">
+                <div class="evac-card-body">
                     <div class="d-flex align-items-center gap-2 mb-2">
                         <i class="bi bi-pin-map text-info fs-5"></i>
                         <div>
@@ -296,18 +271,18 @@
                             }
                             else if (gpsLatitude.HasValue && gpsLongitude.HasValue)
                             {
-                                <strong class="text-success small">@(gpsStatus?.Invoke())</strong>
+                                <strong class="@(isProvisionalLocation ? "text-warning" : "text-success") small">@(gpsStatus?.Invoke())</strong>
                             }
                             else
                             {
-                                <strong class="text-warning small">@(gpsStatus?.Invoke() ?? L.Location.DefaultPosition)</strong>
+                                <strong class="text-warning small">@(gpsStatus?.Invoke() ?? L.Location.NotSet)</strong>
                             }
                         </div>
                     </div>
 
-                    @if (gpsErrorMessage is not null)
+                    @if (!string.IsNullOrEmpty(gpsErrorMessage?.Invoke()))
                     {
-                        <div class="alert alert-warning py-2 px-3 small mb-0 d-flex flex-column gap-1">
+                        <div class="status-message status-message--warning py-2 px-3 small mb-0 d-flex flex-column gap-1">
                             <div class="d-flex align-items-center gap-2">
                                 <i class="bi bi-exclamation-triangle-fill"></i>
                                 <strong>@L.Location.BrowserMessage</strong>
@@ -315,25 +290,25 @@
                             <span>@(gpsErrorMessage?.Invoke())</span>
                             @if (isGpsInsecureContext)
                             {
-                                <div class="mt-1 pt-1 border-top border-warning border-opacity-50 text-white-50" style="font-size: 0.75rem;">
-                                    <span>@L.Location.LocalhostHint <code>http://localhost:5171/evacuate</code> @L.Location.OrMark</span>
+                                <div class="mt-1 pt-1 border-top border-warning border-opacity-50 ui-muted" >
+                                    <span>@L.Location.SecureHint</span>
                                 </div>
                             }
                         </div>
                     }
 
-                    @if (zoneValidationWarning is not null)
+                    @if (!string.IsNullOrEmpty(zoneValidationWarning?.Invoke()))
                     {
-                        <div class="alert @(isOutsideZone ? "alert-warning" : "alert-info") py-2 px-3 small mt-2 mb-0 d-flex align-items-center gap-2">
+                        <div class="status-message @(isOutsideZone ? "status-message--warning" : "") py-2 px-3 small mt-2 mb-0 d-flex align-items-center gap-2">
                             <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
                             <span>@(zoneValidationWarning?.Invoke())</span>
                         </div>
                     }
 
                     <div class="d-flex flex-wrap gap-2 pt-2 border-top border-secondary small mt-2">
-                        <button type="button" class="btn btn-outline-info btn-sm fw-semibold d-flex align-items-center gap-1 shadow-sm" @onclick="ToggleManualMap" data-testid="correct-location-btn">
-                            <i class="bi @(showManualMap ? "bi-eye-slash-fill" : "bi-map-fill")"></i>
-                            <span>@(showManualMap ? L.Map.HideZone : L.Location.Mark)</span>
+                        <button type="button" class="app-button fw-semibold d-flex align-items-center gap-1 shadow-sm" @onclick="EnableMapLocationCorrection" data-testid="correct-location-btn">
+                            <i class="bi bi-map-fill"></i>
+                            <span>@L.Location.Correct</span>
                         </button>
                     </div>
                 </div>
@@ -358,12 +333,12 @@
 
     private bool isSessionExpired = false;
     private bool isEnvironmentLoaded = false;
-    private bool showManualMap = true;
     private bool mapInitialized = false;
     private bool loading = true;
     private bool isGpsLoading = false;
-    private bool isPickingLocation = false;
     private bool isOutsideZone = false;
+    private bool isProvisionalLocation;
+    private bool isLocationWarningDismissed;
     private bool isGpsInsecureContext = false;
 
     private Func<string?>? errorMessage;
@@ -442,8 +417,9 @@
         await LoadEnvironmentAsync();
         isEnvironmentLoaded = true;
 
-        // Wait for an actual in-zone location before assigning a shelter.
-        await FetchAssignment(skipApiRefresh: false);
+        // Show a provisional route while GPS is pending or unavailable.
+        TrySetProvisionalZoneLocation();
+        await FetchAssignment(skipApiRefresh: false, expectedSeq: null, isManualRelocation: isProvisionalLocation);
 
         // In background, request actual GPS to refine if available
         _ = RequestGpsAndAssign(isUserGesture: false);
@@ -459,7 +435,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (isEnvironmentLoaded && showManualMap && !mapInitialized)
+        if (isEnvironmentLoaded && !mapInitialized)
         {
             await InitRealMapAsync();
         }
@@ -600,19 +576,15 @@
             if (res != null && res.Success && res.Latitude.HasValue && res.Longitude.HasValue)
             {
                 int seq = ++_calculationSequence;
-                gpsLatitude = Math.Round(res.Latitude.Value, 6);
-                gpsLongitude = Math.Round(res.Longitude.Value, 6);
-                gpsAccuracy = res.Accuracy;
+                ApplyGpsLocation(res.Latitude.Value, res.Longitude.Value, res.Accuracy);
                 assignment = null;
                 isOutsideZone = !HasValidLocation;
-                isPickingLocation = !HasValidLocation;
                 isGpsInsecureContext = false;
                 gpsErrorMessage = null;
-                gpsStatus = () => $"{gpsLatitude.Value:F4}°N, {gpsLongitude.Value:F4}°E (±{Math.Round(res.Accuracy ?? 0)}m)";
                 loading = true;
                 await UpdateCitizenMapJsAsync();
                 StateHasChanged();
-                await FetchAssignment(skipApiRefresh: false, expectedSeq: seq);
+                await FetchAssignment(skipApiRefresh: false, expectedSeq: seq, isManualRelocation: isProvisionalLocation);
             }
             else if (res != null && !res.IsSecureContext)
             {
@@ -654,26 +626,39 @@
         }
     }
 
-    private void ToggleManualMap()
+    private void ApplyGpsLocation(double latitude, double longitude, double? accuracy)
     {
-        showManualMap = !showManualMap;
-        if (showManualMap)
+        gpsLatitude = Math.Round(latitude, 6);
+        gpsLongitude = Math.Round(longitude, 6);
+        gpsAccuracy = accuracy;
+        isProvisionalLocation = false;
+        isLocationWarningDismissed = false;
+        gpsStatus = () => $"{gpsLatitude.Value:F4}°N, {gpsLongitude.Value:F4}°E (±{Math.Round(accuracy ?? 0)}m)";
+
+        if (!HasValidLocation && double.IsFinite(latitude) && double.IsFinite(longitude))
         {
-            mapInitialized = false;
-            isPickingLocation = true;
+            TrySetProvisionalZoneLocation();
         }
-        else
-        {
-            isPickingLocation = false;
-        }
-        StateHasChanged();
     }
 
-    private async Task EnableMapLocationCorrection()
+    private bool TrySetProvisionalZoneLocation()
     {
-        showManualMap = true;
-        isPickingLocation = true;
-        mapInitialized = false;
+        // Match the first polygon focused by the citizen map.
+        var zone = evacZones.FirstOrDefault(z => z.Count >= 3);
+        var center = zone == null ? null : GeoMath.GetInteriorCenter(zone);
+        if (center is not { } location) return false;
+
+        gpsLatitude = location.Latitude;
+        gpsLongitude = location.Longitude;
+        gpsAccuracy = 0; // A provisional point has no measured GPS accuracy.
+        isProvisionalLocation = true;
+        isLocationWarningDismissed = false;
+        gpsStatus = () => L.Location.ProvisionalCoordinates(gpsLatitude.Value.ToString("F4"), gpsLongitude.Value.ToString("F4"));
+        return true;
+    }
+
+    private void EnableMapLocationCorrection()
+    {
         zoneValidationWarning = null;
         StateHasChanged();
     }
@@ -686,9 +671,9 @@
         gpsLatitude = Math.Round(lat, 6);
         gpsLongitude = Math.Round(lng, 6);
         gpsAccuracy = 15.0;
+        if (HasValidLocation) isProvisionalLocation = false;
         isGpsInsecureContext = false;
         gpsStatus = () => L.Location.SelectedCoordinates(gpsLatitude.Value.ToString("F4"), gpsLongitude.Value.ToString("F4"));
-        isPickingLocation = !HasValidLocation;
         isOutsideZone = !HasValidLocation;
         zoneValidationWarning = null;
         assignment = null;
@@ -789,8 +774,6 @@
         {
             assignment = null;
             isOutsideZone = gpsLatitude.HasValue && gpsLongitude.HasValue;
-            isPickingLocation = true;
-            showManualMap = true;
             zoneValidationWarning = () => L.Location.NavigationHint;
             loading = false;
             await UpdateCitizenMapJsAsync();
@@ -889,7 +872,7 @@
 
     private async Task UpdateCitizenMapJsAsync()
     {
-        if (citizenMapModule != null && showManualMap)
+        if (citizenMapModule != null)
         {
             try
             {
@@ -915,26 +898,11 @@
                     routeJson,
                     zonesJson,
                     safeZonesJson,
-                    !HasValidLocation
+                    isProvisionalLocation || !HasValidLocation
                 );
             }
             catch
             {
-            }
-        }
-    }
-
-    private async Task FitMapBoundsAsync()
-    {
-        if (citizenMapModule != null && showManualMap)
-        {
-            try
-            {
-                await citizenMapModule.InvokeVoidAsync("fitCitizenBounds", "citizen-leaflet-map");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[Evacuate] FitMapBounds error: {ex.Message}");
             }
         }
     }

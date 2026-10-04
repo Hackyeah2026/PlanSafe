@@ -144,6 +144,8 @@ public sealed class LocalizedText(IStringLocalizer<UiStrings> strings)
         public string Description => strings["Evacuation.Description"].Value;
         public string Direction => strings["Evacuation.Direction"].Value;
         public string GoogleMaps => strings["Evacuation.GoogleMaps"].Value;
+        public string Heading => strings["Evacuation.Heading"].Value;
+        public string Introduction => strings["Evacuation.Introduction"].Value;
         public string Loading => strings["Evacuation.Loading"].Value;
         public string LoadingDetails => strings["Evacuation.LoadingDetails"].Value;
         public string NoAssignment => strings["Evacuation.NoAssignment"].Value;
@@ -157,6 +159,7 @@ public sealed class LocalizedText(IStringLocalizer<UiStrings> strings)
         public string Session(object arg0) => strings["Evacuation.Session", arg0].Value;
         public string SessionExpired => strings["Evacuation.SessionExpired"].Value;
         public string SessionId => strings["Evacuation.SessionId"].Value;
+        public string SessionLabel => strings["Evacuation.SessionLabel"].Value;
         public string Start => strings["Evacuation.Start"].Value;
         public string Title => strings["Evacuation.Title"].Value;
         public string WalkingTime(object arg0) => strings["Evacuation.WalkingTime", arg0].Value;
@@ -171,6 +174,7 @@ public sealed class LocalizedText(IStringLocalizer<UiStrings> strings)
         public string Correct => strings["Location.Correct"].Value;
         public string DefaultPosition => strings["Location.DefaultPosition"].Value;
         public string Denied => strings["Location.Denied"].Value;
+        public string DismissWarning => strings["Location.DismissWarning"].Value;
         public string Error => strings["Location.Error"].Value;
         public string ErrorTitle => strings["Location.ErrorTitle"].Value;
         public string Get => strings["Location.Get"].Value;
@@ -185,21 +189,28 @@ public sealed class LocalizedText(IStringLocalizer<UiStrings> strings)
         public string MarkTitle => strings["Location.MarkTitle"].Value;
         public string NavigationHint => strings["Location.NavigationHint"].Value;
         public string NetworkAcquired => strings["Location.NetworkAcquired"].Value;
+        public string NotSet => strings["Location.NotSet"].Value;
         public string OrMark => strings["Location.OrMark"].Value;
         public string PermissionHint => strings["Location.PermissionHint"].Value;
+        public string ProvisionalCoordinates(object arg0, object arg1) => strings["Location.ProvisionalCoordinates", arg0, arg1].Value;
+        public string ProvisionalHint => strings["Location.ProvisionalHint"].Value;
         public string Refresh => strings["Location.Refresh"].Value;
+        public string SecureHint => strings["Location.SecureHint"].Value;
         public string SelectHint => strings["Location.SelectHint"].Value;
         public string SelectInZone => strings["Location.SelectInZone"].Value;
         public string SelectedCoordinates(object arg0, object arg1) => strings["Location.SelectedCoordinates", arg0, arg1].Value;
         public string SelectionMode => strings["Location.SelectionMode"].Value;
+        public string Set => strings["Location.Set"].Value;
         public string Timeout => strings["Location.Timeout"].Value;
         public string Unavailable => strings["Location.Unavailable"].Value;
         public string Unsupported => strings["Location.Unsupported"].Value;
+        public string Verify => strings["Location.Verify"].Value;
         public string YourPosition => strings["Location.YourPosition"].Value;
     }
 
     public sealed class MapText(IStringLocalizer<UiStrings> strings)
     {
+        public string AssemblyPoint => strings["Map.AssemblyPoint"].Value;
         public string Blockade => strings["Map.Blockade"].Value;
         public string BlockadeName(object arg0) => strings["Map.BlockadeName", arg0].Value;
         public string BlockadePosition(object arg0, object arg1) => strings["Map.BlockadePosition", arg0, arg1].Value;
@@ -252,18 +263,32 @@ public sealed class LocalizedText(IStringLocalizer<UiStrings> strings)
         public string ChangeSettings => strings["Publish.ChangeSettings"].Value;
         public string CitizenView => strings["Publish.CitizenView"].Value;
         public string CloseProjector => strings["Publish.CloseProjector"].Value;
+        public string CodeLabel => strings["Publish.CodeLabel"].Value;
+        public string CopyFailed => strings["Publish.CopyFailed"].Value;
+        public string CopyLink => strings["Publish.CopyLink"].Value;
+        public string CopySuccess => strings["Publish.CopySuccess"].Value;
         public string Description => strings["Publish.Description"].Value;
         public string HttpError(object arg0) => strings["Publish.HttpError", arg0].Value;
+        public string LinkCopied => strings["Publish.LinkCopied"].Value;
+        public string LinkLabel => strings["Publish.LinkLabel"].Value;
+        public string NextPerson => strings["Publish.NextPerson"].Value;
+        public string OpenHint => strings["Publish.OpenHint"].Value;
         public string Plan => strings["Publish.Plan"].Value;
         public string Projector => strings["Publish.Projector"].Value;
         public string ProjectorHint => strings["Publish.ProjectorHint"].Value;
         public string ProjectorTitle => strings["Publish.ProjectorTitle"].Value;
         public string Publishing => strings["Publish.Publishing"].Value;
         public string PublishingPlan => strings["Publish.PublishingPlan"].Value;
+        public string QrLabel => strings["Publish.QrLabel"].Value;
+        public string Ready => strings["Publish.Ready"].Value;
+        public string ReviewHint => strings["Publish.ReviewHint"].Value;
+        public string Scan => strings["Publish.Scan"].Value;
+        public string Scenario => strings["Publish.Scenario"].Value;
         public string SessionCode(object arg0) => strings["Publish.SessionCode", arg0].Value;
         public string SettingsDescription => strings["Publish.SettingsDescription"].Value;
         public string ShareHint => strings["Publish.ShareHint"].Value;
         public string ShareInstructions => strings["Publish.ShareInstructions"].Value;
+        public string ShareTitle => strings["Publish.ShareTitle"].Value;
         public string Submit => strings["Publish.Submit"].Value;
         public string Success => strings["Publish.Success"].Value;
         public string Summary(object arg0, object arg1, object arg2) => strings["Publish.Summary", arg0, arg1, arg2].Value;
@@ -337,6 +362,7 @@ public sealed class LocalizedText(IStringLocalizer<UiStrings> strings)
         public string Occupancy => strings["Shelter.Occupancy"].Value;
         public string OccupancyArrow => strings["Shelter.OccupancyArrow"].Value;
         public string OccupancyLabel => strings["Shelter.OccupancyLabel"].Value;
+        public string OccupancyLabelAccessible => strings["Shelter.OccupancyLabelAccessible"].Value;
         public string OccupancyOnly => strings["Shelter.OccupancyOnly"].Value;
         public string OccupancyPercent(object arg0) => strings["Shelter.OccupancyPercent", arg0].Value;
         public string OccupancySummary(object arg0, object arg1, object arg2) => strings["Shelter.OccupancySummary", arg0, arg1, arg2].Value;

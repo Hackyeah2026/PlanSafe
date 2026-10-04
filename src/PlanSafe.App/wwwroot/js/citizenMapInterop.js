@@ -397,7 +397,7 @@ export function updateCitizenMap(
   if (Number.isFinite(citizenLat) && Number.isFinite(citizenLng)) {
     // Radar pulse marker
     const citizenHtml = `
-            <div style="position: relative; width: 24px; height: 24px; transform: translate(-50%, -50%);">
+            <div style="position: relative; width: 24px; height: 24px;">
                 <div style="position: absolute; width: 24px; height: 24px; border-radius: 50%; background: rgba(56, 189, 248, 0.3); animation: citizen-radar-pulse 1.8s infinite ease-out;"></div>
                 <div style="position: absolute; top: 4px; left: 4px; width: 16px; height: 16px; border-radius: 50%; background: #0284c7; border: 2px solid #ffffff; box-shadow: 0 0 8px rgba(2, 132, 199, 0.8);"></div>
             </div>

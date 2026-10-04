@@ -46,7 +46,7 @@ public sealed class MapPathfinder
                 Target: null,
                 Distance: 0.0,
                 OccupancyRatio: 0.0,
-                Instructions: "Brak dostępnych punktów ewakuacji w scenariuszu mapy.",
+                Instructions: "No evacuation points available in the map scenario.",
                 CalculatedCost: double.PositiveInfinity,
                 IsSimulationEngineBased: true);
         }
@@ -254,7 +254,7 @@ public sealed class MapPathfinder
             }
         }
 
-        string instructions = $"Skieruj się do punktu: {bestTarget.Name} (odległość piesza: {Math.Round(bestDistance):F0} m).";
+        string instructions = $"Head to the evacuation point: {bestTarget.Name} (walking distance: {Math.Round(bestDistance):F0} m).";
 
         return new TargetAssignmentResponse(
             Target: bestTarget,

@@ -10,6 +10,30 @@ namespace PlanSafe.Api.Tests;
 public sealed class EvacuationStateServiceTests
 {
     [Fact]
+    public void RepublishingCreatesNewSessionAndUsesCurrentPlanSettings()
+    {
+        using var service = new EvacuationStateService();
+        var targets = new List<EvacuationTarget>
+        {
+            new("s-1", "Shelter", 19.93, 50.06, 20, 20, 300, 0, true, 50.06, 19.93)
+        };
+        var first = service.PublishPlan(new PublishPlanRequest(targets, WeightDistance: 0.7, WeightOccupancy: 0.3));
+        service.CheckIn(new CheckInRequest("s-1", 1));
+
+        var second = service.PublishPlan(new PublishPlanRequest(targets, WeightDistance: 0.2, WeightOccupancy: 0.8));
+
+        Assert.NotEqual(first.SessionId, second.SessionId);
+        Assert.NotEqual(first.EvacuateUrl, second.EvacuateUrl);
+        Assert.Equal(second.SessionId, service.CurrentSessionId);
+        var config = service.GetConfig();
+        Assert.NotNull(config);
+        Assert.Equal(second.SessionId, config.SessionId);
+        Assert.Equal(0.2, config.WeightDistance);
+        Assert.Equal(0.8, config.WeightOccupancy);
+        Assert.Equal(0, Assert.Single(service.GetTargets()).CurrentOccupancy);
+    }
+
+    [Fact]
     public void PublishPlan_GeneratesValidSessionToken_AndVectorSvgQr()
     {
         using var service = new EvacuationStateService();
