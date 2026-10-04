@@ -184,7 +184,7 @@ public sealed class EvacuationStateService : IEvacuationStateService
             _mapCenterLng = request.MapCenterLng ?? 19.9366;
             _zoomLevel = request.ZoomLevel ?? 14;
 
-            string baseUrl = request.BaseUrl?.TrimEnd('/') ?? "http://127.0.0.1:5050";
+            string baseUrl = request.BaseUrl?.TrimEnd('/') ?? "http://127.0.0.1:5171";
             string publicEvacuateUrl = $"{baseUrl}/evacuate?session={_sessionId}&wdist={_weightDistance.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}&wocc={_weightOccupancy.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}";
             string qrSvg = QrCodeSvgGenerator.GenerateSvg(publicEvacuateUrl);
 

@@ -391,8 +391,12 @@
 
             string clientBaseUrl = Navigation.BaseUri.TrimEnd('/');
             var clientUri = new Uri(Navigation.BaseUri);
-            int apiPort = clientUri.Port == 5050 ? 5051 : (clientUri.Port > 0 ? clientUri.Port + 1 : 5051);
-            string apiBaseUrl = $"{clientUri.Scheme}://{clientUri.Host}:{apiPort}";
+            string apiBaseUrl = clientUri.Port switch
+            {
+                5171 => $"http://{clientUri.Host}:49492",
+                7030 => $"https://{clientUri.Host}:49491",
+                _ => clientBaseUrl
+            };
 
             var request = new PublishPlanRequest(
                 Targets: targets,

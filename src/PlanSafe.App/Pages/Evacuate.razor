@@ -328,7 +328,7 @@
                             @if (isGpsInsecureContext)
                             {
                                 <div class="mt-1 pt-1 border-top border-warning border-opacity-50 text-white-50" style="font-size: 0.75rem;">
-                                    <span>Standard W3C blokuje GPS na nieszyfrowanym HTTP (LAN). Otwórz aplikację przez <code>http://localhost:5050/evacuate</code> lub wskaż pozycję na mapie.</span>
+                                    <span>Standard W3C blokuje GPS na nieszyfrowanym HTTP (LAN). Otwórz aplikację przez <code>http://localhost:5171/evacuate</code> lub wskaż pozycję na mapie.</span>
                                 </div>
                             }
                         </div>
@@ -419,19 +419,12 @@
     private string GetApiBaseUrl()
     {
         var clientUri = new Uri(Navigation.BaseUri);
-        if (clientUri.Port == 5050)
+        return clientUri.Port switch
         {
-            return $"{clientUri.Scheme}://{clientUri.Host}:5051";
-        }
-        if (clientUri.Port == 5000)
-        {
-            return $"{clientUri.Scheme}://{clientUri.Host}:5001";
-        }
-        if (clientUri.Port > 0 && !clientUri.IsDefaultPort && clientUri.Port != 80 && clientUri.Port != 443)
-        {
-            return $"{clientUri.Scheme}://{clientUri.Host}:{clientUri.Port + 1}";
-        }
-        return Navigation.BaseUri.TrimEnd('/');
+            5171 => $"http://{clientUri.Host}:49492",
+            7030 => $"https://{clientUri.Host}:49491",
+            _ => Navigation.BaseUri.TrimEnd('/')
+        };
     }
 
     private record GpsResult(
