@@ -568,10 +568,10 @@
     <value>Zoom out</value>
   </data>
   <data name="Navigation.Demo" xml:space="preserve">
-    <value>Simulation demo</value>
+    <value>Simulation Demo (debug)</value>
   </data>
   <data name="Navigation.DemoTitle" xml:space="preserve">
-    <value>Simulation demo - PlanSafe</value>
+    <value>Simulation Demo (debug) - PlanSafe</value>
   </data>
   <data name="Navigation.Label" xml:space="preserve">
     <value>Application navigation</value>
