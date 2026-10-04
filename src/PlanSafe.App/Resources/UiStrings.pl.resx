@@ -568,10 +568,10 @@
     <value>Oddal</value>
   </data>
   <data name="Navigation.Demo" xml:space="preserve">
-    <value>Demonstracja symulacji</value>
+    <value>Demonstracja symulacji (debug)</value>
   </data>
   <data name="Navigation.DemoTitle" xml:space="preserve">
-    <value>Demonstracja symulacji - PlanSafe</value>
+    <value>Demonstracja symulacji (debug) - PlanSafe</value>
   </data>
   <data name="Navigation.Label" xml:space="preserve">
     <value>Nawigacja aplikacji</value>
