@@ -27,9 +27,15 @@ def validate(archive):
         total += member.size
     if total > 512 * 1024 * 1024:
         raise ValueError("Expanded archive exceeds 512 MiB")
-    for required in ("api/PlanSafe.Api", "api/libe_sqlite3.so", "web/index.html", "web/_framework/dotnet.js"):
+    for required in ("api/PlanSafe.Api", "api/libe_sqlite3.so", "web/index.html"):
         if required not in names or not archive.getmember(required).isfile():
             raise ValueError(f"Missing regular file: {required}")
+    if not any(
+        re.fullmatch(r"web/_framework/dotnet(?:\.[a-z0-9]{10,64})?\.js", name)
+        and archive.getmember(name).isfile()
+        for name in names
+    ):
+        raise ValueError("Missing .NET bootstrap script in web/_framework")
     if not archive.getmember("api/PlanSafe.Api").mode & 0o111:
         raise ValueError("API is not executable")
     return total

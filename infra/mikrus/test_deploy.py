@@ -140,14 +140,14 @@ class DeployTests(unittest.TestCase):
         self.assertEqual(result.returncode == 0, ok, result.stdout + result.stderr)
         return result
 
-    def bundle(self, name="release", bad=False, extra=None):
+    def bundle(self, name="release", bad=False, extra=None, bootstrap="dotnet.js"):
         path = self.base / (name + ".tar.gz")
         with tarfile.open(path, "w:gz") as archive:
             files = {
                 "api/PlanSafe.Api": b"native",
                 "api/libe_sqlite3.so": b"sqlite",
                 "web/index.html": b"app",
-                "web/_framework/dotnet.js": b"runtime",
+                f"web/_framework/{bootstrap}": b"runtime",
             }
             if bad:
                 files["web/BAD"] = b"broken"
@@ -382,8 +382,13 @@ class DeployTests(unittest.TestCase):
                 if member.name != "web/_framework/dotnet.js":
                     output.addfile(member, source.extractfile(member))
         _, result = self.deploy(1, archive=archive, ok=False)
-        self.assertIn("Missing regular file: web/_framework/dotnet.js", result.stderr)
+        self.assertIn("Missing .NET bootstrap script", result.stderr)
         self.assertFalse((self.root / "current").exists())
+
+    def test_fingerprinted_bootstrap_deploys(self):
+        archive = self.bundle(bootstrap="dotnet.abcdefgh12.js")
+        self.deploy(1, archive=archive)
+        self.assert_clean()
 
     def test_nginx_validation_failure_restores_configuration(self):
         current, _ = self.deploy(1)
