@@ -101,3 +101,6 @@ evacGroup.MapPost("/cleanup-inactive", (IEvacuationStateService stateService) =>
 });
 
 app.Run();
+
+/// <summary>Exposes the API entry point to the in-process HTTP integration tests.</summary>
+public partial class Program;

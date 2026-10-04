@@ -7,6 +7,7 @@ artifacts/
 src/PlanSafe.App/wwwroot/js/*
 !src/PlanSafe.App/wwwroot/js/mapInterop.js
 !src/PlanSafe.App/wwwroot/js/crowdSimulatorInterop.js
+!src/PlanSafe.App/wwwroot/js/citizenMapInterop.js
 src/PlanSafe.App/wwwroot/data/
 src/PlanSafe.App/wwwroot/lib/
 devenv.lock

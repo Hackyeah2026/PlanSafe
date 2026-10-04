@@ -1518,6 +1518,11 @@ export interface ParsedMapScenario {
   readonly totalPeople: number;
 }
 
+/**
+ * Decodes C# EFMAP v1/v2 snapshots into world coordinates in meters.
+ * Version 1 exits use the same capacity and occupancy defaults as the C# reader.
+ * @throws If the format version is unsupported or the snapshot is truncated.
+ */
 export function parseMapScenario(data: Uint8Array): ParsedMapScenario {
   const magic = "EFMAP";
   for (let i = 0; i < 5; i++) {

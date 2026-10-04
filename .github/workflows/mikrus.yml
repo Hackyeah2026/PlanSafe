@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 jobs:
-  check:
+  unit-test:
     if: >-
       github.event_name != 'workflow_dispatch' ||
       github.ref == 'refs/heads/main'
@@ -33,6 +33,88 @@ jobs:
           package-manager-cache: false
       - run: dotnet workload install wasm-tools
       - run: bash infra/ci/check.sh
+      # upload-artifact v7.0.1
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: ${{ !cancelled() }}
+        with:
+          name: unit-test-results-${{ github.run_attempt }}
+          path: artifacts/test-results/unit/
+          retention-days: 7
+
+  api-test:
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      # checkout v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      # setup-dotnet v6.0.0
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
+        with:
+          dotnet-version: "10.0.201"
+      - run: bash infra/ci/check-api.sh
+      # upload-artifact v7.0.1
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: ${{ !cancelled() }}
+        with:
+          name: api-test-results-${{ github.run_attempt }}
+          path: artifacts/test-results/api/
+          retention-days: 7
+
+  browser-test:
+    if: >-
+      github.event_name != 'workflow_dispatch' ||
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      # checkout v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      # setup-dotnet v6.0.0
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
+        with:
+          dotnet-version: "10.0.201"
+      # setup-node v7.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - run: dotnet workload install wasm-tools
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+      # upload-artifact v7.0.1
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: ${{ !cancelled() }}
+        with:
+          name: browser-test-results-${{ github.run_attempt }}
+          path: artifacts/browser/
+          retention-days: 7
+
+  # Preserve the existing required check name and fail it when any suite fails.
+  # always() prevents a failed dependency from turning this check into a skip.
+  check:
+    needs: [unit-test, api-test, browser-test]
+    if: >-
+      always() && (github.event_name != 'workflow_dispatch' ||
+      github.ref == 'refs/heads/main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Require all test jobs to pass
+        env:
+          UNIT_RESULT: ${{ needs.unit-test.result }}
+          API_RESULT: ${{ needs.api-test.result }}
+          BROWSER_RESULT: ${{ needs.browser-test.result }}
+        run: |
+          echo "unit=$UNIT_RESULT api=$API_RESULT browser=$BROWSER_RESULT"
+          [[ "$UNIT_RESULT" == success && "$API_RESULT" == success && "$BROWSER_RESULT" == success ]]
 
   package:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

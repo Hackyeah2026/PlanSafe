@@ -1,0 +1,14 @@
+{
+  "name": "@plansafe/browser-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "npm run typecheck && playwright test",
+    "test:ui": "playwright test --ui",
+    "install:browser": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}
