@@ -1,7 +1,9 @@
 @namespace PlanSafe.App.Components
 @using PlanSafe.Contracts.Models.Map
 
-<div class="map-module-layout ui-workspace @(_isSimulating ? "simulating" : "") @(isMobilePanelOpen ? "panel-open" : "")">
+<div class="map-module-layout ui-workspace @(_isSimulating ? "simulating" : "") @(_isStarting ? "simulation-preparing" : "") @(isMobilePanelOpen ? "panel-open" : "")"
+     aria-busy="@_isStarting.ToString().ToLowerInvariant()">
+    <span class="simulation-preparation-cursor" aria-hidden="true"></span>
     <!-- Map Canvas Area -->
     <div class="map-area">
         <div id="@MapContainerId" class="map-viewport">

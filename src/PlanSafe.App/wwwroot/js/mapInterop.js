@@ -92,6 +92,7 @@ export function initMap(containerId, options = {}, dotNetRef = null) {
     drawMode: "none", // 'none' | 'evac_circle' | 'evac_polygon' | 'safe_circle' | 'safe_polygon' | 'blockade'
     drawState: null,
     shapeLayers: new Map(), // itemId -> Leaflet Layer
+    disposePreparationCursor: setupPreparationCursor(container),
   };
 
   mapInstances.set(containerId, state);
@@ -108,6 +109,35 @@ export function initMap(containerId, options = {}, dotNetRef = null) {
   });
 
   return true;
+}
+
+// CSS animates the spinner independently of pointer updates and WASM work.
+function setupPreparationCursor(container) {
+  const workspace = container.closest(".map-module-layout");
+  const spinner = workspace?.querySelector(".simulation-preparation-cursor");
+  if (!spinner) return null;
+  const move = (event) => {
+    if (event.pointerType === "touch") {
+      spinner.style.visibility = "hidden";
+      return;
+    }
+    spinner.style.left = `${Math.min(window.innerWidth - 22, event.clientX + 14)}px`;
+    spinner.style.top = `${Math.min(window.innerHeight - 22, event.clientY + 14)}px`;
+    spinner.style.visibility = "visible";
+  };
+  const leave = () => {
+    spinner.style.visibility = "hidden";
+  };
+  // Capture also covers Leaflet and child controls that stop propagation.
+  workspace.addEventListener("pointermove", move, true);
+  workspace.addEventListener("pointerdown", move, true);
+  workspace.addEventListener("pointerleave", leave);
+  return () => {
+    workspace.removeEventListener("pointermove", move, true);
+    workspace.removeEventListener("pointerdown", move, true);
+    workspace.removeEventListener("pointerleave", leave);
+    leave();
+  };
 }
 
 /**
@@ -993,6 +1023,7 @@ export function disposeMap(containerId) {
   const entry = mapInstances.get(containerId);
   if (entry) {
     entry.dotNetRef = null;
+    entry.disposePreparationCursor?.();
     if (entry._keydownHandler) {
       window.removeEventListener("keydown", entry._keydownHandler);
     }
